@@ -239,7 +239,10 @@ const server = createServer(async (req, res) => {
         id: s.id, name: s.name, note: s.note, uploadedAt: s.uploadedAt, size: s.size,
         homepage: s.homepage || null, suspected: s.suspected === true,
         suspectedReasons: s.suspectedReasons || [],
-        download: `${BASE_URL}/api/file/${s.id}`,
+        // 相对路径：页面在哪个 origin（公网，或隧道里的 127.0.0.1）就打哪个。
+        // 用 BASE_URL 拼绝对地址会让隧道里的页面变成跨域 —— <a href> 时代是跳到公网 IP 被白名单挡掉，
+        // fetch 时代则直接 Failed to fetch。
+        download: `/api/file/${s.id}`,
       });
       const approved = allSubs().filter((s) => s.state === 'approved');
       return sendJson(res, 200, {
@@ -368,7 +371,7 @@ const server = createServer(async (req, res) => {
           top[k] = (top[k] || 0) + (e.uncompSize || 0);
         }
         return sendJson(res, 200, { meta, entries: entries.filter((e) => !e.dir).slice(0, 400), topLevel: top,
-          download: `${BASE_URL}/api/file/${id}` });
+          download: `/api/file/${id}` });
       }
 
       if (req.method === 'POST' && p === `${ADMIN_API}/decide`) {

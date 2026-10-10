@@ -180,6 +180,12 @@ try {
   const evilDl = await admin(`/api/file/${idEvil}`);
   check(evilDl.status === 200, '疑似素材的包，维护者也能下载下来人工看');
 
+  // 审核页详情里的 download 也必须是相对路径 —— 审核页就在隧道里打开，绝对地址必然跨域
+  const detail = await (await admin(`/api/admin/detail/${idGood}`)).json();
+  check(detail.download.startsWith('/api/file/'), '审核页详情里的 download 是同源相对路径', detail.download);
+  const viaRel = await admin(detail.download);
+  check(viaRel.status === 200, '照这个相对路径真去下，下得到', String(viaRel.status));
+
   console.log('⑦ 疑似素材：不勾确认不许上线，勾了就能上线');
   const approveNoAck = await admin('/api/admin/decide', {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -215,6 +221,12 @@ try {
   check(mods.flagged[0].suspected === true && (mods.flagged[0].suspectedReasons || []).length > 0,
     '公开数据里带着疑似标记与命中的原因', JSON.stringify(mods.flagged[0].suspectedReasons));
   check(mods.mods[0].suspected === false, '正常那一组里没带疑似标记');
+
+  // 下载链接必须是**同源相对路径**：审核页常通过 SSH 隧道在 127.0.0.1 上打开，
+  // 若用 BASE_URL 拼成公开 IP 的绝对地址，页面一 fetch 就跨域（浏览器只报 Failed to fetch），
+  // 早先的 <a href> 版本则是跳到公网 IP、被 ADMIN_IPS 挡成 403。
+  check(mods.mods[0].download.startsWith('/api/file/'), '公开列表的 download 是同源相对路径', mods.mods[0].download);
+  check(mods.flagged[0].download.startsWith('/api/file/'), '疑似组的 download 也是相对路径', mods.flagged[0].download);
 
   console.log('⑩ 上线后人人可下');
   const pub = await fetch(`${BASE}/api/file/${idGood}`);

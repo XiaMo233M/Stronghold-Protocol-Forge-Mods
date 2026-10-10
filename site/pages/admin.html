@@ -152,7 +152,11 @@ async function detail(id) {
     dl.disabled = true;
     dl.textContent = '下载中…';
     try {
-      const r = await fetch(download, { headers: TOKEN ? { 'x-admin-token': TOKEN } : {} });
+      // 只取路径、强制同源：服务端万一给的是 BASE_URL 拼的公开 IP 绝对地址，
+      // 而本页通常在隧道里的 127.0.0.1 上 —— 那样 fetch 会跨域，直接 Failed to fetch。
+      // 页面在哪个 origin，请求就打哪个 origin。
+      const sameOrigin = (u) => { try { const x = new URL(u, location.href); return x.pathname + x.search; } catch { return u; } };
+      const r = await fetch(sameOrigin(download), { headers: TOKEN ? { 'x-admin-token': TOKEN } : {} });
       if (!r.ok) {
         dl.textContent = `下载失败 HTTP ${r.status} —— 待审的包要维护者身份，先登录`;
         return;
