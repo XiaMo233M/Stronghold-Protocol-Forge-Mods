@@ -8,14 +8,19 @@
 
 ## 怎么上传
 
+**分步做法（含网页上传的点击路径）在 [`../UPLOAD.md`](../UPLOAD.md)。**
+
 一个 mod 一个目录，**目录名就用 mod 的名字**：
 
 ```
 incoming/
 └── <mod 名字>/
-    ├── SOURCE.md        ← 必需，见下
+    ├── SOURCE.md        ← 必需，照抄 SOURCE.template.md 填
     └── （原件的文件原样放进来：改动的文件、patch、zip 都行）
 ```
+
+**最快的一步**：把 [`SOURCE.template.md`](SOURCE.template.md) 复制成
+`incoming/<mod 名字>/SOURCE.md`，逐条填空。
 
 `SOURCE.md` 必须写清这五件事（缺一件维护者就没法开工）：
 

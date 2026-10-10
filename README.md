@@ -23,7 +23,10 @@
 incoming/<mod>  ──►  读来源说明、判断哪些部分有接口  ──►  改写成工坊包  ──►  packs/<包 id>
 ```
 
-上传的要求见 [`incoming/README.md`](incoming/README.md)；收录的条件见 [`packs/README.md`](packs/README.md)。
+- **想上传一个 mod** → 先读 **[UPLOAD.md](UPLOAD.md)**（上传说明：要传什么、三种上传方式、
+  照抄的 `SOURCE.md` 模板、上传前清单）
+- 收录的条件 → [`packs/README.md`](packs/README.md)
+- 上传区的规则 → [`incoming/README.md`](incoming/README.md)
 
 > `packs/` 目前是**空的** —— 还没有包走完兼容流程。
 

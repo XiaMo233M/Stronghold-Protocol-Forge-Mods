@@ -20,8 +20,10 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）在本仓库的入口。
 
 1. **[SKILL.md](SKILL.md)** —— 完整说明书：包格式、层、`api` 与 `game`、素材红线、
    把社区 mod 改写成包的步骤、署名与许可、做不成包的情形。**动手前必须读完。**
-2. [NOTICE.md](NOTICE.md) —— 每个包的来源、署名与许可；非商业声明。
-3. 引擎侧的权威文档（本仓库只做索引，不复制规则）：
+2. **[UPLOAD.md](UPLOAD.md)** —— 上传说明：往 `incoming/` 传一个 mod 要带什么、三种上传方式、
+   `SOURCE.md` 模板（[`incoming/SOURCE.template.md`](incoming/SOURCE.template.md)）、上传前清单。
+3. [NOTICE.md](NOTICE.md) —— 每个包的来源、署名与许可；非商业声明。
+4. 引擎侧的权威文档（本仓库只做索引，不复制规则）：
    `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（模组能碰到的全部表面）、
    `docs/design/mod-layer.md`（为什么是这个边界）。
 
