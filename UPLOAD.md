@@ -36,6 +36,10 @@ incoming/
 
 ## 二、怎么上传（三种方式，挑一种）
 
+> **有上传站就不用看这一节了。** 本仓库自带一个上传站（[`site/`](site)）：在网页上填「mod 名 + 备注」、
+> 选 zip、点上传即可，比下面三种都省事。部署与用法见 [`site/README.md`](site/README.md)。
+> 站点会把包收进待审队列，维护者下载跑测试、审完名称与内容后上线。
+
 ### 方式 A · GitHub 网页（不装 git 的用这个）
 
 1. 打开 https://github.com/XiaMo233M/Stronghold-Protocol-Forge-Mods

@@ -8,3 +8,6 @@ desktop.ini
 # 打包中间产物（发布用的 zip 不进版本库）
 *.zip
 !packs/**/*.zip
+
+# 上传站的运行数据（投稿、决定）—— 绝不能进版本库
+site/data/

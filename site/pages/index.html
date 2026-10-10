@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>上传一个 mod · 卫戍协议 Forge 工坊包</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1b1f1d; --dim:#5c6b64; --line:#d5ddd8; --accent:#0f8f6f; --bad:#b03030; --bg:#f7faf8; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e6ece9; --dim:#9aa8a1; --line:#2c3632; --accent:#4ed8af; --bad:#ff8080; --bg:#111614; --card:#171d1a; } }
+  * { box-sizing: border-box; }
+  body { margin:0 auto; max-width:820px; padding:24px 18px 64px; background:var(--bg); color:var(--fg);
+         font:15px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--dim); margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin:0 0 16px; }
+  label { display:block; font-weight:600; margin:0 0 6px; }
+  .hint { font-weight:400; color:var(--dim); font-size:13px; }
+  input[type=text], textarea { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px;
+         background:transparent; color:inherit; font:inherit; }
+  textarea { min-height:110px; resize:vertical; }
+  .row { margin:0 0 16px; }
+  button { padding:11px 20px; border:0; border-radius:8px; background:var(--accent); color:#04140f;
+           font:inherit; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .bar { height:8px; background:var(--line); border-radius:99px; overflow:hidden; margin:14px 0 6px; display:none; }
+  .bar > i { display:block; height:100%; width:0; background:var(--accent); transition:width .2s; }
+  .out { white-space:pre-wrap; }
+  .flag { border-left:3px solid var(--line); padding:6px 0 6px 10px; margin:6px 0; }
+  .flag.blocker { border-color:var(--bad); }
+  .flag.warn { border-color:#c8901f; }
+  .flag .lv { font-weight:700; font-size:12px; letter-spacing:.04em; }
+  .flag.blocker .lv { color:var(--bad); }
+  a { color:var(--accent); }
+  code { background:rgba(127,127,127,.14); padding:1px 5px; border-radius:4px; }
+  .kv { font-family:ui-monospace,Consolas,monospace; font-size:13px; }
+</style>
+</head>
+<body>
+<h1>上传一个 mod</h1>
+<p class="sub">传上来只是<b>投稿</b>。维护者会下载下来跑测试，名称与内容审过之后才会出现在
+  <a href="/mods">已上线的列表</a>里。流程与要求见仓库的
+  <a href="https://github.com/XiaMo233M/Stronghold-Protocol-Forge-Mods/blob/main/UPLOAD.md">UPLOAD.md</a>。</p>
+
+<div class="card">
+  <div class="row">
+    <label for="name">mod 名 <span class="hint">（必填。这就是列表里显示的名字，请写清楚、别蹭「官方」）</span></label>
+    <input id="name" type="text" maxlength="60" placeholder="例如：卡兹戴尔同人内容包">
+  </div>
+  <div class="row">
+    <label for="note">备注 <span class="hint">（原件叫什么、从哪来、原作者、许可、改了什么、素材哪来的 —— 见 UPLOAD.md 的五件事）</span></label>
+    <textarea id="note" maxlength="4000" placeholder="原件名称与来源 URL：&#10;原作者：&#10;原件许可：&#10;改了什么：&#10;自带素材来源："></textarea>
+  </div>
+  <div class="row">
+    <label for="homepage">原件的链接 <span class="hint">（选填。仓库 / 发布页）</span></label>
+    <input id="homepage" type="text" maxlength="300" placeholder="https://">
+  </div>
+  <div class="row">
+    <label for="file">zip 文件 <span class="hint">（只收 zip；包内文件直接放 zip 根，不要套一层文件夹）</span></label>
+    <input id="file" type="file" accept=".zip,application/zip">
+  </div>
+  <button id="go">上传</button>
+  <div class="bar" id="bar"><i></i></div>
+  <div class="out" id="out"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
+
+function renderFlags(flags) {
+  if (!flags || !flags.length) return '';
+  return flags.map((f) =>
+    '<div class="flag ' + esc(f.level) + '"><span class="lv">' + esc(f.level.toUpperCase()) + '</span> ' +
+    esc(f.code) + ' — ' + esc(f.text) + '</div>').join('');
+}
+
+$('go').onclick = () => {
+  const name = $('name').value.trim();
+  const file = $('file').files[0];
+  const out = $('out');
+  if (!name) { out.textContent = '先填 mod 名。'; return; }
+  if (!file) { out.textContent = '先选一个 zip。'; return; }
+  if (!/\.zip$/i.test(file.name)) { out.textContent = '只收 zip。'; return; }
+
+  const q = new URLSearchParams({ name, note: $('note').value.trim(), homepage: $('homepage').value.trim() });
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/submit?' + q.toString());
+  xhr.setRequestHeader('content-type', 'application/zip');
+  xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
+  $('go').disabled = true;
+  $('bar').style.display = 'block';
+  out.textContent = '上传中…';
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) $('bar').firstElementChild.style.width = (e.loaded / e.total * 100).toFixed(1) + '%';
+  };
+  xhr.onload = () => {
+    $('go').disabled = false;
+    let r = null;
+    try { r = JSON.parse(xhr.responseText); } catch { /* 非 JSON */ }
+    if (xhr.status === 201 && r) {
+      out.innerHTML =
+        '<p><b>收到了。</b></p>' +
+        '<p class="kv">编号：' + esc(r.id) + '<br>回执令牌：' + esc(r.receipt) + '</p>' +
+        '<p>把上面这两行留着，随时可以查状态：<br><a href="' + esc(r.statusUrl) + '">' + esc(r.statusUrl) + '</a></p>' +
+        '<p>' + esc(r.message) + '</p>' + renderFlags(r.flags);
+    } else {
+      out.innerHTML = '<p style="color:var(--bad)">没传上：' + esc(r && r.error ? r.error : ('HTTP ' + xhr.status)) + '</p>' + renderFlags(r && r.flags);
+    }
+  };
+  xhr.onerror = () => { $('go').disabled = false; out.textContent = '网络断了，再试一次。'; };
+  xhr.send(file);
+};
+</script>
+</body>
+</html>

@@ -25,6 +25,8 @@ incoming/<mod>  ──►  读来源说明、判断哪些部分有接口  ──
 
 - **想上传一个 mod** → 先读 **[UPLOAD.md](UPLOAD.md)**（上传说明：要传什么、三种上传方式、
   照抄的 `SOURCE.md` 模板、上传前清单）
+- **不想碰 git？** 本仓库自带一个**上传站**（[`site/`](site)）：网页上填「mod 名 + 备注」传 zip →
+  维护者下载跑测试 → 名称与内容审过 → 自动上线到公开列表。部署见 [`site/README.md`](site/README.md)
 - 收录的条件 → [`packs/README.md`](packs/README.md)
 - 上传区的规则 → [`incoming/README.md`](incoming/README.md)
 

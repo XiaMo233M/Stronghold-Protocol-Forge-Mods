@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>已上线的 mod · 卫戍协议 Forge 工坊包</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1b1f1d; --dim:#5c6b64; --line:#d5ddd8; --accent:#0f8f6f; --bg:#f7faf8; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e6ece9; --dim:#9aa8a1; --line:#2c3632; --accent:#4ed8af; --bg:#111614; --card:#171d1a; } }
+  * { box-sizing: border-box; }
+  body { margin:0 auto; max-width:820px; padding:24px 18px 64px; background:var(--bg); color:var(--fg);
+         font:15px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--dim); margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:0 0 12px; }
+  .card h2 { font-size:17px; margin:0 0 6px; }
+  .note { white-space:pre-wrap; color:var(--dim); font-size:14px; margin:8px 0; }
+  .meta { font-size:13px; color:var(--dim); }
+  a.dl { display:inline-block; margin-top:10px; padding:9px 16px; border-radius:8px; background:var(--accent);
+         color:#04140f; font-weight:700; text-decoration:none; }
+  code { background:rgba(127,127,127,.14); padding:1px 5px; border-radius:4px; }
+  .empty { color:var(--dim); }
+</style>
+</head>
+<body>
+<h1>已上线的 mod</h1>
+<p class="sub">这一页只列<b>已通过审核</b>的包。想投稿请去 <a href="/">上传页</a>。
+  规则见 <a href="https://github.com/XiaMo233M/Stronghold-Protocol-Forge-Mods/blob/main/SKILL.md">SKILL.md</a>。</p>
+<div id="list"><p class="empty">正在载入…</p></div>
+
+<script>
+const list = document.getElementById('list');
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+
+fetch('/api/mods').then((r) => r.json()).then(({ mods }) => {
+  list.textContent = '';
+  if (!mods.length) {
+    list.append(el('p', 'empty', '还没有通过审核的包。'));
+    return;
+  }
+  for (const m of mods) {
+    const card = el('div', 'card');
+    card.append(el('h2', null, m.name));
+    card.append(el('div', 'meta', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
+    if (m.note) card.append(el('div', 'note', m.note));
+    const a = el('a', 'dl', '下载 zip');
+    a.href = m.download;
+    card.append(a);
+    if (m.homepage) {
+      const s = el('div', 'meta');
+      s.append(document.createTextNode('原件来源：'));
+      const h = el('a', null, m.homepage);
+      h.href = m.homepage; h.rel = 'noopener noreferrer nofollow';
+      s.append(h);
+      card.append(s);
+    }
+    list.append(card);
+  }
+}).catch(() => { list.textContent = '载入失败，刷新试试。'; });
+</script>
+</body>
+</html>
