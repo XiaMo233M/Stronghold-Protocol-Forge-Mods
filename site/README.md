@@ -44,9 +44,12 @@ ADMIN_TOKEN=$(node -e "console.log(require('crypto').randomBytes(24).toString('h
 |---|---|---|
 | `ADMIN_TOKEN` | **必填**（≥16 位） | 审核动作的凭据。没设就拒绝启动 |
 | `PORT` | `8787` | 监听端口 |
+| `HOST` | `127.0.0.1` | **默认只绑回环**（本机试跑不会意外暴露）。对外要显式设 `0.0.0.0` |
 | `DATA_DIR` | `site/data` | 投稿与决定的存放处。**要备份的就是它** |
 | `MAX_MB` | `100` | 单个 zip 的上限 |
 | `BASE_URL` | `http://127.0.0.1:<PORT>` | 生成回执链接用；放到公网要写成真实地址 |
+| `ADMIN_IPS` | 空 | 管理口白名单（逗号分隔）。**设了就只允许这些来源**访问 `/admin` 与 `/api/admin/*`，本机回环始终放行（SSH 隧道靠它） |
+| `TRUST_PROXY` | `0` | 设 `1` 才按 `x-forwarded-for` 判来源地址。**只有确实挂在反代后面时才设** —— 那个头谁都能伪造 |
 
 自测（起一个临时实例把整条链走一遍，不碰你的数据）：
 
@@ -59,71 +62,99 @@ node site/selftest.mjs --pack <某个真实.zip>              # 额外传一个�
 
 ## 放到服务器上
 
-### 1. 最简单的起法
+用现成的 [`deploy.sh`](deploy.sh)。**它按「这台机器上已经有别的项目在跑」来设计** ——
+那个 gunicorn + nginx 的 update 项目**一个字节都不会被碰**：
+
+| 脚本保证不做的事 | 怎么做到的 |
+|---|---|
+| 不读不写 `/etc/nginx`、不 reload/restart nginx | 站点走**自己的端口**，压根不需要 nginx |
+| 不 stop/restart 任何已有服务 | 自己的单元名唯一（`sp-modsite.service`），只 `enable --now` 自己 |
+| 不装系统包 | 需要 Node 就把官方二进制下进自己的安装目录用；**系统 PATH 里的 node 不动** |
+| 不做不可逆的事 | 端口被占、目录里已有别的东西、Node 版本不够 → **停下报错**，不硬来 |
+| 不改防火墙 | 放不放行端口由你决定，脚本只打印命令 |
+
+### 粘这几行
 
 ```bash
-cd /path/to/Stronghold-Protocol-Forge-Mods
-ADMIN_TOKEN='<你抄下来的那串>' PORT=8787 DATA_DIR=/var/lib/sp-upsite BASE_URL=https://你的域名 \
-  node site/server.mjs
+# 在服务器上（root 或 sudo）
+git clone https://github.com/XiaMo233M/Stronghold-Protocol-Forge-Mods.git
+cd Stronghold-Protocol-Forge-Mods/site
+
+sudo bash deploy.sh \
+  --port 8787 \
+  --base-url http://47.103.14.217:8787 \
+  --admin-ips <你的固定IP>          # 强烈建议：管理口只对你开放
 ```
 
-### 2. 用 systemd 常驻
+脚本会依次：打印**改动前的基线**（监听端口、nginx/gunicorn 状态、gunicorn 进程）→ 检查端口空不空 →
+放代码 → 备好 Node → 建专用系统用户与数据目录 → 生成管理令牌 → 装自己的单元并启动 → 本机自测 →
+打印「**没有**动什么」的清单与令牌 → 打印核对「update 项目没受影响」的命令。
 
-`/etc/systemd/system/sp-upsite.service`：
+**收尾时把下面三条与脚本开头的基线逐条比一遍**，应当一模一样：
 
-```ini
-[Unit]
-Description=Stronghold-Protocol-Forge mod upload site
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/Stronghold-Protocol-Forge-Mods
-ExecStart=/usr/bin/node site/server.mjs
-Environment=PORT=8787
-Environment=DATA_DIR=/var/lib/sp-upsite
-Environment=BASE_URL=https://你的域名
-EnvironmentFile=/etc/sp-upsite.env        # 里面写 ADMIN_TOKEN=...
-Restart=always
-User=www-data
-
-[Install]
-WantedBy=multi-user.target
+```bash
+systemctl is-active nginx gunicorn
+pgrep -af gunicorn
+ss -lntp | grep -E ':(80|443)\b'
 ```
 
-`/etc/sp-upsite.env` 权限设成 `600`。
+卸载（只卸自己，数据目录保留并提示你自己删）：
 
-### 3. 前面挂 nginx（**HTTPS 必须**）
+```bash
+sudo bash deploy.sh --uninstall
+```
 
-管理员令牌走在请求头里，**不上 HTTPS 就等于公开**。另外强烈建议**把 `/admin` 与 `/api/admin/` 按 IP 限死**：
+### 只有 HTTP，所以管理口要额外保护
 
-```nginx
+这台机器 **443 没开**、也只给了 IP（没有域名，Let's Encrypt 签不了纯 IP），所以**没有 HTTPS**：
+令牌会以明文过网。两条路子，任选：
+
+```bash
+# a. 给管理口加 IP 白名单后重启本服务（本机回环始终放行）
+sudo sed -i 's|^ADMIN_IPS=.*|ADMIN_IPS=<你的固定IP>|' /etc/sp-modsite.env
+sudo systemctl restart sp-modsite
+
+# b. 或者干脆不给它公网入口，用 SSH 隧道访问审核页
+ssh -L 8787:127.0.0.1:8787 <user>@47.103.14.217
+#   然后本机浏览器开 http://127.0.0.1:8787/admin
+```
+
+白名单**只认真实 socket 地址**，不认 `x-forwarded-for`（那个头谁都能伪造）——
+除非你确实挂在反代后面并显式设了 `TRUST_PROXY=1`。
+
+### 挂到已有 nginx 上（**可选，谨慎**）
+
+不做也完全能用（直接访问 `http://47.103.14.217:8787`）。真要做，**必须**按这个顺序，
+并且**只新增一个文件**、绝不改已有的 server 块：
+
+```bash
+# 1) 只新增一个 conf（用独立端口，与现有站点不冲突）
+sudo tee /etc/nginx/conf.d/sp-modsite.conf >/dev/null <<'EOF'
 server {
-  listen 443 ssl http2;
-  server_name 你的域名;
-  # ssl_certificate ...; ssl_certificate_key ...;
-
-  client_max_body_size 120m;            # 要 ≥ MAX_MB
-
+  listen 8080;
+  server_name _;
+  client_max_body_size 120m;                 # 要 ≥ MAX_MB
   location / {
     proxy_pass http://127.0.0.1:8787;
     proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-
-  # 审核相关的地址只对维护者的 IP 开放
-  location ~ ^/(admin|api/admin/) {
-    allow 你的固定IP;
-    deny all;
-    proxy_pass http://127.0.0.1:8787;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Real-IP $remote_addr;      # 用 X-Real-IP，覆盖不可信的 XFF
   }
 }
+EOF
+
+# 2) 先验配置 —— 不过就删掉这个文件，什么都别 reload
+sudo nginx -t || { sudo rm -f /etc/nginx/conf.d/sp-modsite.conf; echo '配置没过，已删除，nginx 未重启'; }
+
+# 3) 配置过了才 reload（reload 是平滑的：已有连接跑完，更新项目不中断）
+sudo systemctl reload nginx
+
+# 回滚
+sudo rm -f /etc/nginx/conf.d/sp-modsite.conf && sudo systemctl reload nginx
 ```
 
-> `server.mjs` 认 `x-forwarded-for` 的第一个地址当来源 IP（用于限流与记录）。只在**你信任的反代**后面才成立；直接暴露时它用 socket 地址。
+走反代的话，把 `TRUST_PROXY=1` 加上、并把 `server.mjs` 的信赖头改成 `x-real-ip` 更稳
+（当前实现读 `x-forwarded-for`）。**不改也能用**：那就把 `ADMIN_IPS` 留空、只靠令牌，
+并接受「来源 IP 只能记到反代地址」这一点。
 
 ---
 

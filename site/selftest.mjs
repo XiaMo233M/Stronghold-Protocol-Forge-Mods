@@ -239,6 +239,35 @@ try {
     check(r7.status === 201, '真实包被受理', `id=${r7.body?.id} 条目 ${r7.body?.entries}`);
     check(r7.body?.suspected === false, '真实包没有被标疑似', JSON.stringify(r7.body?.suspectedReasons || []));
   }
+
+  // 管理白名单：只有 HTTP 时这是保护令牌的主要手段。用第二个实例测，顺带证明
+  // 「默认不信 x-forwarded-for」这件事 —— 只有 TRUST_PROXY=1 时它才被当真。
+  console.log('⑮ 管理白名单 ADMIN_IPS（另起一个实例）');
+  const PORT2 = 8801;
+  const child2 = spawn(process.execPath, [join(HERE, 'server.mjs')], {
+    env: { ...process.env, PORT: String(PORT2), DATA_DIR: dataDir, ADMIN_TOKEN: TOKEN,
+      HOST: '127.0.0.1', ADMIN_IPS: '203.0.113.9', TRUST_PROXY: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  try {
+    let up2 = false;
+    for (let i = 0; i < 60 && !up2; i++) {
+      try { up2 = (await fetch(`http://127.0.0.1:${PORT2}/healthz`)).ok; } catch { /* 等 */ }
+      if (!up2) await sleep(120);
+    }
+    check(up2, '带白名单的实例起来了');
+    const B2 = `http://127.0.0.1:${PORT2}`;
+    const other = await fetch(`${B2}/api/admin/list`, { headers: { 'x-admin-token': TOKEN, 'x-forwarded-for': '198.51.100.7' } });
+    check(other.status === 403, '不在白名单的来源 → 403（哪怕令牌是对的）', String(other.status));
+    const inList = await fetch(`${B2}/api/admin/list`, { headers: { 'x-admin-token': TOKEN, 'x-forwarded-for': '203.0.113.9' } });
+    check(inList.status === 200, '白名单里的来源 → 200', String(inList.status));
+    const loop = await fetch(`${B2}/api/admin/list`, { headers: { 'x-admin-token': TOKEN } });
+    check(loop.status === 200, '本机回环永远放行（SSH 隧道就是这么进来的）', String(loop.status));
+    const noTok = await fetch(`${B2}/api/admin/list`, { headers: { 'x-forwarded-for': '203.0.113.9' } });
+    check(noTok.status === 401, '白名单内但没令牌 → 401（两道都要过）', String(noTok.status));
+  } finally {
+    child2.kill();
+  }
 } finally {
   child.kill();
   await sleep(200);

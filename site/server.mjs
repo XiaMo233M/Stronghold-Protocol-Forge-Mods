@@ -27,12 +27,26 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGES = join(HERE, 'pages');
 
 const PORT = Number(process.env.PORT || 8787);
+/** 默认只绑回环 —— 想对外就显式设 HOST=0.0.0.0（部署脚本会设）。本机试跑因此不会意外暴露。 */
+const HOST = process.env.HOST || '127.0.0.1';
 const DATA_DIR = resolve(process.env.DATA_DIR || join(HERE, 'data'));
 const SUBS = join(DATA_DIR, 'submissions');   // 普通投稿
 const FLAGGED = join(DATA_DIR, 'flagged');    // **疑似夹带游戏素材**的投稿 —— 单独一处，便于整体处理或清空
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const MAX_BYTES = Number(process.env.MAX_MB || 100) * 1024 * 1024;
 const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
+/**
+ * 管理口的 IP 白名单（逗号分隔）。设了就**只有**这些地址（外加本机回环）能碰 /admin 与 /api/admin/*。
+ * 站点只有 HTTP、没有 HTTPS 时，这条是保护令牌的主要手段 —— 配合 SSH 隧道用：
+ *   ssh -L 8787:127.0.0.1:8787 root@<服务器>
+ * 隧道进来的是回环地址，所以永远放行。
+ */
+const ADMIN_IPS = (process.env.ADMIN_IPS || '').split(',').map((s) => s.trim()).filter(Boolean);
+/**
+ * 是否信任 `x-forwarded-for`。**默认不信任** —— 直接暴露时这个头谁都能伪造，
+ * 拿它当限流或白名单的依据等于没设防。只有确实挂在反代后面（且反代会覆盖这个头）时才设 TRUST_PROXY=1。
+ */
+const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 
 if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 16) {
   console.error('✖ 必须设置 ADMIN_TOKEN（至少 16 位），否则谁都能通过审核。例如：');
@@ -107,7 +121,22 @@ const tokenOk = (given) => {
   const b = Buffer.from(ADMIN_TOKEN);
   return a.length === b.length && timingSafeEqual(a, b);
 };
-const isAdmin = (req) => tokenOk(req.headers['x-admin-token']);
+
+/** 客户端的真实地址：默认只认 socket，不信可伪造的 x-forwarded-for。 */
+const ipOf = (req) => {
+  const sock = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  if (!TRUST_PROXY) return sock;
+  const xff = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return xff || sock;
+};
+const isLoopback = (ip) => ip === '127.0.0.1' || ip === '::1' || ip === 'localhost';
+/** 管理口：先看 IP 白名单（设了才生效），再看令牌。 */
+const adminAllowed = (req) => {
+  if (!ADMIN_IPS.length) return true;
+  const ip = ipOf(req);
+  return isLoopback(ip) || ADMIN_IPS.includes(ip);
+};
+const isAdmin = (req) => adminAllowed(req) && tokenOk(req.headers['x-admin-token']);
 
 // 简单的按 IP 限流：每 10 分钟最多 10 次上传。
 const hits = new Map();
@@ -146,7 +175,7 @@ const readBody = (req, limit) =>
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, BASE_URL);
   const p = url.pathname;
-  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+  const ip = ipOf(req);
 
   try {
     // ---- 页面
@@ -268,7 +297,8 @@ const server = createServer(async (req, res) => {
 
     // ---- 维护者：列表 / 详情 / 决定
     if (p.startsWith('/api/admin/')) {
-      if (!isAdmin(req)) return sendJson(res, 401, { error: '需要 x-admin-token' });
+      if (!adminAllowed(req)) return sendJson(res, 403, { error: '这个地址不在管理白名单里（ADMIN_IPS）' });
+      if (!tokenOk(req.headers['x-admin-token'])) return sendJson(res, 401, { error: '需要 x-admin-token' });
 
       if (req.method === 'GET' && p === '/api/admin/list') return sendJson(res, 200, { submissions: allSubs() });
 
@@ -330,11 +360,19 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`工坊包上传站已起：${BASE_URL}`);
+  console.log(`  监听     ${HOST}:${PORT}`);
   console.log(`  上传页   ${BASE_URL}/`);
   console.log(`  已上线   ${BASE_URL}/mods`);
   console.log(`  审核页   ${BASE_URL}/admin   （页面里填 ADMIN_TOKEN；服务端只认 x-admin-token）`);
   console.log(`  数据目录 ${DATA_DIR}`);
   console.log(`  上传上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB`);
+  if (ADMIN_IPS.length) console.log(`  管理白名单 ${ADMIN_IPS.join(', ')}（外加本机回环）`);
+  else if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
+    console.log('  ⚠ 没有设 ADMIN_IPS，而这个实例对外监听 —— 管理口只靠令牌保护。');
+    console.log('    只有 HTTP 时令牌是明文过网的。建议设 ADMIN_IPS，或用 SSH 隧道访问 /admin：');
+    console.log('      ssh -L 8787:127.0.0.1:8787 <user>@<服务器>');
+  }
+  if (TRUST_PROXY) console.log('  （TRUST_PROXY=1：按 x-forwarded-for 判客户端地址 —— 仅当确实挂在反代后面时才该这样）');
 });
