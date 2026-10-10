@@ -98,8 +98,8 @@ const send = (res, code, body, headers = {}) => {
   res.writeHead(code, { 'cache-control': 'no-store', ...headers });
   res.end(body);
 };
-const sendJson = (res, code, obj) =>
-  send(res, code, JSON.stringify(obj, null, 2), { 'content-type': 'application/json; charset=utf-8' });
+const sendJson = (res, code, obj, headers = {}) =>
+  send(res, code, JSON.stringify(obj, null, 2), { 'content-type': 'application/json; charset=utf-8', ...headers });
 const sendPage = (res, name) => {
   const p = join(PAGES, name);
   if (!existsSync(p)) return send(res, 404, '页面不存在', { 'content-type': 'text/plain; charset=utf-8' });
@@ -130,13 +130,34 @@ const ipOf = (req) => {
   return xff || sock;
 };
 const isLoopback = (ip) => ip === '127.0.0.1' || ip === '::1' || ip === 'localhost';
-/** 管理口：先看 IP 白名单（设了才生效），再看令牌。 */
+/** 管理口：先看 IP 白名单（设了才生效），再看凭据。 */
 const adminAllowed = (req) => {
   if (!ADMIN_IPS.length) return true;
   const ip = ipOf(req);
   return isLoopback(ip) || ADMIN_IPS.includes(ip);
 };
-const isAdmin = (req) => adminAllowed(req) && tokenOk(req.headers['x-admin-token']);
+
+/**
+ * HTTP Basic：让**浏览器自己弹登录框**。
+ * 有这个就不用去服务器上翻令牌、也不用把令牌敲进网页表单 —— 浏览器会记住，
+ * 而且同源请求会自动带上，页面里的 fetch 不用再手动加头。
+ * 用户名固定 `admin`（写别的也行，反正只校验密码），密码就是 ADMIN_TOKEN。
+ */
+const basicOk = (req) => {
+  const h = String(req.headers.authorization || '');
+  if (!h.startsWith('Basic ')) return false;
+  let dec = '';
+  try { dec = Buffer.from(h.slice(6), 'base64').toString('utf8'); } catch { return false; }
+  const i = dec.indexOf(':');
+  if (i < 0) return false;
+  return tokenOk(dec.slice(i + 1));
+};
+const isAdmin = (req) => adminAllowed(req) && (tokenOk(req.headers['x-admin-token']) || basicOk(req));
+
+/** 401 时要带这个头，浏览器才会弹登录框。 */
+const askForLogin = (res) =>
+  sendJson(res, 401, { error: '需要登录（用户名 admin，密码是服务器 /etc/sp-modsite.env 里的 ADMIN_TOKEN）' },
+    { 'www-authenticate': 'Basic realm="sp-modsite admin", charset="UTF-8"' });
 
 // 简单的按 IP 限流：每 10 分钟最多 10 次上传。
 const hits = new Map();
@@ -181,7 +202,13 @@ const server = createServer(async (req, res) => {
     // ---- 页面
     if (req.method === 'GET' && (p === '/' || p === '/index.html')) return sendPage(res, 'index.html');
     if (req.method === 'GET' && (p === '/mods' || p === '/mods.html')) return sendPage(res, 'mods.html');
-    if (req.method === 'GET' && (p === '/admin' || p === '/admin.html')) return sendPage(res, 'admin.html');
+    // 审核页本身就要认证 —— 只有**顶层导航**的 401 才会让浏览器弹登录框
+    // （fetch 拿到 401 是不弹的，所以认证必须卡在页面这一层）。
+    if (req.method === 'GET' && (p === '/admin' || p === '/admin.html')) {
+      if (!adminAllowed(req)) return sendJson(res, 403, { error: '这个地址不在管理白名单里（ADMIN_IPS）' });
+      if (!isAdmin(req)) return askForLogin(res);
+      return sendPage(res, 'admin.html');
+    }
     if (req.method === 'GET' && p === '/healthz') {
       return sendJson(res, 200, { ok: true, at: nowIso(), submissions: allSubs().length });
     }
@@ -298,7 +325,7 @@ const server = createServer(async (req, res) => {
     // ---- 维护者：列表 / 详情 / 决定
     if (p.startsWith('/api/admin/')) {
       if (!adminAllowed(req)) return sendJson(res, 403, { error: '这个地址不在管理白名单里（ADMIN_IPS）' });
-      if (!tokenOk(req.headers['x-admin-token'])) return sendJson(res, 401, { error: '需要 x-admin-token' });
+      if (!isAdmin(req)) return askForLogin(res);
 
       if (req.method === 'GET' && p === '/api/admin/list') return sendJson(res, 200, { submissions: allSubs() });
 

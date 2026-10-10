@@ -242,6 +242,23 @@ try {
 
   // 管理白名单：只有 HTTP 时这是保护令牌的主要手段。用第二个实例测，顺带证明
   // 「默认不信 x-forwarded-for」这件事 —— 只有 TRUST_PROXY=1 时它才被当真。
+  console.log('⑯ HTTP Basic 登录（浏览器弹框那种）');
+  {
+    const basic = 'Basic ' + Buffer.from('admin:' + TOKEN).toString('base64');
+    const noAuthPage = await fetch(`${BASE}/admin`, { redirect: 'manual' });
+    check(noAuthPage.status === 401, '裸访问 /admin → 401（浏览器据此弹登录框）', String(noAuthPage.status));
+    check(/basic/i.test(noAuthPage.headers.get('www-authenticate') || ''), '401 带 WWW-Authenticate: Basic',
+      noAuthPage.headers.get('www-authenticate') || '(没有)');
+    const okPage = await fetch(`${BASE}/admin`, { headers: { authorization: basic } });
+    check(okPage.status === 200 && (await okPage.text()).includes('<title>审核'), '带 Basic 凭据 → 200 且拿到审核页');
+    const wrongPage = await fetch(`${BASE}/admin`, { headers: { authorization: 'Basic ' + Buffer.from('admin:nope').toString('base64') } });
+    check(wrongPage.status === 401, 'Basic 密码错 → 401', String(wrongPage.status));
+    const basicApi = await fetch(`${BASE}/api/admin/list`, { headers: { authorization: basic } });
+    check(basicApi.status === 200, 'Basic 凭据也能过 API', String(basicApi.status));
+    const headerApi = await fetch(`${BASE}/api/admin/list`, { headers: { 'x-admin-token': TOKEN } });
+    check(headerApi.status === 200, '原来的 x-admin-token 头仍然可用（后路没断）', String(headerApi.status));
+  }
+
   console.log('⑮ 管理白名单 ADMIN_IPS（另起一个实例）');
   const PORT2 = 8801;
   const child2 = spawn(process.execPath, [join(HERE, 'server.mjs')], {

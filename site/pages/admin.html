@@ -49,13 +49,19 @@
   <div>
     <div class="card" style="margin-bottom:16px">
       <h1>审核</h1>
-      <div class="row"><input id="tok" type="text" placeholder="ADMIN_TOKEN"></div>
-      <div class="flex">
-        <button id="load" class="ok">载入列表</button>
-        <button id="save" class="ghost">记住</button>
-        <button id="forget" class="ghost">忘掉</button>
+      <p id="authNote" class="dim" style="font-size:13px;margin:0 0 10px">检查登录状态…</p>
+      <div id="tokBox" style="display:none">
+        <div class="row"><input id="tok" type="text" placeholder="ADMIN_TOKEN（若浏览器已登录，这里可以留空）"></div>
+        <div class="flex">
+          <button id="load" class="ok">载入列表</button>
+          <button id="save" class="ghost">记住</button>
+          <button id="forget" class="ghost">忘掉</button>
+        </div>
+        <p class="dim" style="font-size:12.5px;margin:8px 0 0">
+          令牌只存在这个浏览器里（sessionStorage），不会发到别处。服务器上它在
+          <code>/etc/sp-modsite.env</code> 的 <code>ADMIN_TOKEN=</code> 那一行（权限 600）。
+        </p>
       </div>
-      <p class="dim" style="font-size:12.5px;margin:8px 0 0">令牌只存在这个浏览器里（sessionStorage），不会发到别处；服务端只认请求头。</p>
     </div>
     <div class="card">
       <h2>投稿</h2>
@@ -81,7 +87,10 @@ $('load').onclick = async () => {
   TOKEN = $('tok').value.trim();
   const r = await api('/api/admin/list');
   if (!r.ok) { $('list').textContent = '载入失败：HTTP ' + r.status + '（令牌对吗？）'; return; }
-  const { submissions } = await r.json();
+  renderList(await r.json());
+};
+
+function renderList({ submissions }) {
   const ul = $('list'); ul.textContent = '';
   if (!submissions.length) { ul.append(el('li', 'dim', '还没有投稿。')); return; }
   for (const s of submissions) {
@@ -96,7 +105,24 @@ $('load').onclick = async () => {
     li.onclick = () => { [...ul.children].forEach((x) => x.classList.remove('on')); li.classList.add('on'); detail(s.id); };
     ul.append(li);
   }
-};
+}
+
+// 页面加载时先看浏览器有没有带着 Basic 凭据（顶层导航的 401 已经弹过登录框了）。
+// 有就直接进；没有才把令牌输入框露出来当后路。
+(async () => {
+  try {
+    const r = await fetch('/api/admin/list');
+    if (r.ok) {
+      $('authNote').textContent = '已通过浏览器登录（HTTP Basic）。';
+      $('tokBox').style.display = 'none';
+      renderList(await r.json());
+      return;
+    }
+  } catch { /* 网络问题就当没登录 */ }
+  $('authNote').textContent = '需要登录：浏览器应当已经弹过登录框（用户名 admin，密码是服务器上的 ADMIN_TOKEN）。'
+    + '要是没弹、或者你想手动填令牌，就用下面这一栏。';
+  $('tokBox').style.display = 'block';
+})();
 
 async function detail(id) {
   const box = $('detail');
