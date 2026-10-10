@@ -6,7 +6,13 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）在本仓库的入口。
 ## 这是什么
 
 [Stronghold-Protocol-Forge](https://github.com/XiaMo233M/Stronghold-Protocol-Forge) 的工坊包仓库：
-`packs/<包 id>/` 下每份是一个自足的 mod，`pack.json` 是它的唯一入口。
+一份包一个目录，`pack.json` 是它的唯一入口。三个目录含义不同：
+
+| 目录 | 放什么 | 判定 |
+|---|---|---|
+| `packs/` | 兼容已完成、验过的包 | **闸门**：必须全部装上 |
+| `demo/` | 格式示例（三份真实包） | **闸门**：必须全部装上 |
+| `incoming/` | 组员上传、**尚未完成兼容**的 mod 原件 | 只报告，**不拦** |
 
 本仓库**不含游戏本体、不含引擎源码、不含任何游戏素材**。
 
@@ -33,13 +39,17 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）在本仓库的入口。
   写清你改了什么、哪些部分没有接口做不了。
 - **非商业**：本仓库及其收录的任何包都不得用于商业用途。
 - **不为过闸门而放宽闸门**：校验不过就改包，不改校验。
+- **`incoming/` 被拒是正常的**：那里是「还没做兼容」的存放处，**不要**为了让它装上而改引擎或改校验；
+  也不要为了让它通过而把 `incoming/` 里没验过的东西搬进 `packs/`。
 - **提交**：一个包一个主题；提交信息一行说清做了什么（中文或英文），
   **不加** `Co-Authored-By:` / `Generated with …` 这类署名尾巴。
 
 ## 验证
 
 ```bash
-node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge
+node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge            # 三个目录一起看
+node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --root packs
 ```
 
-每个包必须都是 `✓`、且没有任何 `✗`（退出码 0）。改了包之后**一定要重跑**。
+`packs/` 与 `demo/` 里的包必须全部 `✓`、没有任何 `✗`（退出码 0）；
+`incoming/` 只报告、不参与退出码。改了包之后**一定要重跑**。

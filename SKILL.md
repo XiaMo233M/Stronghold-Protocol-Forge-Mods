@@ -13,7 +13,15 @@
 
 ## 2. 这个仓库是什么
 
-`packs/<包 id>/` 下每一份都是**一个自足的工坊包**；`pack.json` 是它的唯一入口。
+三个目录，三种含义：
+
+| 目录 | 放什么 | 判定 |
+|---|---|---|
+| `packs/<包 id>/` | **兼容已完成、验过**的包 —— 能直接装 | 闸门：必须全部装上 |
+| `demo/<包 id>/` | **格式示例**：三份真实包，给人照抄的样板 | 闸门：同样必须全部装上 |
+| `incoming/<mod 名字>/` | **组员上传、尚未完成兼容**的 mod 原件 | 只报告，不拦 |
+
+一份包一份目录，`pack.json` 是它的唯一入口。**目标是把 `incoming/` 里的东西变成 `packs/` 里的东西。**
 
 **不是**：不是游戏本体、不是引擎源码、**不含任何游戏素材**（§5）。
 包由玩家（或整合包）拷进引擎的工坊目录后才生效。本仓库只负责**存放、署名与兼容性校验**。
@@ -158,14 +166,19 @@ screen.loadout.detail
 ## 9. 验证（做完必跑）
 
 ```bash
-# 拿引擎自己那一份装载器过一遍本仓库所有包（引擎升级后也这么验）
+# 拿引擎自己那一份装载器过一遍三个目录（引擎升级后也这么验）
 node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge
+
+# 只看某一个目录
+node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --root packs
 
 # 机器可读（给 CI / 其他工具用）
 node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json
 ```
 
-**判定标准**：每个包都出现 `✓`、且**一个 `✗` 都没有**（退出码 0）。
+**判定标准**：
+- `packs/` 与 `demo/` 是**闸门** —— 里面的包必须全部 `✓`，且**一个 `✗` 都没有**（退出码 0）
+- `incoming/` **只报告不拦** —— 那里的包被拒是正常的（还没做兼容），退出码不受它影响
 
 刷不出来的常见原因：`id` 与目录名不一致、`pack.json` 里有 `PACK_FIELDS` 之外的键、
 `api` 区间与引擎的 `MOD_API_VERSION` 对不上、引用了白名单外的模块、声明了不存在的槽位。
