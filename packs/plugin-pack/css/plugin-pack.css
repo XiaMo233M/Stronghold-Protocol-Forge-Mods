@@ -1,0 +1,286 @@
+/* css/plugin-pack.css —— 本包自带的样式表（`client.panels[].styles[]`，WORKSHOP §1.9.5）。
+ *
+ * 为什么是**一份**而不是原件那三份整份替换（`chat.css` 21 KB / `devices.css` 11.7 KB / `title.css` 22 KB）：
+ * 那三份是**整份替换引擎文件**（原件 ③ 的做法），而包层的正确形态是「自带样式表」——
+ * 注入排在引擎样式**之后**（`<link>` 追加到 `<head>` 末尾）、`dispose` 时移除、且**不改引擎文件**。
+ * 装了本包的实例里，引擎那三份文件一个字节都不动。
+ *
+ * 内容是**照着原件选择器重写的**（不是抄字节）：原件的选择器锚在**它自己 fork 的类名**上
+ * （`.sp-chat__*` / `.tpanel__*` / `.lan-*` / `scard__mark` / `.match-ov` …），那些类名在本引擎里
+ * 有的存在（`.scard` / `.bpop__member`）、有的不存在（`.sp-chat` / `.tpanel` / `.lan-pill`）。
+ * 本包的面板用的是**自己的 `pp-` 前缀**，所以这里写的是 `pp-` 那一套 —— 原件里"改引擎既有组件外观"
+ * 的那一半（例如把 `.scard` 的命中区放大到 44px）在这里**只对引擎真的渲染出来的那些类有效**，
+ * 而"给一个引擎没有的类写规则"什么都不会发生。见判定表 §CSS。
+ *
+ * ⚠️ 无正则 lookbehind（本文件是 CSS，本来就无关；写在这里是为了让读的人知道那条守卫的边界）。
+ * ⚠️ 一切都以 `--pp-` 开头，**不与引擎的令牌撞名**（引擎的是 `--mint-500` 那一族）。
+ */
+
+:root {
+  --pp-bg: rgba(12, 16, 15, 0.97);
+  --pp-fg: #e8f0ec;
+  --pp-dim: rgba(232, 240, 236, 0.66);
+  --pp-line: rgba(255, 255, 255, 0.2);
+  --pp-accent: #4ed8af;
+  --pp-warn: #ffcf5a;
+  --pp-danger: #ff8a7a;
+}
+
+/* ── 固定浮层的共同底座 ───────────────────────────────────────────────────────────────────────── */
+/* 引擎的槽位容器在空闲时 `display:contents` 且里面 `pointer-events:none`（不吃点击）。
+   本包的面板**要**接收输入 ⇒ 自己打开 `pointer-events:auto`。默认绝不吃点击是引擎的判据，
+   而「一层看不见的东西把你的点击吃了」是最坏的结果 —— 所以这里的打开是**逐面板**的。 */
+.pp-chat-host,
+.pp-gueststrip,
+.pp-title-side,
+.pp-match-root,
+.pp-lan,
+.pp-avpick {
+  pointer-events: auto;
+}
+
+/* ── 在线人数药丸（ui/serverStatus.js） ─────────────────────────────────────────────────────────── */
+.pp-serverpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--pp-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+  line-height: 1.6;
+  pointer-events: auto;
+}
+.pp-serverpill[data-pp-status-kind="offline"] { color: var(--pp-dim); }
+.pp-serverpill__stat { display: inline-flex; align-items: baseline; gap: 3px; }
+.pp-serverpill__value { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--pp-fg); }
+.pp-serverpill__label { color: var(--pp-dim); }
+.pp-serverpill__sep { width: 1px; height: 10px; background: var(--pp-line); }
+
+/* ── 好友服务器提示条（ui/serverLink.js） ──────────────────────────────────────────────────────── */
+.pp-gueststrip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--pp-warn);
+  border-radius: 8px;
+  background: var(--pp-bg);
+  color: var(--pp-fg);
+  font-size: 12px;
+}
+.pp-gueststrip__host { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--pp-warn); }
+
+/* ── 公告 / 鸣谢（ui/noticePanels.js） ─────────────────────────────────────────────────────────── */
+.pp-title-side { position: relative; }
+.pp-title-side__btns { display: flex; gap: 6px; }
+.pp-title-side__btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 4px 10px; border: 1px solid var(--pp-line); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05); color: inherit; font: inherit; cursor: pointer;
+}
+.pp-title-side__btn.is-on { border-color: var(--pp-accent); }
+.pp-title-side__micro { font-size: 9px; letter-spacing: 0.08em; color: var(--pp-dim); }
+.pp-tpanel {
+  position: fixed; inset: 0; z-index: 9400; display: none;
+  align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55);
+}
+.pp-tpanel:has(.pp-tpanel__box) { display: flex; }
+/* 窄屏不溢出（原件判据 ③）：面板本体固定层且自身可滚。 */
+.pp-tpanel__box {
+  width: min(46rem, 92vw); max-height: 80vh; overflow: auto;
+  padding: 14px 16px; border: 1px solid var(--pp-line); border-radius: 10px;
+  background: var(--pp-bg); color: var(--pp-fg); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+}
+.pp-tpanel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.pp-tpanel__micro { font-size: 10px; letter-spacing: 0.08em; color: var(--pp-dim); }
+.pp-tpanel__title { margin: 2px 0 0; font-size: 16px; }
+.pp-tpanel__close { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; font-size: 15px; }
+.pp-tpanel__body { margin-top: 10px; font-size: 12px; }
+.pp-tpanel__ver { margin-bottom: 12px; }
+.pp-tpanel__verhead { display: flex; align-items: baseline; gap: 8px; }
+.pp-tpanel__vertag { color: var(--pp-accent); }
+.pp-tpanel__verdate, .pp-tpanel__summary { color: var(--pp-dim); }
+.pp-tpanel__secname { margin: 8px 0 4px; font-size: 12px; }
+.pp-tpanel__items { margin: 0; padding-left: 18px; }
+.pp-tpanel__item { margin: 2px 0; }
+.pp-tpanel__list { margin: 0; padding: 0; list-style: none; }
+.pp-tpanel__credit { margin-bottom: 10px; }
+.pp-tpanel__credithead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pp-tpanel__role { color: var(--pp-dim); }
+.pp-tpanel__links { display: block; margin-top: 2px; }
+.pp-tpanel__link { color: var(--pp-accent); margin-right: 10px; }
+.pp-tpanel__empty { color: var(--pp-dim); }
+
+/* ── 房间聊天（ui/chat.js） ────────────────────────────────────────────────────────────────────── */
+.pp-chat-host { position: fixed; right: 12px; bottom: 12px; left: auto; top: auto; z-index: 46; }
+.pp-chat-host.is-collapsed { z-index: 46; }
+.pp-chat__backdrop {
+  position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, 0.28);
+}
+/* 层级是用户实测过的（原件）：遮罩 45 压过局内全部正栈级（最高 12）⇒ 面板外点不到商店（防误购）；
+   面板 46 ⇒ 面板自己照常可点。⛔ **遮罩必须先给 z-index** —— 没有它遮罩会铺在最上层把面板自己盖住。 */
+.pp-chat.is-open {
+  position: relative; z-index: 46; display: flex; flex-direction: column;
+  width: 280px; height: 260px; min-width: 190px; min-height: 130px;
+  border: 1px solid var(--pp-line); border-radius: 10px;
+  background: var(--pp-bg); color: var(--pp-fg); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+.pp-chat__grip { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; }
+.pp-chat__head {
+  display: flex; align-items: center; gap: 6px; padding: 4px 6px;
+  border-bottom: 1px solid var(--pp-line); font-size: 11px;
+}
+.pp-chat__gripbar { cursor: grab; color: var(--pp-dim); }
+.pp-chat__title { font-weight: 600; }
+.pp-chat__count { color: var(--pp-dim); margin-left: auto; }
+.pp-chat__btn {
+  border: 1px solid var(--pp-line); border-radius: 6px; background: rgba(255, 255, 255, 0.06);
+  color: inherit; font: inherit; font-size: 11px; padding: 1px 6px; cursor: pointer;
+}
+.pp-chat__list { flex: 1; overflow: auto; padding: 6px; font-size: 12px; }
+.pp-chat__msg { display: block; margin-bottom: 5px; }
+.pp-chat__msg.is-mine { text-align: right; }
+.pp-chat__msg.is-quick .pp-chat__text { font-style: italic; color: var(--pp-accent); }
+.pp-chat__meta { display: flex; gap: 6px; font-size: 10px; color: var(--pp-dim); }
+.pp-chat__msg.is-mine .pp-chat__meta { justify-content: flex-end; }
+.pp-chat__who { font-weight: 600; }
+.pp-chat__tag {
+  border: 1px solid var(--pp-line); border-radius: 999px; padding: 0 4px; font-size: 9px;
+}
+.pp-chat__mute { border: 0; background: none; color: var(--pp-dim); font: inherit; font-size: 10px; cursor: pointer; }
+.pp-chat__text { display: block; word-break: break-word; }
+.pp-chat__empty, .pp-chat__hint, .pp-chat__note { margin: 4px 6px; font-size: 10px; color: var(--pp-dim); }
+.pp-chat__note[data-pp-chat-unsupported] { color: var(--pp-warn); }
+.pp-chat__quick { display: flex; flex-wrap: wrap; gap: 3px; padding: 4px 6px; border-top: 1px solid var(--pp-line); }
+.pp-chat__quick-label { font-size: 10px; color: var(--pp-dim); width: 100%; }
+.pp-chat__quick-btn {
+  border: 1px solid var(--pp-line); border-radius: 6px; background: rgba(255, 255, 255, 0.06);
+  color: inherit; font: inherit; font-size: 10px; padding: 1px 5px; cursor: pointer;
+}
+.pp-chat__quick-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pp-chat__input { display: flex; gap: 4px; padding: 4px 6px; }
+.pp-chat__field { flex: 1; }
+.pp-chat__handle {
+  display: inline-flex; align-items: center; gap: 5px; position: relative;
+  border: 1px solid var(--pp-line); border-radius: 999px; background: var(--pp-bg);
+  color: var(--pp-fg); font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer;
+}
+.pp-chat__dot {
+  position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--pp-danger);
+}
+
+/* ── 卡面标记（ui/cardMarks.js） ───────────────────────────────────────────────────────────────── */
+/* ⚠️ 卡是**按钮**，星星必须 `pointer-events:auto` 且 `stopPropagation` —— 否则点击会被卡吃掉，
+   玩家买不了东西。这是引擎那条纪律（「商店卡尤其必须照旧能买」）的直接落点。 */
+.pp-mark {
+  position: absolute; top: 2px; right: 2px; z-index: 3;
+  width: 18px; height: 18px; padding: 0; line-height: 16px; text-align: center;
+  border: 1px solid var(--pp-line); border-radius: 50%; background: rgba(0, 0, 0, 0.55);
+  color: var(--pp-dim); font-size: 11px; cursor: pointer; pointer-events: auto;
+}
+.pp-mark.is-on { color: var(--pp-warn); border-color: var(--pp-warn); }
+
+/* ── 皮肤一节（ui/skinPicker.js） ──────────────────────────────────────────────────────────────── */
+.pp-lo-sec { margin-top: 10px; }
+.pp-lo-sec__head { display: flex; align-items: baseline; gap: 8px; }
+.pp-lo-sec__title { margin: 0; font-size: 13px; }
+.pp-lo-sec__note, .pp-lo-sec__empty { font-size: 11px; color: var(--pp-dim); }
+.pp-lo-skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; margin-top: 6px; }
+.pp-lo-skin {
+  padding: 0; border: 2px solid var(--pp-line); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05); color: inherit; font: inherit; cursor: pointer;
+}
+.pp-lo-skin.is-on { border-color: var(--pp-accent); }
+.pp-lo-skin__art { display: block; }
+.pp-lo-skin__img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; display: block; }
+.pp-lo-skin__name { display: block; font-size: 10px; padding: 1px 2px; }
+
+/* ── 快速匹配浮层（ui/matchOverlay.js） ────────────────────────────────────────────────────────── */
+.pp-match-bar {
+  display: flex; align-items: center; gap: 8px; padding: 3px 8px;
+  border: 1px solid var(--pp-warn); border-radius: 0 0 8px 8px; background: var(--pp-bg); color: var(--pp-fg);
+  font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.pp-match-ov {
+  position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.pp-match-ov__box {
+  min-width: min(24rem, 86vw); padding: 16px 18px; border: 1px solid var(--pp-line);
+  border-radius: 10px; background: var(--pp-bg); color: var(--pp-fg); text-align: center;
+}
+.pp-match-ov__tag { font-size: 11px; letter-spacing: 0.08em; color: var(--pp-dim); }
+.pp-match-ov__phase { font-size: 14px; margin: 8px 0 2px; }
+.pp-match-ov__row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pp-match-ov__elapsed { font-size: 26px; font-variant-numeric: tabular-nums; }
+.pp-match-ov__hint { font-size: 11px; color: var(--pp-dim); margin-top: 3px; }
+.pp-match-ov__actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+
+/* ── 联机面板（ui/lanPanel.js） ────────────────────────────────────────────────────────────────── */
+.pp-lan__pillwrap { position: fixed; top: 8px; right: 8px; z-index: 900; pointer-events: none; }
+.pp-lan__pill {
+  position: relative; pointer-events: auto;
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
+  border: 1px solid var(--pp-line); border-radius: 999px; background: var(--pp-bg); color: var(--pp-fg);
+  font: inherit; font-size: 12px; cursor: grab;
+}
+.pp-lan__ov {
+  position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.pp-lan__box {
+  width: min(30rem, 92vw); max-height: 84vh; overflow: auto; padding: 14px 16px;
+  border: 1px solid var(--pp-line); border-radius: 10px; background: var(--pp-bg); color: var(--pp-fg);
+  font-size: 12px;
+}
+.pp-lan__head { display: flex; align-items: center; justify-content: space-between; }
+.pp-lan__title { margin: 0; font-size: 15px; }
+.pp-lan__close { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.pp-lan__hint { color: var(--pp-dim); margin: 8px 0 4px; }
+.pp-lan__row { display: flex; gap: 8px; align-items: baseline; }
+.pp-lan__row.is-disabled { opacity: 0.5; }
+.pp-lan__label { min-width: 5.5em; color: var(--pp-dim); }
+.pp-lan__value { word-break: break-all; }
+.pp-lan__join { display: flex; gap: 6px; }
+.pp-lan__warn { color: var(--pp-warn); }
+
+/* ── 头像选择器（ui/avatarPicker.js） ──────────────────────────────────────────────────────────── */
+.pp-avpick__ov {
+  position: fixed; inset: 0; z-index: 9600; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+.pp-avpick__box {
+  width: min(46rem, 92vw); max-height: 80vh; overflow: auto; display: flex; flex-direction: column; gap: 8px;
+  padding: 14px 16px; border: 1px solid var(--pp-line); border-radius: 10px; background: var(--pp-bg); color: var(--pp-fg);
+  font-size: 12px;
+}
+.pp-avpick__head { display: flex; align-items: center; gap: 8px; }
+.pp-avpick__count, .pp-avpick__note, .pp-avpick__loading { color: var(--pp-dim); }
+.pp-avpick__error { color: var(--pp-danger); }
+.pp-avpick__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.pp-avpick__cell {
+  padding: 0; border: 2px solid var(--pp-line); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05); cursor: pointer; line-height: 0;
+}
+.pp-avpick__cell.is-on { border-color: var(--pp-accent); }
+.pp-avpick__img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; display: block; }
+
+/* ── 通用小件 ─────────────────────────────────────────────────────────────────────────────────── */
+.pp-btn {
+  border: 1px solid var(--pp-line); border-radius: 6px; background: rgba(255, 255, 255, 0.06);
+  color: inherit; font: inherit; font-size: 12px; padding: 2px 8px; cursor: pointer;
+}
+.pp-btn--sm { font-size: 11px; padding: 1px 6px; }
+.pp-btn--primary { border-color: var(--pp-accent); }
+.pp-btn--secondary { background: rgba(255, 255, 255, 0.03); }
+.pp-btn--danger { border-color: var(--pp-danger); }
+.pp-btn--ghost { background: none; }
+.pp-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pp-input {
+  border: 1px solid var(--pp-line); border-radius: 6px; background: rgba(255, 255, 255, 0.06);
+  color: inherit; font: inherit; font-size: 12px; padding: 2px 6px;
+}

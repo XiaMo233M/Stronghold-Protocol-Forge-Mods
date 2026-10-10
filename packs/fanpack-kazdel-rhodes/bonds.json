@@ -1,0 +1,579 @@
+{
+  "kazdelShip": {
+    "bondId": "kazdelShip",
+    "name": "卡兹戴尔",
+    "identifier": 101,
+    "isCore": true,
+    "bondType": "SEASON",
+    "bondOrder": 2,
+    "powerIdList": [
+      "kazdel",
+      "sarkaz",
+      "babel"
+    ],
+    "iconId": "icon_kazdelShip",
+    "activeCount": 3,
+    "thresholds": [
+      3,
+      6
+    ],
+    "maxCount": null,
+    "thresholdTemplate": "count_threshold_upward",
+    "countMode": "BOARD",
+    "countsHand": false,
+    "countsGoldenOnly": false,
+    "activeType": "BATTLE",
+    "isActiveInDeck": false,
+    "noStack": false,
+    "weight": 10,
+    "maxInactiveBondCount": -1,
+    "layerMilestones": [
+      {
+        "layer": 100,
+        "mode": "every",
+        "effect": "bond_layer_added_reward_equip"
+      }
+    ],
+    "desc": "【卡兹戴尔】干员对处于眩晕、停顿、束缚、不动的单位造成的伤害提升（受层数影响）\n<每叠加100层>获得一件“萨卡兹的断角”\n<在场6名不同【卡兹戴尔】干员>所有【卡兹戴尔】干员攻击速度+50，且攻击附带20%攻击力的真实伤害",
+    "descRaw": "【卡兹戴尔】干员对处于<@ba.vup>眩晕</>、<@ba.vup>停顿</>、<@ba.vup>束缚</>、<@ba.vup>不动</>的单位造成的伤害<@ba.vup>提升</><@autochess.gray>（受层数影响）</>\n<叠加<@autochess.dgreen>100</>层>获得一件<@ba.vup>“萨卡兹的断角”</>\n<在场<@autochess.dgreen>6</>名不同【卡兹戴尔】干员>所有【卡兹戴尔】干员<@ba.vup>攻击速度+50</>，且攻击附带<@ba.vup>20%</>攻击力的<@ba.vup>真实伤害</>",
+    "effectId": "bondeffect_kazdel",
+    "effectName": "卡兹戴尔",
+    "effectDesc": "【卡兹戴尔】干员对处于眩晕、停顿、束缚、不动的单位造成的伤害+{0:0%}（受层数影响）\n<每叠加100层>获得一件“萨卡兹的断角”\n<在场6名不同【卡兹戴尔】干员>所有【卡兹戴尔】干员攻击速度+50，且攻击附带20%攻击力的真实伤害",
+    "effectDescRaw": "【卡兹戴尔】干员对处于<@ba.vup>眩晕</>、<@ba.vup>停顿</>、<@ba.vup>束缚</>、<@ba.vup>不动</>的单位造成的伤害<@ba.vup>+{0:0%}</><@ba.acrem>（受层数影响）</>\n<叠加<@autochess.dgreen>100</>层>获得一件<@ba.vup>“萨卡兹的断角”</>\n<在场<@autochess.dgreen>6</>名不同【卡兹戴尔】干员>所有【卡兹戴尔】干员<@ba.vup>攻击速度+50</>，且攻击附带<@ba.vup>20%</>攻击力的<@ba.vup>真实伤害</>",
+    "effectDescParams": [
+      {
+        "index": 0,
+        "format": "0%",
+        "base": "base_damage_scale",
+        "perStack": "damage_scale_per_stack"
+      }
+    ],
+    "bb": {
+      "base_damage_scale": 0.2,
+      "damage_scale_per_stack": 0.009,
+      "power_bond_char_cnt": 6,
+      "bonus_attack_speed": 50,
+      "true_damage_scale": 0.2,
+      "layer": 100,
+      "count": 1
+    },
+    "bbStr": {
+      "key": "act2autochess_bond_eff_kazdel"
+    },
+    "buffs": [
+      {
+        "key": "env_gbuff_new",
+        "bb": {
+          "base_damage_scale": 0.2,
+          "damage_scale_per_stack": 0.009,
+          "power_bond_char_cnt": 6,
+          "bonus_attack_speed": 50,
+          "true_damage_scale": 0.2
+        },
+        "bbStr": {
+          "key": "act2autochess_bond_eff_kazdel"
+        }
+      },
+      {
+        "key": "bond_layer_added_reward_equip",
+        "bb": {
+          "layer": 100,
+          "count": 1
+        },
+        "bbStr": {
+          "reward_item": "chess_item_c_01_e_a"
+        }
+      }
+    ],
+    "baseParams": [
+      "base_damage_scale"
+    ],
+    "perStackParams": [
+      "damage_scale_per_stack"
+    ],
+    "members": [
+      "chess_char_4_04_a",
+      "chess_char_4_25_a",
+      "chess_char_4_26_a",
+      "chess_char_5_06_a",
+      "chess_char_9_01_a",
+      "chess_char_9_02_a",
+      "chess_char_9_04_a",
+      "chess_char_9_06_a",
+      "chess_char_9_09_a",
+      "chess_char_9_10_a",
+      "chess_char_9_22_a"
+    ],
+    "visibleMembers": [
+      "chess_char_4_04_a",
+      "chess_char_4_25_a",
+      "chess_char_4_26_a",
+      "chess_char_5_06_a",
+      "chess_char_9_01_a",
+      "chess_char_9_02_a",
+      "chess_char_9_04_a",
+      "chess_char_9_06_a",
+      "chess_char_9_09_a",
+      "chess_char_9_10_a",
+      "chess_char_9_22_a"
+    ],
+    "spec": {
+      "tiers": [
+        {
+          "need": "3 distinct",
+          "effect": "卡兹戴尔 members deal +20% + 0.9%×L damage to 眩晕/停顿/束缚/不动 enemies."
+        },
+        {
+          "need": "6 distinct",
+          "effect": "All 卡兹戴尔 members +50 ASPD and their attacks deal 20% of ATK as TRUE damage."
+        },
+        {
+          "need": "every 100 layers",
+          "effect": "Gain one 萨卡兹的断角 (chess_item_c_01_e_a)."
+        }
+      ]
+    }
+  },
+  "rhodesShip": {
+    "bondId": "rhodesShip",
+    "name": "罗德岛",
+    "identifier": 102,
+    "isCore": true,
+    "bondType": "SEASON",
+    "bondOrder": 2,
+    "powerIdList": [
+      "rhodes"
+    ],
+    "iconId": "icon_rhodesShip",
+    "activeCount": 3,
+    "thresholds": [
+      3,
+      6
+    ],
+    "maxCount": null,
+    "thresholdTemplate": "count_threshold_upward",
+    "countMode": "BOARD",
+    "countsHand": false,
+    "countsGoldenOnly": false,
+    "activeType": "BATTLE",
+    "isActiveInDeck": false,
+    "noStack": false,
+    "weight": 10,
+    "maxInactiveBondCount": -1,
+    "layerMilestones": [],
+    "desc": "【罗德岛】干员攻击力与生命值提升（受层数影响）\n<在场6名不同【罗德岛】干员>所有【罗德岛】干员受到的治疗效果提升20%，每2秒回复1点技力，每秒回复1%最大生命值与元素损伤",
+    "descRaw": "【罗德岛】干员<@ba.vup>攻击力</>与<@ba.vup>生命值</>提升<@autochess.gray>（受层数影响）</>\n<在场<@autochess.dgreen>6</>名不同【罗德岛】干员>所有【罗德岛】干员<@ba.vup>受到的治疗效果提升20%</>，每2秒回复<@ba.vup>1</>点技力，每秒回复<@ba.vup>1%</>最大生命值与<@ba.vup>元素损伤</>",
+    "effectId": "bondeffect_rhodes",
+    "effectName": "罗德岛",
+    "effectDesc": "【罗德岛】干员攻击力+{0:0%}、生命值+{1:0%}（受层数影响）\n<在场6名不同【罗德岛】干员>所有【罗德岛】干员受到的治疗效果提升20%，每2秒回复1点技力，每秒回复1%最大生命值与元素损伤",
+    "effectDescRaw": "【罗德岛】干员<@ba.vup>攻击力+{0:0%}</>、<@ba.vup>生命值+{1:0%}</><@ba.acrem>（受层数影响）</>\n<在场<@autochess.dgreen>6</>名不同【罗德岛】干员>所有【罗德岛】干员<@ba.vup>受到的治疗效果提升20%</>，每2秒回复<@ba.vup>1</>点技力，每秒回复<@ba.vup>1%</>最大生命值与<@ba.vup>元素损伤</>",
+    "effectDescParams": [
+      {
+        "index": 0,
+        "format": "0%",
+        "base": "base_atk",
+        "perStack": "atk_per_stack"
+      },
+      {
+        "index": 1,
+        "format": "0%",
+        "base": "base_max_hp",
+        "perStack": "max_hp_per_stack"
+      }
+    ],
+    "bb": {
+      "base_atk": 0.25,
+      "atk_per_stack": 0.005,
+      "base_max_hp": 0.2,
+      "max_hp_per_stack": 0.005,
+      "power_bond_char_cnt": 6,
+      "heal_scale": 0.2,
+      "sp_interval": 2,
+      "sp_per_interval": 1,
+      "regen_hp_scale": 0.01,
+      "regen_element_scale": 0.01
+    },
+    "bbStr": {
+      "key": "act2autochess_bond_eff_rhodes"
+    },
+    "buffs": [
+      {
+        "key": "env_gbuff_new",
+        "bb": {
+          "base_atk": 0.25,
+          "atk_per_stack": 0.005,
+          "base_max_hp": 0.2,
+          "max_hp_per_stack": 0.005,
+          "power_bond_char_cnt": 6,
+          "heal_scale": 0.2,
+          "sp_interval": 2,
+          "sp_per_interval": 1,
+          "regen_hp_scale": 0.01,
+          "regen_element_scale": 0.01
+        },
+        "bbStr": {
+          "key": "act2autochess_bond_eff_rhodes"
+        }
+      }
+    ],
+    "baseParams": [
+      "base_atk",
+      "base_max_hp"
+    ],
+    "perStackParams": [
+      "atk_per_stack",
+      "max_hp_per_stack"
+    ],
+    "members": [
+      "chess_char_2_09_a",
+      "chess_char_4_25_a",
+      "chess_char_4_26_a",
+      "chess_char_5_03_a",
+      "chess_char_6_12_a",
+      "chess_char_9_09_a",
+      "chess_char_9_11_a",
+      "chess_char_9_13_a",
+      "chess_char_9_14_a",
+      "chess_char_9_16_a",
+      "chess_char_9_18_a",
+      "chess_char_9_21_a",
+      "chess_char_9_22_a"
+    ],
+    "visibleMembers": [
+      "chess_char_2_09_a",
+      "chess_char_4_25_a",
+      "chess_char_4_26_a",
+      "chess_char_5_03_a",
+      "chess_char_6_12_a",
+      "chess_char_9_09_a",
+      "chess_char_9_11_a",
+      "chess_char_9_13_a",
+      "chess_char_9_14_a",
+      "chess_char_9_16_a",
+      "chess_char_9_18_a",
+      "chess_char_9_21_a",
+      "chess_char_9_22_a"
+    ],
+    "spec": {
+      "tiers": [
+        {
+          "need": "3 distinct",
+          "effect": "罗德岛 members ATK +25% + 0.5%×L, max HP +20% + 0.5%×L."
+        },
+        {
+          "need": "6 distinct",
+          "effect": "All 罗德岛 members: healing received +20%, +1 SP per 2 s, +1% max HP and elemental damage recovery per second."
+        }
+      ]
+    }
+  },
+  "indomShip": {
+    "members": [
+      "chess_char_1_05_a",
+      "chess_char_1_20_a",
+      "chess_char_2_03_a",
+      "chess_char_2_12_a",
+      "chess_char_3_16_a",
+      "chess_char_4_07_a",
+      "chess_char_5_06_a",
+      "chess_char_5_13_a",
+      "chess_char_6_06_a",
+      "chess_char_9_01_a",
+      "chess_char_9_06_a"
+    ],
+    "visibleMembers": [
+      "chess_char_1_20_a",
+      "chess_char_2_12_a",
+      "chess_char_3_16_a",
+      "chess_char_4_07_a",
+      "chess_char_5_06_a",
+      "chess_char_5_13_a",
+      "chess_char_6_06_a",
+      "chess_char_9_01_a",
+      "chess_char_9_06_a"
+    ]
+  },
+  "preciShip": {
+    "members": [
+      "chess_char_1_09_a",
+      "chess_char_1_17_a",
+      "chess_char_2_01_a",
+      "chess_char_3_11_a",
+      "chess_char_4_06_a",
+      "chess_char_4_14_a",
+      "chess_char_4_20_a",
+      "chess_char_5_02_a",
+      "chess_char_6_01_a",
+      "chess_char_6_05_a",
+      "chess_char_6_08_a",
+      "chess_char_6_12_a",
+      "chess_char_9_02_a",
+      "chess_char_9_10_a"
+    ],
+    "visibleMembers": [
+      "chess_char_1_09_a",
+      "chess_char_1_17_a",
+      "chess_char_2_01_a",
+      "chess_char_3_11_a",
+      "chess_char_4_06_a",
+      "chess_char_4_14_a",
+      "chess_char_4_20_a",
+      "chess_char_5_02_a",
+      "chess_char_6_01_a",
+      "chess_char_6_05_a",
+      "chess_char_6_08_a",
+      "chess_char_6_12_a",
+      "chess_char_9_02_a",
+      "chess_char_9_10_a"
+    ]
+  },
+  "deputShip": {
+    "members": [
+      "chess_char_1_06_a",
+      "chess_char_1_13_a",
+      "chess_char_2_14_a",
+      "chess_char_2_15_a",
+      "chess_char_3_15_a",
+      "chess_char_3_20_a",
+      "chess_char_4_03_a",
+      "chess_char_4_05_a",
+      "chess_char_4_21_a",
+      "chess_char_4_24_a",
+      "chess_char_5_16_a",
+      "chess_char_6_14_a",
+      "chess_char_6_20_a",
+      "chess_char_9_04_a"
+    ],
+    "visibleMembers": [
+      "chess_char_1_06_a",
+      "chess_char_1_13_a",
+      "chess_char_2_14_a",
+      "chess_char_3_20_a",
+      "chess_char_4_21_a",
+      "chess_char_4_24_a",
+      "chess_char_6_14_a",
+      "chess_char_6_20_a",
+      "chess_char_9_04_a"
+    ]
+  },
+  "raidShip": {
+    "members": [
+      "chess_char_1_18_a",
+      "chess_char_2_09_a",
+      "chess_char_3_05_a",
+      "chess_char_3_12_a",
+      "chess_char_4_04_a",
+      "chess_char_4_16_a",
+      "chess_char_5_06_a",
+      "chess_char_5_07_a",
+      "chess_char_6_15_a",
+      "chess_char_6_17_a"
+    ],
+    "visibleMembers": [
+      "chess_char_1_18_a",
+      "chess_char_2_09_a",
+      "chess_char_3_05_a",
+      "chess_char_3_12_a",
+      "chess_char_4_04_a",
+      "chess_char_4_16_a",
+      "chess_char_5_06_a",
+      "chess_char_5_07_a",
+      "chess_char_6_15_a",
+      "chess_char_6_17_a"
+    ]
+  },
+  "skillfulShip": {
+    "members": [
+      "chess_char_1_14_a",
+      "chess_char_2_04_a",
+      "chess_char_2_13_a",
+      "chess_char_3_02_a",
+      "chess_char_3_13_a",
+      "chess_char_3_21_a",
+      "chess_char_4_11_a",
+      "chess_char_4_13_a",
+      "chess_char_4_21_a",
+      "chess_char_5_06_a",
+      "chess_char_5_16_a",
+      "chess_char_6_16_a",
+      "chess_char_9_09_a",
+      "chess_char_9_10_a"
+    ],
+    "visibleMembers": [
+      "chess_char_1_14_a",
+      "chess_char_2_04_a",
+      "chess_char_2_13_a",
+      "chess_char_3_02_a",
+      "chess_char_3_13_a",
+      "chess_char_3_21_a",
+      "chess_char_4_11_a",
+      "chess_char_4_13_a",
+      "chess_char_4_21_a",
+      "chess_char_5_06_a",
+      "chess_char_6_16_a",
+      "chess_char_9_09_a",
+      "chess_char_9_10_a"
+    ]
+  },
+  "steadShip": {
+    "members": [
+      "chess_char_1_02_a",
+      "chess_char_1_10_a",
+      "chess_char_2_08_a",
+      "chess_char_2_17_a",
+      "chess_char_2_18_a",
+      "chess_char_3_05_a",
+      "chess_char_3_16_a",
+      "chess_char_4_01_a",
+      "chess_char_5_11_a",
+      "chess_char_6_03_a",
+      "chess_char_9_13_a",
+      "chess_char_9_21_a"
+    ],
+    "visibleMembers": [
+      "chess_char_1_02_a",
+      "chess_char_1_10_a",
+      "chess_char_2_08_a",
+      "chess_char_2_17_a",
+      "chess_char_2_18_a",
+      "chess_char_3_05_a",
+      "chess_char_3_16_a",
+      "chess_char_4_01_a",
+      "chess_char_5_11_a",
+      "chess_char_6_03_a",
+      "chess_char_9_13_a",
+      "chess_char_9_21_a"
+    ]
+  },
+  "visiShip": {
+    "members": [
+      "chess_char_1_11_a",
+      "chess_char_2_02_a",
+      "chess_char_3_03_a",
+      "chess_char_3_14_a",
+      "chess_char_4_04_a",
+      "chess_char_4_07_a",
+      "chess_char_5_01_a",
+      "chess_char_5_21_a",
+      "chess_char_6_12_a",
+      "chess_char_9_14_a",
+      "chess_char_9_22_a"
+    ],
+    "visibleMembers": [
+      "chess_char_2_02_a",
+      "chess_char_3_03_a",
+      "chess_char_3_14_a",
+      "chess_char_4_04_a",
+      "chess_char_4_07_a",
+      "chess_char_5_01_a",
+      "chess_char_5_21_a",
+      "chess_char_6_12_a",
+      "chess_char_9_14_a",
+      "chess_char_9_22_a"
+    ]
+  },
+  "victoriaShip": {
+    "members": [
+      "chess_char_1_06_a",
+      "chess_char_2_05_a",
+      "chess_char_2_10_a",
+      "chess_char_3_08_a",
+      "chess_char_4_07_a",
+      "chess_char_4_11_a",
+      "chess_char_5_03_a",
+      "chess_char_5_08_a",
+      "chess_char_6_07_a",
+      "chess_char_6_08_a",
+      "chess_char_9_16_a"
+    ],
+    "visibleMembers": [
+      "chess_char_1_06_a",
+      "chess_char_2_05_a",
+      "chess_char_2_10_a",
+      "chess_char_3_08_a",
+      "chess_char_4_07_a",
+      "chess_char_4_11_a",
+      "chess_char_5_03_a",
+      "chess_char_5_08_a",
+      "chess_char_6_07_a",
+      "chess_char_6_08_a",
+      "chess_char_9_16_a"
+    ]
+  },
+  "yanShip": {
+    "members": [
+      "chess_char_1_03_a",
+      "chess_char_2_04_a",
+      "chess_char_3_03_a",
+      "chess_char_3_04_a",
+      "chess_char_4_15_a",
+      "chess_char_4_17_a",
+      "chess_char_5_03_a",
+      "chess_char_5_12_a",
+      "chess_char_5_23_a",
+      "chess_char_6_03_a",
+      "chess_char_6_15_a",
+      "chess_char_9_16_a"
+    ],
+    "visibleMembers": [
+      "chess_char_1_03_a",
+      "chess_char_2_04_a",
+      "chess_char_3_03_a",
+      "chess_char_3_04_a",
+      "chess_char_4_17_a",
+      "chess_char_5_03_a",
+      "chess_char_5_12_a",
+      "chess_char_5_23_a",
+      "chess_char_6_03_a",
+      "chess_char_6_15_a",
+      "chess_char_9_16_a"
+    ]
+  },
+  "miraShip": {
+    "members": [
+      "chess_char_1_11_a",
+      "chess_char_2_11_a",
+      "chess_char_3_01_a",
+      "chess_char_3_19_a",
+      "chess_char_4_15_a",
+      "chess_char_4_26_a",
+      "chess_char_5_04_a",
+      "chess_char_5_15_a",
+      "chess_char_5_20_a",
+      "chess_char_5_23_a",
+      "chess_char_6_07_a",
+      "chess_char_9_18_a"
+    ],
+    "visibleMembers": [
+      "chess_char_2_11_a",
+      "chess_char_3_01_a",
+      "chess_char_3_19_a",
+      "chess_char_4_26_a",
+      "chess_char_5_15_a",
+      "chess_char_5_20_a",
+      "chess_char_5_23_a",
+      "chess_char_6_07_a",
+      "chess_char_9_18_a"
+    ],
+    "spec": {
+      "tiers": [
+        {
+          "need": "2 distinct (board + bench)",
+          "effect": "After each shop refresh, if the player has 0 free refreshes: with p = 0.18 + 0.003*L gain 1 free refresh."
+        },
+        {
+          "need": "every 100 layers",
+          "effect": "+20 gold."
+        }
+      ],
+      "formulas": {
+        "p": "min(1, 0.18 + 0.003*L)",
+        "goldPayouts": "20 * floor(L/100)"
+      },
+      "layerGain": "维娜·维多利亚 +2 per distinct-tier 奇迹; 录武官 获得时 +3; 伺夜 kills +1; 引星棘刺 +4 self & front; 华法琳 (奇迹 member) gives the operator in front \"开技能时 +1 own active bonds\" (data: <=7/battle, elite +2 <=14; PRTS 3/27 patch note says cap raised to 12/24).",
+      "notes": [
+        "blackboard probk = 0.3: meaning unknown (not in any description) [UNKNOWN]."
+      ]
+    }
+  }
+}

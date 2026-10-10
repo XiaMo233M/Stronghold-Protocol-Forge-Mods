@@ -1,0 +1,10 @@
+# 操作系统与编辑器的垃圾文件
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# 打包中间产物（发布用的 zip 不进版本库）
+*.zip
+!packs/**/*.zip

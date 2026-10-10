@@ -1,0 +1,109 @@
+{
+  "id": "fanpack-kazdel-rhodes",
+  "name": "同人内容包：卡兹戴尔 / 罗德岛盟约",
+  "version": "1.0.0",
+  "author": "原件未署名（上游 sganggs/Stronghold-Protocol 的 fanpack 分支回移；见 NOTICE-来源说明.md）",
+  "license": "非商业同人作品；《明日方舟》及其素材版权归鹰角网络所有。",
+  "description": "社区 mod「fanpack-mod」的内容包部分：卡兹戴尔 / 罗德岛两条盟约、包内棋子 20 名（26 条新记录）、装备 5 件（10 条）、特质 34 条、召唤物 4 条，以及两条盟约徽记与 4 张装备图标。原件的行为层（kit / match 元注册表 / 引擎钩子）与客户端屏幕、i18n、口径变体没有接口，见 README-改写说明.md。",
+  "gameVersion": "0.2.3",
+  "game": "0.2.x",
+  "api": ">=1 <2",
+  "combat": true,
+  "content": [
+    "bonds",
+    "chess",
+    "garrisons",
+    "items",
+    "tokens"
+  ],
+  "overrides": [
+    "bonds:deputShip",
+    "bonds:indomShip",
+    "bonds:miraShip",
+    "bonds:preciShip",
+    "bonds:raidShip",
+    "bonds:skillfulShip",
+    "bonds:steadShip",
+    "bonds:victoriaShip",
+    "bonds:visiShip",
+    "bonds:yanShip",
+    "chess:chess_char_2_09_a",
+    "chess:chess_char_2_09_b",
+    "chess:chess_char_4_04_a",
+    "chess:chess_char_4_04_b",
+    "chess:chess_char_4_25_a",
+    "chess:chess_char_4_25_b",
+    "chess:chess_char_4_26_a",
+    "chess:chess_char_4_26_b",
+    "chess:chess_char_5_03_a",
+    "chess:chess_char_5_03_b",
+    "chess:chess_char_5_06_a",
+    "chess:chess_char_5_06_b",
+    "chess:chess_char_5_23_a",
+    "chess:chess_char_5_23_b",
+    "chess:chess_char_6_12_a",
+    "chess:chess_char_6_12_b",
+    "garrisons:garrison_10_a",
+    "garrisons:garrison_10_b",
+    "garrisons:garrison_35_a",
+    "garrisons:garrison_35_b",
+    "items:chess_item_5_02_e_a",
+    "items:chess_item_5_02_e_b",
+    "tokens:token_10012_rosmon_shield"
+  ],
+  "bondIcons": {
+    "kazdelShip": "bond_kazdelShip.png",
+    "rhodesShip": "bond_rhodesShip.png"
+  },
+  "itemIcons": {
+    "trap_c_01": "trap_c_01.png",
+    "trap_c_02": "trap_c_02.png",
+    "trap_c_03": "trap_c_03.png",
+    "trap_c_04": "trap_c_04.png"
+  },
+  "server": {
+    "battle": {
+      "module": "server/battle/bonds.mjs"
+    },
+    "meta": {
+      "module": "server/meta/bonds.mjs",
+      "registers": [
+        "bond:kazdelShip"
+      ]
+    }
+  },
+  "client": {
+    "panels": [
+      {
+        "id": "equipment",
+        "slot": "root.overlays",
+        "module": "ui/equipment.js",
+        "order": 20,
+        "styles": [
+          "css/fanpack.css"
+        ],
+        "data": [
+          "items",
+          "bonds",
+          "assets"
+        ]
+      },
+      {
+        "id": "alliances",
+        "slot": "root.overlays",
+        "module": "ui/alliances.js",
+        "order": 21,
+        "styles": [
+          "css/fanpack.css"
+        ],
+        "data": [
+          "bonds",
+          "bands",
+          "chess",
+          "items",
+          "assets"
+        ]
+      }
+    ]
+  }
+}

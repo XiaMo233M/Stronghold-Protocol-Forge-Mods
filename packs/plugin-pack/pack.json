@@ -1,0 +1,122 @@
+{
+  "id": "plugin-pack",
+  "name": "卫戍协议 插件包（工坊包改写版）",
+  "version": "0.3.1",
+  "author": "Ausevay（上游《卫戍协议：盟约》作者）；本目录由 Stronghold-Protocol 工坊包接口改写",
+  "license": "CC0-1.0",
+  "description": "把「卫戍协议 插件包 v0.2.1」里能由包接口表达的那些件，改写成一份真正的工坊包：在线人数药丸、好友服务器提示条、登录页公告与鸣谢、房间聊天、快捷短语、卡面标记、皮肤选择器、快速匹配浮层、联机面板、头像选择器，外加一份自带样式表与四语种补词条。原件里那 10 件「整份替换引擎文件 / 改 wire 协议 / 改共享常量 / 改大厅本体」的件不在这里 —— 逐件理由见 说明/pluginpack-rewrite.md。",
+  "api": ">=1 <2",
+  "client": {
+    "panels": [
+      {
+        "id": "chat",
+        "slot": "screen.game.overlay",
+        "module": "ui/chat.js",
+        "styles": [
+          "css/plugin-pack.css"
+        ],
+        "order": 20,
+        "messages": [
+          "chat"
+        ],
+        "data": [
+          "chess",
+          "bonds",
+          "backups",
+          "enemies"
+        ]
+      },
+      {
+        "id": "card-marks",
+        "slot": "screen.game.shopCard",
+        "module": "ui/cardMarks.js",
+        "order": 10,
+        "data": [
+          "chess",
+          "bonds",
+          "backups"
+        ],
+        "wraps": [
+          {
+            "component": "game.shopCard",
+            "mode": "wrap"
+          }
+        ]
+      },
+      {
+        "id": "server-status",
+        "slot": "screen.game.hud",
+        "module": "ui/serverStatus.js",
+        "styles": [
+          "css/plugin-pack.css"
+        ],
+        "order": 30
+      },
+      {
+        "id": "guest-strip",
+        "slot": "root.overlays",
+        "module": "ui/serverLink.js",
+        "styles": [
+          "css/plugin-pack.css"
+        ],
+        "order": 40
+      },
+      {
+        "id": "notice-credits",
+        "slot": "root.overlays",
+        "module": "ui/noticePanels.js",
+        "styles": [
+          "css/plugin-pack.css"
+        ],
+        "order": 50,
+        "data": [
+          "notices"
+        ]
+      },
+      {
+        "id": "skins",
+        "slot": "screen.loadout.detail",
+        "module": "ui/skinPicker.js",
+        "data": [
+          "assets"
+        ]
+      },
+      {
+        "id": "match-overlay",
+        "slot": "root.guide",
+        "module": "ui/matchOverlay.js",
+        "styles": [
+          "css/plugin-pack.css"
+        ],
+        "order": 5
+      },
+      {
+        "id": "lan-panel",
+        "slot": "root.overlays",
+        "module": "ui/lanPanel.js",
+        "styles": [
+          "css/plugin-pack.css"
+        ],
+        "order": 45
+      },
+      {
+        "id": "avatar-picker",
+        "slot": "root.overlays",
+        "module": "ui/avatarPicker.js",
+        "styles": [
+          "css/plugin-pack.css"
+        ],
+        "order": 60
+      }
+    ]
+  },
+  "i18n": {
+    "en": "i18n/en.json",
+    "ja": "i18n/ja.json",
+    "ko": "i18n/ko.json",
+    "zh-TW": "i18n/zh-TW.json"
+  },
+  "notices": {
+    "credits": "notice/credits.json"
+  }
+}

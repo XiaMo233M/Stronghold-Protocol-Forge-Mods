@@ -1,0 +1,179 @@
+/* css/fanpack.css — 装备总览面板的样式。
+ *
+ * 这份是从原件的 `public/css/screens/equipment.css`（66 行）改写过来的：原件那份是**引擎样式表的一份替换**，
+ * 它假定 `public/css/screens/` 那一层已经有了 `.lo` / `.lo-card` 之类的骨架类。面板走
+ * `client.panels[].styles[]` 注入（排在引擎样式之后、`dispose` 时移除），所以这里**自带全部前缀**（`.fx-cx`）
+ * 而不是复用引擎的内部类名 —— 复用别人的内部类名正是「上游一改名我就坏」的写法。
+ *
+ * 只写引擎**已经定义**的主题变量（`--line` / `--mint-*` / `--text-*`），不新造变量名：一个不存在的变量名
+ * 写进去等于什么都没发生（那种静默失败是这一层到处在消灭的形态）。
+ * `color-mix()` 前面必须有一条回退声明（Safari < 16.2 没有它，`test/client-static.test.js` 会红）。
+ */
+
+.fx-cx { position: fixed; inset: auto 0 0 0; z-index: 40; pointer-events: none; }
+.fx-cx > * { pointer-events: auto; }
+
+.fx-cx__open {
+  display: inline-flex; align-items: baseline; gap: .08rem;
+  margin: 0 0 .12rem .12rem; padding: .06rem .14rem;
+  font-size: .16rem; cursor: pointer;
+  color: var(--text-md); background: rgba(0, 0, 0, .42);
+  background: color-mix(in srgb, var(--mint-800) 55%, transparent);
+  border: 1px solid var(--line-2); border-radius: .08rem;
+}
+.fx-cx__open:hover { color: var(--mint-400); border-color: var(--mint-600); }
+.fx-cx__openmicro { font-size: .11rem; letter-spacing: .12em; color: var(--text-lo); }
+
+.fx-cx__panel {
+  position: fixed; inset: 4% 4%; display: flex; flex-direction: column;
+  background: rgba(0, 0, 0, .88);
+  background: color-mix(in srgb, var(--mint-800) 82%, #000);
+  border: 1px solid var(--line); border-radius: .12rem;
+  overflow: hidden;
+}
+.fx-cx__bar { display: flex; align-items: center; gap: .12rem; padding: .12rem .16rem; border-bottom: 1px solid var(--line); }
+.fx-cx__title { flex: 0 0 auto; font-size: .2rem; color: var(--text-hi); }
+.fx-cx__q {
+  flex: 1 1 auto; min-width: 0; padding: .05rem .1rem; font-size: .16rem;
+  color: var(--text-hi); background: transparent; border: 1px solid var(--line-2); border-radius: .05rem;
+}
+.fx-cx__q:focus { outline: none; border-color: var(--mint-600); }
+.fx-cx__close {
+  flex: 0 0 auto; padding: .05rem .14rem; font-size: .15rem; cursor: pointer;
+  color: var(--text-md); background: transparent; border: 1px solid var(--line-2); border-radius: .05rem;
+}
+.fx-cx__close:hover { color: var(--orange); border-color: var(--orange); }
+
+.fx-cx__chips { display: flex; flex-wrap: wrap; gap: .06rem; padding: .08rem .16rem 0; }
+.fx-cx__chip {
+  display: inline-flex; align-items: center; gap: .05rem;
+  padding: .03rem .1rem; font-size: .14rem; cursor: pointer;
+  color: var(--text-lo); background: transparent; border: 1px solid var(--line-2); border-radius: .05rem;
+}
+.fx-cx__chip.is-on { color: var(--text-on-mint); background: var(--mint-500); border-color: var(--mint-500); }
+.fx-cx__bicon { width: .2rem; height: .2rem; object-fit: contain; }
+
+.fx-cx__body { flex: 1 1 auto; display: flex; min-height: 0; }
+.fx-cx__grid { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: .12rem .16rem; }
+.fx-cx__empty { padding: .2rem; font-size: .15rem; color: var(--text-lo); }
+.fx-cx__group { margin-bottom: .14rem; }
+.fx-cx__tier { font-family: var(--font-num); font-size: .15rem; color: var(--mint-400); margin-bottom: .05rem; }
+.fx-cx__row { display: flex; flex-wrap: wrap; gap: .08rem; }
+.fx-cx__card {
+  display: flex; flex-direction: column; align-items: center; gap: .04rem;
+  width: 1.5rem; padding: .08rem .06rem; cursor: pointer;
+  color: var(--text-md); background: transparent;
+  border: 1px solid var(--line-2); border-radius: .08rem;
+}
+.fx-cx__card.is-sel { border-color: var(--mint-500); color: var(--text-hi); }
+.fx-cx__icon { width: .62rem; height: .62rem; object-fit: contain; }
+.fx-cx__name { font-size: .14rem; text-align: center; word-break: break-word; }
+.fx-cx__gold { font-size: .11rem; color: var(--gold); }
+
+.fx-cx__detail { flex: 0 0 34%; overflow-y: auto; padding: .12rem .16rem; border-left: 1px solid var(--line); }
+.fx-cx__dname { font-size: .19rem; color: var(--text-hi); margin-bottom: .06rem; }
+.fx-cx__dbond { display: flex; align-items: center; gap: .06rem; font-size: .15rem; color: var(--mint-400); margin-bottom: .1rem; }
+.fx-cx__note { font-size: .13rem; color: var(--orange-hi); margin-bottom: .08rem; }
+.fx-cx__eff { margin-bottom: .12rem; }
+.fx-cx__eff b { display: block; font-size: .14rem; color: var(--text-lo); margin-bottom: .03rem; }
+.fx-cx__eff p { margin: 0; font-size: .15rem; line-height: 1.5; color: var(--text-hi); }
+
+@media (max-width: 720px) {
+  .fx-cx__panel { inset: 2% 2%; }
+  .fx-cx__body { flex-direction: column; }
+  .fx-cx__detail { flex: 0 0 auto; border-left: 0; border-top: 1px solid var(--line); }
+}
+
+
+/* ---- 盟约策略面板（ui/alliances.js） ------------------------------------------------------------------- */
+/* 与装备总览同一套令牌与写法：`.fx-al` 自带前缀、只用引擎已定义的主题变量、`color-mix()` 前面有回退。 */
+
+.fx-al { position: fixed; inset: auto 0 0 0; z-index: 41; pointer-events: none; }
+.fx-al > * { pointer-events: auto; }
+
+.fx-al__open {
+  display: inline-flex; align-items: baseline; gap: .08rem;
+  margin: 0 0 .12rem .12rem; padding: .06rem .14rem;
+  font-size: .16rem; cursor: pointer;
+  color: var(--text-md); background: rgba(0, 0, 0, .42);
+  background: color-mix(in srgb, var(--mint-800) 55%, transparent);
+  border: 1px solid var(--line-2); border-radius: .08rem;
+}
+.fx-al__open:hover { color: var(--mint-400); border-color: var(--mint-600); }
+.fx-al__openmicro { font-size: .11rem; letter-spacing: .12em; color: var(--text-lo); }
+
+.fx-al__panel {
+  position: fixed; inset: 4% 4%; display: flex; flex-direction: column;
+  background: rgba(0, 0, 0, .88);
+  background: color-mix(in srgb, var(--mint-800) 82%, #000);
+  border: 1px solid var(--line); border-radius: .12rem; overflow: hidden;
+}
+.fx-al__bar { display: flex; align-items: center; gap: .12rem; padding: .12rem .16rem; border-bottom: 1px solid var(--line); }
+.fx-al__title { flex: 0 0 auto; font-size: .2rem; color: var(--text-hi); }
+.fx-al__q {
+  flex: 1 1 auto; min-width: 0; padding: .05rem .1rem; font-size: .16rem;
+  color: var(--text-hi); background: transparent; border: 1px solid var(--line-2); border-radius: .05rem;
+}
+.fx-al__q:focus { outline: none; border-color: var(--mint-600); }
+.fx-al__close {
+  flex: 0 0 auto; padding: .05rem .14rem; font-size: .15rem; cursor: pointer;
+  color: var(--text-md); background: transparent; border: 1px solid var(--line-2); border-radius: .05rem;
+}
+.fx-al__close:hover { color: var(--orange); border-color: var(--orange); }
+
+.fx-al__tabs { display: flex; gap: .04rem; padding: .08rem .16rem 0; }
+.fx-al__tab {
+  padding: .04rem .14rem; font-size: .16rem; cursor: pointer;
+  color: var(--text-lo); background: transparent; border: 0; border-bottom: 2px solid transparent;
+}
+.fx-al__tab.is-on { color: var(--mint-400); border-bottom-color: var(--mint-500); }
+
+.fx-al__chips { display: flex; flex-wrap: wrap; gap: .06rem; padding: .08rem .16rem 0; }
+.fx-al__chip {
+  display: inline-flex; align-items: center; gap: .05rem;
+  padding: .03rem .1rem; font-size: .14rem; cursor: pointer;
+  color: var(--text-lo); background: transparent; border: 1px solid var(--line-2); border-radius: .05rem;
+}
+.fx-al__chip.is-on { color: var(--text-on-mint); background: var(--mint-500); border-color: var(--mint-500); }
+.fx-al__bicon { width: .2rem; height: .2rem; object-fit: contain; }
+
+.fx-al__body { flex: 1 1 auto; display: flex; min-height: 0; }
+.fx-al__list { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: .12rem .16rem; display: flex; flex-wrap: wrap; gap: .08rem; align-content: flex-start; }
+.fx-al__empty { padding: .2rem; font-size: .15rem; color: var(--text-lo); }
+.fx-al__card {
+  position: relative; display: flex; flex-direction: column; gap: .04rem;
+  width: 3.2rem; padding: .1rem; cursor: pointer; text-align: left;
+  color: var(--text-md); background: transparent; border: 1px solid var(--line-2); border-radius: .08rem;
+}
+.fx-al__card.is-core { border-color: var(--mint-700); }
+.fx-al__card.is-sel { border-color: var(--mint-500); color: var(--text-hi); }
+.fx-al__icon { width: .46rem; height: .46rem; object-fit: contain; }
+.fx-al__name { font-size: .17rem; color: var(--text-hi); }
+.fx-al__kind { font-size: .13rem; color: var(--text-lo); }
+.fx-al__th { font-size: .13rem; color: var(--mint-400); }
+
+.fx-al__detail { flex: 0 0 38%; overflow-y: auto; padding: .12rem .16rem; border-left: 1px solid var(--line); }
+.fx-al__dhead { display: flex; align-items: center; gap: .08rem; margin-bottom: .06rem; }
+.fx-al__dicon { width: .44rem; height: .44rem; object-fit: contain; }
+.fx-al__dname { font-size: .2rem; color: var(--text-hi); }
+.fx-al__phase { font-size: .14rem; color: var(--mint-400); margin-bottom: .06rem; }
+.fx-al__count { font-size: .14rem; color: var(--text-lo); margin-bottom: .1rem; }
+
+.fx-al__eff { margin-bottom: .1rem; padding-bottom: .08rem; border-bottom: 1px solid var(--line-2); }
+.fx-al__effhead { display: flex; align-items: baseline; gap: .1rem; margin-bottom: .03rem; }
+.fx-al__layer { font-family: var(--font-num); font-size: .15rem; color: var(--mint-400); }
+.fx-al__need { font-size: .13rem; color: var(--text-lo); }
+.fx-al__efftext { margin: 0; font-size: .15rem; line-height: 1.5; color: var(--text-hi); }
+
+.fx-al__sect { margin-top: .12rem; }
+.fx-al__sect b { display: block; font-size: .14rem; color: var(--text-lo); margin-bottom: .05rem; }
+.fx-al__mrow { display: flex; flex-wrap: wrap; gap: .06rem .14rem; }
+.fx-al__m { display: inline-flex; align-items: center; gap: .05rem; font-size: .15rem; color: var(--text-hi); }
+.fx-al__micon { width: .32rem; height: .32rem; object-fit: contain; border-radius: .04rem; }
+
+@media (max-width: 720px) {
+  .fx-al__panel { inset: 2% 2%; }
+  .fx-al__body { flex-direction: column; }
+  .fx-al__detail { flex: 0 0 auto; border-left: 0; border-top: 1px solid var(--line); }
+  .fx-al__card { width: 100%; }
+}

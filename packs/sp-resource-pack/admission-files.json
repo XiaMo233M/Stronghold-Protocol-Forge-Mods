@@ -1,0 +1,97 @@
+{
+  "version": "77e70dbd8612",
+  "format": 1,
+  "note": "本题库是「完整资源包」的持有证明清单：服务端每次挑战随机抽 3 个 URL，客户端必须给出 sha256(nonce\\nurl\\nsha256(该文件字节))。url 与这里逐字相同。",
+  "minProofBytes": 1024,
+  "maxProofBytes": 262144,
+  "files": [
+    {
+      "url": "/fonts/bender-light.ttf",
+      "sha256": "630a96d3826fd8ba2104ab60ad39a248fd1e527307452a5ec3a18cbc4a013573"
+    },
+    {
+      "url": "/fonts/bender-regular.otf",
+      "sha256": "b394fe0c3a3aa85784e9928b3a0288c578b438a0db7aa14fbcc686da64143444"
+    },
+    {
+      "url": "/fonts/novecento-wide-normal.otf",
+      "sha256": "10aba19768ead3b038576d7baaf427d41b4a3b73d66f41c3ee7193ee65679156"
+    },
+    {
+      "url": "/fonts/bender-regular.woff2",
+      "sha256": "4a5a9b24bbf4fcaf234641b6ff7eeb3003b6cd368a839bb0e1bc495c28c94a68"
+    },
+    {
+      "url": "/fonts/novecento-wide-normal.woff2",
+      "sha256": "64a25c18276cbdd3349a8fbb1d4184c6aa051ecdf0351e305661132999c1c507"
+    },
+    {
+      "url": "/fonts/bender-light.woff2",
+      "sha256": "1a9c29195eecc9d8edc01e0f94c73ac2caa278db439b51155916cd231921f799"
+    },
+    {
+      "url": "/assets/module/dec-x.png",
+      "sha256": "817dc0268057746b78f9694fbe08a830bd7fe45518987157991efbebffb23e80"
+    },
+    {
+      "url": "/assets/ui/effectChoose/card_btn_icon.png",
+      "sha256": "e147889f851e8edf763f63f3eae5465210a2760b843fd7c3c4337051baa372e9"
+    },
+    {
+      "url": "/assets/ui/shopLevelSprite/shop_level_icon_4.png",
+      "sha256": "b0c06c0a68653a45d0959cf35d9380053f836fe9b616d48df3f2eb5c54776a60"
+    },
+    {
+      "url": "/fonts/fonts.css",
+      "sha256": "af82f8e4bffb870d1bb1b574815ad863fe7bcb047633554bfb06845a2fa1f9c4"
+    },
+    {
+      "url": "/assets/local/ui/outer/img_player_bkg.png",
+      "sha256": "b2038024309125eeb72184f09a54171a021491893edbfd76a99fee67a205c821"
+    },
+    {
+      "url": "/assets/module/rit-x.png",
+      "sha256": "29d6bfbd93c4a2ec990c3e2e2a6286a4249d39869d555fc784b3c46c457d9fd7"
+    },
+    {
+      "url": "/assets/ui/charEliteSprite/char_elite_base_1.png",
+      "sha256": "f804273b4938bcd6ba04a672f40c19071ac53517e68b0db31b01fc45d26756f4"
+    },
+    {
+      "url": "/assets/local/module/ccr-y.png",
+      "sha256": "e06fda321eafbe942d11b9f7890857df8a2491801fc09cf37068f7727b9ace11"
+    },
+    {
+      "url": "/assets/ui/modeIcon/mode_normal_icon.png",
+      "sha256": "223a6f751f2b5a0272f15cf26d75ad17ba52896a7c93d32c7f50cd920e8c3901"
+    },
+    {
+      "url": "/assets/local/ui/battle/img_chess_level_2.png",
+      "sha256": "6b6c8a6618511374329d58f12806c7d28e976ac03410bc080bd0ea8c146eca6d"
+    },
+    {
+      "url": "/assets/local/ui/common/img_chess_level_2.png",
+      "sha256": "6b6c8a6618511374329d58f12806c7d28e976ac03410bc080bd0ea8c146eca6d"
+    },
+    {
+      "url": "/assets/local/ui/outer/chess_level_icon_2.png",
+      "sha256": "6b6c8a6618511374329d58f12806c7d28e976ac03410bc080bd0ea8c146eca6d"
+    },
+    {
+      "url": "/assets/local/ui/outer/img_chess_level_2.png",
+      "sha256": "6b6c8a6618511374329d58f12806c7d28e976ac03410bc080bd0ea8c146eca6d"
+    },
+    {
+      "url": "/assets/local/ui/outer/select_deco_down1.png",
+      "sha256": "c8f1563cf27733a803f8db145529a4b10664219d797832129e00b040119cb65f"
+    },
+    {
+      "url": "/assets/local/ui/battle/round_text_01.png",
+      "sha256": "22291baee654d440e77c87b760cf30031e69598969a04899732d27550e5d915a"
+    },
+    {
+      "url": "/assets/module/fun-x.png",
+      "sha256": "36b81a6574c2ec6cfce02e10e5ece31d51b6bc1e33983787bf2832abcdd31e08"
+    }
+  ]
+}

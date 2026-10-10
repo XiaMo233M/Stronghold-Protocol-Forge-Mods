@@ -1,0 +1,656 @@
+{
+  "garrison_35_a": {
+    "desc": "<获得时>【炎】【维多利亚】【罗德岛】层数+5（无需激活盟约）",
+    "bbStr": {
+      "bond": "yanShip,victoriaShip,rhodesShip"
+    },
+    "descRaw": "<获得时>【炎】【维多利亚】【罗德岛】层数<@ba.vup>+5</>（无需激活盟约）"
+  },
+  "garrison_35_b": {
+    "desc": "<获得时>【炎】【维多利亚】【罗德岛】层数+10（无需激活盟约）",
+    "bbStr": {
+      "bond": "yanShip,victoriaShip,rhodesShip"
+    },
+    "descRaw": "<获得时>【炎】【维多利亚】【罗德岛】层数<@ba.vup>+10</>（无需激活盟约）"
+  },
+  "garrison_c_meteo_a": {
+    "garrisonId": "garrison_c_meteo_a",
+    "desc": "<战斗中>首次开启技能时，使已激活的【卡兹戴尔】层数+5",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_first_skill",
+    "charLevel": 0,
+    "bb": {
+      "gain": 5
+    },
+    "bbStr": {
+      "key": "custom_gain_first_skill"
+    },
+    "owners": [
+      "chess_char_9_02_a"
+    ],
+    "eventTypeDesc": "单次叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>首次开启技能时，使已激活的【卡兹戴尔】层数<@ba.vup>+5</>"
+  },
+  "garrison_c_meteo_b": {
+    "garrisonId": "garrison_c_meteo_b",
+    "desc": "<战斗中>首次开启技能时，使已激活的【卡兹戴尔】层数+10",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_first_skill",
+    "charLevel": 0,
+    "bb": {
+      "gain": 10
+    },
+    "bbStr": {
+      "key": "custom_gain_first_skill"
+    },
+    "owners": [
+      "chess_char_9_02_b"
+    ],
+    "eventTypeDesc": "单次叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>首次开启技能时，使已激活的【卡兹戴尔】层数<@ba.vup>+10</>"
+  },
+  "garrison_c_durnar_a": {
+    "garrisonId": "garrison_c_durnar_a",
+    "desc": "<战斗中>开启技能时，使已激活的【罗德岛】层数+2",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_skill",
+    "charLevel": 0,
+    "bb": {
+      "gain": 2
+    },
+    "bbStr": {
+      "key": "custom_gain_on_skill"
+    },
+    "owners": [
+      "chess_char_9_13_a"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>开启技能时，使已激活的【罗德岛】层数<@ba.vup>+2</>"
+  },
+  "garrison_c_durnar_b": {
+    "garrisonId": "garrison_c_durnar_b",
+    "desc": "<战斗中>开启技能时，使已激活的【罗德岛】层数+4",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_skill",
+    "charLevel": 0,
+    "bb": {
+      "gain": 4
+    },
+    "bbStr": {
+      "key": "custom_gain_on_skill"
+    },
+    "owners": [
+      "chess_char_9_13_b"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>开启技能时，使已激活的【罗德岛】层数<@ba.vup>+4</>"
+  },
+  "garrison_c_shining_a": {
+    "garrisonId": "garrison_c_shining_a",
+    "desc": "<战斗中>每次治疗我方单位使已激活的盟约层数+1，最多10层",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_heal",
+    "charLevel": 0,
+    "bb": {
+      "gain": 1,
+      "max": 10
+    },
+    "bbStr": {
+      "key": "custom_gain_on_heal"
+    },
+    "owners": [
+      "chess_char_9_04_a"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>每次治疗我方单位使已激活的盟约层数<@ba.vup>+1</>，最多10层"
+  },
+  "garrison_c_shining_b": {
+    "garrisonId": "garrison_c_shining_b",
+    "desc": "<战斗中>每次治疗我方单位使已激活的盟约层数+2，最多20层",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_heal",
+    "charLevel": 0,
+    "bb": {
+      "gain": 2,
+      "max": 20
+    },
+    "bbStr": {
+      "key": "custom_gain_on_heal"
+    },
+    "owners": [
+      "chess_char_9_04_b"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>每次治疗我方单位使已激活的盟约层数<@ba.vup>+2</>，最多20层"
+  },
+  "garrison_c_hodrer_a": {
+    "garrisonId": "garrison_c_hodrer_a",
+    "desc": "<战斗中>受到治疗和伤害后使自身已激活的盟约层数+1，最多20层",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_hurt_or_heal",
+    "charLevel": 0,
+    "bb": {
+      "gain": 1,
+      "max": 20
+    },
+    "bbStr": {
+      "key": "custom_gain_on_hurt_or_heal"
+    },
+    "owners": [
+      "chess_char_9_06_a"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>受到治疗和伤害后使自身已激活的盟约层数<@ba.vup>+1</>，最多20层"
+  },
+  "garrison_c_hodrer_b": {
+    "garrisonId": "garrison_c_hodrer_b",
+    "desc": "<战斗中>受到治疗和伤害后使自身已激活的盟约层数+2，最多40层",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_hurt_or_heal",
+    "charLevel": 0,
+    "bb": {
+      "gain": 2,
+      "max": 40
+    },
+    "bbStr": {
+      "key": "custom_gain_on_hurt_or_heal"
+    },
+    "owners": [
+      "chess_char_9_06_b"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>受到治疗和伤害后使自身已激活的盟约层数<@ba.vup>+2</>，最多40层"
+  },
+  "garrison_c_ascln_k_a": {
+    "garrisonId": "garrison_c_ascln_k_a",
+    "desc": "<战斗中>攻击范围内每有2个敌人被击倒时自身所属盟约层数+3（每场战斗最多24层）",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_kills",
+    "charLevel": 0,
+    "bb": {
+      "per_kills": 2,
+      "gain": 3,
+      "max": 24
+    },
+    "bbStr": {
+      "key": "custom_gain_on_kills"
+    },
+    "owners": [
+      "chess_char_9_09_a"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>攻击范围内每有2个敌人被击倒时自身所属盟约层数<@ba.vup>+3</>（每场战斗最多24层）"
+  },
+  "garrison_c_ascln_k_b": {
+    "garrisonId": "garrison_c_ascln_k_b",
+    "desc": "<战斗中>攻击范围内每有2个敌人被击倒时自身所属盟约层数+6（每场战斗最多48层）",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_kills",
+    "charLevel": 0,
+    "bb": {
+      "per_kills": 2,
+      "gain": 6,
+      "max": 48
+    },
+    "bbStr": {
+      "key": "custom_gain_on_kills"
+    },
+    "owners": [
+      "chess_char_9_09_b"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>攻击范围内每有2个敌人被击倒时自身所属盟约层数<@ba.vup>+6</>（每场战斗最多48层）"
+  },
+  "garrison_c_wisdel_a": {
+    "garrisonId": "garrison_c_wisdel_a",
+    "desc": "<战斗中>攻击范围内每有一个敌人处于眩晕、束缚时使已激活的【卡兹戴尔】盟约层数+1",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_controlled",
+    "charLevel": 0,
+    "bb": {
+      "gain": 1,
+      "interval": 1
+    },
+    "bbStr": {
+      "key": "custom_gain_on_controlled"
+    },
+    "owners": [
+      "chess_char_9_10_a"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>攻击范围内每有一个敌人处于眩晕、束缚时使已激活的【卡兹戴尔】盟约层数<@ba.vup>+1</>"
+  },
+  "garrison_c_wisdel_b": {
+    "garrisonId": "garrison_c_wisdel_b",
+    "desc": "<战斗中>攻击范围内每有一个敌人处于眩晕、束缚时使已激活的【卡兹戴尔】盟约层数+2",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_controlled",
+    "charLevel": 0,
+    "bb": {
+      "gain": 2,
+      "interval": 1
+    },
+    "bbStr": {
+      "key": "custom_gain_on_controlled"
+    },
+    "owners": [
+      "chess_char_9_10_b"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>攻击范围内每有一个敌人处于眩晕、束缚时使已激活的【卡兹戴尔】盟约层数<@ba.vup>+2</>"
+  },
+  "garrison_c_frostl_a": {
+    "garrisonId": "garrison_c_frostl_a",
+    "desc": "<战斗中>每次攻击不同的敌人时，使已激活的【罗德岛】层数+1（每场战斗至多10层）",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_new_target",
+    "charLevel": 0,
+    "bb": {
+      "gain": 1,
+      "max": 10
+    },
+    "bbStr": {
+      "key": "custom_gain_on_new_target"
+    },
+    "owners": [
+      "chess_char_9_11_a"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>每次攻击不同的敌人时，使已激活的【罗德岛】层数<@ba.vup>+1</>（每场战斗至多10层）"
+  },
+  "garrison_c_frostl_b": {
+    "garrisonId": "garrison_c_frostl_b",
+    "desc": "<战斗中>每次攻击不同的敌人时，使已激活的【罗德岛】层数+2（每场战斗至多20层）",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_on_new_target",
+    "charLevel": 0,
+    "bb": {
+      "gain": 2,
+      "max": 20
+    },
+    "bbStr": {
+      "key": "custom_gain_on_new_target"
+    },
+    "owners": [
+      "chess_char_9_11_b"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<战斗中>每次攻击不同的敌人时，使已激活的【罗德岛】层数<@ba.vup>+2</>（每场战斗至多20层）"
+  },
+  "garrison_10_a": {
+    "bbStr": {
+      "key": "act1autochess_gar_eff_attrByBond",
+      "bond_id": "yanShip,kjeragShip,sargonShip,lateranoShip,victoriaShip,egirShip,kazimierzShip,siracusaShip,kazdelShip,rhodesShip"
+    }
+  },
+  "garrison_10_b": {
+    "bbStr": {
+      "key": "act1autochess_gar_eff_attrByBond",
+      "bond_id": "yanShip,kjeragShip,sargonShip,lateranoShip,victoriaShip,egirShip,kazimierzShip,siracusaShip,kazdelShip,rhodesShip"
+    }
+  },
+  "garrison_c_logos_a": {
+    "garrisonId": "garrison_c_logos_a",
+    "desc": "核心盟约和【远见】每叠加3层，本干员攻击力+1%",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_scale_bonds_layers",
+    "charLevel": 0,
+    "bb": {
+      "per_layers": 3,
+      "atk": 0.01
+    },
+    "bbStr": {
+      "key": "custom_scale_bonds_layers",
+      "bonds": "visiShip"
+    },
+    "owners": [
+      "chess_char_9_22_a"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "核心盟约和【远见】每叠加3层，本干员攻击力<@ba.vup>+1%</>"
+  },
+  "garrison_c_logos_b": {
+    "garrisonId": "garrison_c_logos_b",
+    "desc": "核心盟约和【远见】每叠加3层，本干员攻击力+2%",
+    "eventType": "IN_BATTLE",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_scale_bonds_layers",
+    "charLevel": 0,
+    "bb": {
+      "per_layers": 3,
+      "atk": 0.02
+    },
+    "bbStr": {
+      "key": "custom_scale_bonds_layers",
+      "bonds": "visiShip"
+    },
+    "owners": [
+      "chess_char_9_22_b"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "核心盟约和【远见】每叠加3层，本干员攻击力<@ba.vup>+2%</>"
+  },
+  "garrison_c_humus_a": {
+    "garrisonId": "garrison_c_humus_a",
+    "desc": "<获得时>下一次购买装备和干员所需资金-1",
+    "eventType": "SERVER_GAIN",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_discount_next_buy",
+    "charLevel": 0,
+    "bb": {
+      "discount": 1
+    },
+    "bbStr": {
+      "key": "custom_discount_next_buy"
+    },
+    "owners": [
+      "chess_char_2_09_a"
+    ],
+    "eventTypeDesc": "整备能力",
+    "eventTypeIcon": "icon_gold",
+    "descRaw": "<获得时>下一次购买装备和干员所需资金<@ba.vup>-1</>"
+  },
+  "garrison_c_humus_b": {
+    "garrisonId": "garrison_c_humus_b",
+    "desc": "<获得时>下一次购买装备和干员所需资金-2",
+    "eventType": "SERVER_GAIN",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_discount_next_buy",
+    "charLevel": 0,
+    "bb": {
+      "discount": 2
+    },
+    "bbStr": {
+      "key": "custom_discount_next_buy"
+    },
+    "owners": [
+      "chess_char_2_09_b"
+    ],
+    "eventTypeDesc": "整备能力",
+    "eventTypeIcon": "icon_gold",
+    "descRaw": "<获得时>下一次购买装备和干员所需资金<@ba.vup>-2</>"
+  },
+  "garrison_c_amiya_a": {
+    "garrisonId": "garrison_c_amiya_a",
+    "desc": "<获得时>获得1件“精打细算玩偶”",
+    "eventType": "SERVER_GAIN",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_grant_item_on_acquire",
+    "charLevel": 0,
+    "bb": {
+      "count": 1
+    },
+    "bbStr": {
+      "key": "custom_grant_item_on_acquire",
+      "item": "chess_item_2_05_e_a"
+    },
+    "owners": [
+      "chess_char_9_14_a"
+    ],
+    "eventTypeDesc": "整备能力",
+    "eventTypeIcon": "icon_gold",
+    "descRaw": "<获得时>获得1件“精打细算玩偶”"
+  },
+  "garrison_c_amiya_b": {
+    "garrisonId": "garrison_c_amiya_b",
+    "desc": "<获得时>获得2件“精打细算玩偶”",
+    "eventType": "SERVER_GAIN",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_grant_item_on_acquire",
+    "charLevel": 0,
+    "bb": {
+      "count": 2
+    },
+    "bbStr": {
+      "key": "custom_grant_item_on_acquire",
+      "item": "chess_item_2_05_e_a"
+    },
+    "owners": [
+      "chess_char_9_14_b"
+    ],
+    "eventTypeDesc": "整备能力",
+    "eventTypeIcon": "icon_gold",
+    "descRaw": "<获得时>获得2件“精打细算玩偶”"
+  },
+  "garrison_c_monstr_gain_a": {
+    "garrisonId": "garrison_c_monstr_gain_a",
+    "desc": "<获得时>获得1件“M3利爪”",
+    "eventType": "SERVER_GAIN",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_grant_item_on_acquire",
+    "charLevel": 0,
+    "bb": {
+      "count": 1
+    },
+    "bbStr": {
+      "key": "custom_grant_item_on_acquire",
+      "item": "chess_item_c_05_e_a"
+    },
+    "owners": [
+      "chess_char_9_21_a"
+    ],
+    "eventTypeDesc": "整备能力",
+    "eventTypeIcon": "icon_gold",
+    "descRaw": "<获得时>获得1件“M3利爪”"
+  },
+  "garrison_c_monstr_gain_b": {
+    "garrisonId": "garrison_c_monstr_gain_b",
+    "desc": "<获得时>获得2件“M3利爪”",
+    "eventType": "SERVER_GAIN",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_grant_item_on_acquire",
+    "charLevel": 0,
+    "bb": {
+      "count": 2
+    },
+    "bbStr": {
+      "key": "custom_grant_item_on_acquire",
+      "item": "chess_item_c_05_e_a"
+    },
+    "owners": [
+      "chess_char_9_21_b"
+    ],
+    "eventTypeDesc": "整备能力",
+    "eventTypeIcon": "icon_gold",
+    "descRaw": "<获得时>获得2件“M3利爪”"
+  },
+  "garrison_c_monstr_sell_a": {
+    "garrisonId": "garrison_c_monstr_sell_a",
+    "desc": "<售出时>获得1件“M3茧甲”",
+    "eventType": "SERVER_CHESS_SOLD",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_grant_item_on_sell",
+    "charLevel": 0,
+    "bb": {
+      "count": 1
+    },
+    "bbStr": {
+      "key": "custom_grant_item_on_sell",
+      "item": "chess_item_4_12_e_a"
+    },
+    "owners": [
+      "chess_char_9_21_a"
+    ],
+    "eventTypeDesc": "整备能力",
+    "eventTypeIcon": "icon_gold",
+    "descRaw": "<售出时>获得1件“M3茧甲”"
+  },
+  "garrison_c_monstr_sell_b": {
+    "garrisonId": "garrison_c_monstr_sell_b",
+    "desc": "<售出时>获得2件“M3茧甲”",
+    "eventType": "SERVER_CHESS_SOLD",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_grant_item_on_sell",
+    "charLevel": 0,
+    "bb": {
+      "count": 2
+    },
+    "bbStr": {
+      "key": "custom_grant_item_on_sell",
+      "item": "chess_item_4_12_e_a"
+    },
+    "owners": [
+      "chess_char_9_21_b"
+    ],
+    "eventTypeDesc": "整备能力",
+    "eventTypeIcon": "icon_gold",
+    "descRaw": "<售出时>获得2件“M3茧甲”"
+  },
+  "garrison_c_rosmon_a": {
+    "garrisonId": "garrison_c_rosmon_a",
+    "desc": "<休整期结束时>场上每有1名不同阶的【罗德岛】干员，使已激活的【罗德岛】层数+2",
+    "eventType": "SERVER_PREP_FIN",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_layers_prep_end_by_tiers",
+    "charLevel": 0,
+    "bb": {
+      "gain": 2
+    },
+    "bbStr": {
+      "key": "custom_gain_layers_prep_end_by_tiers",
+      "bond": "rhodesShip"
+    },
+    "owners": [
+      "chess_char_6_12_a"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<休整期结束时>场上每有1名不同阶的【罗德岛】干员，使已激活的【罗德岛】层数<@ba.vup>+2</>"
+  },
+  "garrison_c_rosmon_b": {
+    "garrisonId": "garrison_c_rosmon_b",
+    "desc": "<休整期结束时>场上每有1名不同阶的【罗德岛】干员，使已激活的【罗德岛】层数+4",
+    "eventType": "SERVER_PREP_FIN",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_gain_layers_prep_end_by_tiers",
+    "charLevel": 0,
+    "bb": {
+      "gain": 4
+    },
+    "bbStr": {
+      "key": "custom_gain_layers_prep_end_by_tiers",
+      "bond": "rhodesShip"
+    },
+    "owners": [
+      "chess_char_6_12_b"
+    ],
+    "eventTypeDesc": "持续叠加",
+    "eventTypeIcon": "icon_bond",
+    "descRaw": "<休整期结束时>场上每有1名不同阶的【罗德岛】干员，使已激活的【罗德岛】层数<@ba.vup>+4</>"
+  },
+  "garrison_c_kalts_a": {
+    "garrisonId": "garrison_c_kalts_a",
+    "desc": "<售出时>变为Mon3tr",
+    "eventType": "SERVER_CHESS_SOLD",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_transform_on_sell",
+    "charLevel": 0,
+    "bb": {
+      "count": 1
+    },
+    "bbStr": {
+      "key": "custom_transform_on_sell",
+      "chess": "chess_char_9_21_a"
+    },
+    "owners": [
+      "chess_char_9_18_a"
+    ],
+    "eventTypeDesc": "特异化",
+    "eventTypeIcon": "icon_support",
+    "descRaw": "<售出时>变为Mon3tr"
+  },
+  "garrison_c_kalts_b": {
+    "garrisonId": "garrison_c_kalts_b",
+    "desc": "<售出时>变为2个Mon3tr",
+    "eventType": "SERVER_CHESS_SOLD",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_transform_on_sell",
+    "charLevel": 0,
+    "bb": {
+      "count": 2
+    },
+    "bbStr": {
+      "key": "custom_transform_on_sell",
+      "chess": "chess_char_9_21_a"
+    },
+    "owners": [
+      "chess_char_9_18_b"
+    ],
+    "eventTypeDesc": "特异化",
+    "eventTypeIcon": "icon_support",
+    "descRaw": "<售出时>变为2个Mon3tr"
+  },
+  "garrison_c_huang_a": {
+    "garrisonId": "garrison_c_huang_a",
+    "desc": "<售出时>变为烛煌",
+    "eventType": "SERVER_CHESS_SOLD",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_transform_on_sell",
+    "charLevel": 0,
+    "bb": {
+      "count": 1
+    },
+    "bbStr": {
+      "key": "custom_transform_on_sell",
+      "chess": "chess_char_5_03_a"
+    },
+    "owners": [
+      "chess_char_9_16_a"
+    ],
+    "eventTypeDesc": "特异化",
+    "eventTypeIcon": "icon_support",
+    "descRaw": "<售出时>变为烛煌"
+  },
+  "garrison_c_huang_b": {
+    "garrisonId": "garrison_c_huang_b",
+    "desc": "<售出时>变为2个烛煌",
+    "eventType": "SERVER_CHESS_SOLD",
+    "effectType": "CUSTOM",
+    "effectKey": "custom_transform_on_sell",
+    "charLevel": 0,
+    "bb": {
+      "count": 2
+    },
+    "bbStr": {
+      "key": "custom_transform_on_sell",
+      "chess": "chess_char_5_03_a"
+    },
+    "owners": [
+      "chess_char_9_16_b"
+    ],
+    "eventTypeDesc": "特异化",
+    "eventTypeIcon": "icon_support",
+    "descRaw": "<售出时>变为2个烛煌"
+  }
+}

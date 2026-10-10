@@ -1,0 +1,234 @@
+{
+  "format": 1,
+  "version": "77e70dbd8612",
+  "files": [
+    {
+      "url": "/fonts/bender-light.ttf",
+      "size": 68256,
+      "hash": "5b500dbf6f2b",
+      "tier": 1
+    },
+    {
+      "url": "/fonts/bender-regular.otf",
+      "size": 52536,
+      "hash": "100187611b93",
+      "tier": 1
+    },
+    {
+      "url": "/fonts/novecento-wide-normal.otf",
+      "size": 45356,
+      "hash": "f3941e11e10d",
+      "tier": 1
+    },
+    {
+      "url": "/fonts/bender-regular.woff2",
+      "size": 22540,
+      "hash": "21baf7aef681",
+      "tier": 1
+    },
+    {
+      "url": "/fonts/novecento-wide-normal.woff2",
+      "size": 20516,
+      "hash": "8bef41b4084e",
+      "tier": 1
+    },
+    {
+      "url": "/fonts/bender-light.woff2",
+      "size": 20276,
+      "hash": "cb44f4a605e2",
+      "tier": 1
+    },
+    {
+      "url": "/assets/module/dec-x.png",
+      "size": 1061,
+      "hash": "8ddf9657cf31",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/effectChoose/card_btn_icon.png",
+      "size": 1059,
+      "hash": "d59c764a56a9",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/shopLevelSprite/shop_level_icon_4.png",
+      "size": 1058,
+      "hash": "a7725f6123ba",
+      "tier": 1
+    },
+    {
+      "url": "/fonts/fonts.css",
+      "size": 1046,
+      "hash": "d5f96d07b9e1",
+      "tier": 1
+    },
+    {
+      "url": "/assets/local/ui/outer/img_player_bkg.png",
+      "size": 1041,
+      "hash": "418e598d2867",
+      "tier": 2
+    },
+    {
+      "url": "/assets/module/rit-x.png",
+      "size": 1041,
+      "hash": "35a0ed182ff9",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/charEliteSprite/char_elite_base_1.png",
+      "size": 1040,
+      "hash": "11582dfc84c2",
+      "tier": 1
+    },
+    {
+      "url": "/assets/local/module/ccr-y.png",
+      "size": 1039,
+      "hash": "bd3fa84ecb81",
+      "tier": 2
+    },
+    {
+      "url": "/assets/ui/modeIcon/mode_normal_icon.png",
+      "size": 1039,
+      "hash": "a66fa17ecf92",
+      "tier": 1
+    },
+    {
+      "url": "/assets/local/ui/battle/img_chess_level_2.png",
+      "size": 1035,
+      "hash": "0c15a21ef0c6",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/common/img_chess_level_2.png",
+      "size": 1035,
+      "hash": "0c15a21ef0c6",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/chess_level_icon_2.png",
+      "size": 1035,
+      "hash": "0c15a21ef0c6",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/img_chess_level_2.png",
+      "size": 1035,
+      "hash": "0c15a21ef0c6",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/select_deco_down1.png",
+      "size": 1033,
+      "hash": "7618c8ce8dbc",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/battle/round_text_01.png",
+      "size": 1030,
+      "hash": "b11238ecfa5b",
+      "tier": 2
+    },
+    {
+      "url": "/assets/module/fun-x.png",
+      "size": 1025,
+      "hash": "9398ad185c4c",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/hudPanel/white_sprite.png",
+      "size": 122,
+      "hash": "d84d9d872b9c",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/shopPanel/white_sprite.png",
+      "size": 122,
+      "hash": "d84d9d872b9c",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/roundStartDialog/common_blank.png",
+      "size": 119,
+      "hash": "de2008847ee8",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/settle/cross_line.png",
+      "size": 119,
+      "hash": "31b792641203",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/bandChoose/connect_line.png",
+      "size": 117,
+      "hash": "920fac4e6434",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/equipSlot/img_equipslot_frame2.png",
+      "size": 115,
+      "hash": "f2d235c72810",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/settle/sp_boss_fx_line.png",
+      "size": 111,
+      "hash": "01b30abafe9a",
+      "tier": 1
+    },
+    {
+      "url": "/assets/ui/battleUi/attack_range_stand.png",
+      "size": 106,
+      "hash": "d92b5cfa9b44",
+      "tier": 1
+    },
+    {
+      "url": "/assets/local/ui/outer/frame_l.png",
+      "size": 96,
+      "hash": "8599023ed8be",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/image_atk_range_stand.png",
+      "size": 95,
+      "hash": "e23f63675a92",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/img_equip_icon_bg.png",
+      "size": 95,
+      "hash": "540d0a25240b",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/img_sprite_white.png",
+      "size": 95,
+      "hash": "e23f63675a92",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/sprite_white.png",
+      "size": 95,
+      "hash": "e23f63675a92",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/attr_icon_bg.png",
+      "size": 94,
+      "hash": "6048a7e7b8b4",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/img_split_line.png",
+      "size": 83,
+      "hash": "2745fdd0c4d8",
+      "tier": 2
+    },
+    {
+      "url": "/assets/local/ui/outer/img_selected_band_split.png",
+      "size": 79,
+      "hash": "71421ca8663b",
+      "tier": 2
+    }
+  ]
+}

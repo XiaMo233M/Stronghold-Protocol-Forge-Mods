@@ -1,0 +1,706 @@
+{
+  "chess_item_c_01_e_a": {
+    "id": "chess_item_c_01_e_a",
+    "baseId": "chess_item_c_01_e_a",
+    "goldenId": "chess_item_c_01_e_b",
+    "isGolden": false,
+    "trapId": "trap_c_01",
+    "iconId": "trap_c_01",
+    "identifier": 901,
+    "name": "萨卡兹的断角",
+    "itemType": "EQUIP",
+    "tier": 3,
+    "shopSortId": 900,
+    "price": 2,
+    "hideInShop": false,
+    "shopExcluded": false,
+    "shopExcludedBy": null,
+    "mergeable": true,
+    "upgradeNum": 2,
+    "upgradeChessId": "chess_item_c_01_e_b",
+    "duration": -1,
+    "giveBondId": "kazdelShip",
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_kazdel_horn",
+    "effectName": "萨卡兹的断角",
+    "desc": "攻击力+20%，生命值+20%",
+    "descRaw": "攻击力<@ba.vup>+20%</>，生命值<@ba.vup>+20%</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "atk": 0.2,
+          "max_hp": 0.2
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      }
+    ],
+    "params": {
+      "atk": 0.2,
+      "max_hp": 0.2,
+      "key": "attr_common_global_buff"
+    },
+    "category": "STAT",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier ATK% += atk and max HP% += max_hp (directMods, additive with every other percentage).",
+    "note": null,
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "折断的萨卡兹之角，仍存留着古老的怒意。"
+  },
+  "chess_item_c_01_e_b": {
+    "id": "chess_item_c_01_e_b",
+    "baseId": "chess_item_c_01_e_a",
+    "goldenId": "chess_item_c_01_e_b",
+    "isGolden": true,
+    "trapId": "trap_c_01",
+    "iconId": "trap_c_01",
+    "identifier": 902,
+    "name": "萨卡兹的断角",
+    "itemType": "EQUIP",
+    "tier": 3,
+    "shopSortId": 900,
+    "price": 2,
+    "hideInShop": true,
+    "shopExcluded": true,
+    "shopExcludedBy": "golden",
+    "mergeable": false,
+    "upgradeNum": 0,
+    "upgradeChessId": null,
+    "duration": -1,
+    "giveBondId": "kazdelShip",
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_kazdel_horn",
+    "effectName": "萨卡兹的断角",
+    "desc": "攻击力+50%，生命值+50%",
+    "descRaw": "攻击力<@ba.vup>+50%</>，生命值<@ba.vup>+50%</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "atk": 0.5,
+          "max_hp": 0.5
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      }
+    ],
+    "params": {
+      "atk": 0.5,
+      "max_hp": 0.5,
+      "key": "attr_common_global_buff"
+    },
+    "category": "STAT",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier ATK% += atk and max HP% += max_hp (directMods, additive with every other percentage).",
+    "note": null,
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "折断的萨卡兹之角，仍存留着古老的怒意。"
+  },
+  "chess_item_c_02_e_a": {
+    "id": "chess_item_c_02_e_a",
+    "baseId": "chess_item_c_02_e_a",
+    "goldenId": "chess_item_c_02_e_b",
+    "isGolden": false,
+    "trapId": "trap_c_02",
+    "iconId": "trap_c_02",
+    "identifier": 903,
+    "name": "提卡兹之根",
+    "itemType": "EQUIP",
+    "tier": 6,
+    "shopSortId": 900,
+    "price": 4,
+    "hideInShop": false,
+    "shopExcluded": false,
+    "shopExcludedBy": null,
+    "mergeable": true,
+    "upgradeNum": 2,
+    "upgradeChessId": "chess_item_c_02_e_b",
+    "duration": -1,
+    "giveBondId": "kazdelShip",
+    "giveBondBiasOnly": true,
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_kazdel_eye",
+    "effectName": "提卡兹之根",
+    "desc": "攻击力+20%，攻击速度+20；若携带者为【卡兹戴尔】干员，额外提升50%攻击力与50攻击速度\n若该【卡兹戴尔】盟约干员同时装备“萨卡兹的断角”，则使自身攻击范围内被眩晕、停顿、束缚、不动的敌人每秒受到一次自身攻击力20%的真实伤害",
+    "descRaw": "攻击力<@ba.vup>+20%</>，攻击速度<@ba.vup>+20</>；若携带者为<@ba.vup>【卡兹戴尔】</>干员，额外提升<@ba.vup>50%</>攻击力与<@ba.vup>50</>攻击速度\n<@ba.acrem>若该【卡兹戴尔】盟约干员同时装备“萨卡兹的断角”，则使自身攻击范围内被眩晕、停顿、束缚、不动的敌人每秒受到一次自身攻击力20%的真实伤害</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "atk": 0.2,
+          "attack_speed": 20
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      },
+      {
+        "key": "char_dynamic_ability_new",
+        "countType": "NONE",
+        "bb": {
+          "atk_scale": 0.5,
+          "attack_speed_scale": 50
+        },
+        "bbStr": {
+          "key": "act2autochess_equip_custom_kazdel_eye",
+          "bond": "kazdelShip"
+        }
+      }
+    ],
+    "params": {
+      "atk": 0.2,
+      "attack_speed": 20,
+      "key": "attr_common_global_buff",
+      "atk_scale": 0.5,
+      "attack_speed_scale": 50,
+      "bond": "kazdelShip"
+    },
+    "category": "SET",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier ATK% += atk, ASPD += attack_speed. A kazdelShip member additionally ATK% += atk_scale, ASPD += attack_speed_scale (bonds/custom.js; the 卡兹戴尔 condition).",
+    "note": "[ASSUMED] 攻击速度 in the text is read as a flat ASPD bonus (the game's ASPD is a flat stat).",
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "提卡兹的血脉在注视着你。"
+  },
+  "chess_item_c_02_e_b": {
+    "id": "chess_item_c_02_e_b",
+    "baseId": "chess_item_c_02_e_a",
+    "goldenId": "chess_item_c_02_e_b",
+    "isGolden": true,
+    "trapId": "trap_c_02",
+    "iconId": "trap_c_02",
+    "identifier": 904,
+    "name": "提卡兹之根",
+    "itemType": "EQUIP",
+    "tier": 6,
+    "shopSortId": 900,
+    "price": 4,
+    "hideInShop": true,
+    "shopExcluded": true,
+    "shopExcludedBy": "golden",
+    "mergeable": false,
+    "upgradeNum": 0,
+    "upgradeChessId": null,
+    "duration": -1,
+    "giveBondId": "kazdelShip",
+    "giveBondBiasOnly": true,
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_kazdel_eye",
+    "effectName": "提卡兹之根",
+    "desc": "攻击力+40%，攻击速度+40；若携带者为【卡兹戴尔】干员，额外提升100%攻击力与100攻击速度\n若该【卡兹戴尔】盟约干员同时装备“萨卡兹的断角”，则使自身攻击范围内被眩晕、停顿、束缚、不动的敌人每秒受到一次自身攻击力20%的真实伤害",
+    "descRaw": "攻击力<@ba.vup>+40%</>，攻击速度<@ba.vup>+40</>；若携带者为<@ba.vup>【卡兹戴尔】</>干员，额外提升<@ba.vup>100%</>攻击力与<@ba.vup>100</>攻击速度\n<@ba.acrem>若该【卡兹戴尔】盟约干员同时装备“萨卡兹的断角”，则使自身攻击范围内被眩晕、停顿、束缚、不动的敌人每秒受到一次自身攻击力20%的真实伤害</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "atk": 0.4,
+          "attack_speed": 40
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      },
+      {
+        "key": "char_dynamic_ability_new",
+        "countType": "NONE",
+        "bb": {
+          "atk_scale": 1,
+          "attack_speed_scale": 100
+        },
+        "bbStr": {
+          "key": "act2autochess_equip_custom_kazdel_eye",
+          "bond": "kazdelShip"
+        }
+      }
+    ],
+    "params": {
+      "atk": 0.4,
+      "attack_speed": 40,
+      "key": "attr_common_global_buff",
+      "atk_scale": 1,
+      "attack_speed_scale": 100,
+      "bond": "kazdelShip"
+    },
+    "category": "SET",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier ATK% += atk, ASPD += attack_speed. A kazdelShip member additionally ATK% += atk_scale, ASPD += attack_speed_scale (bonds/custom.js; the 卡兹戴尔 condition).",
+    "note": null,
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "提卡兹的血脉在注视着你。"
+  },
+  "chess_item_c_03_e_a": {
+    "id": "chess_item_c_03_e_a",
+    "baseId": "chess_item_c_03_e_a",
+    "goldenId": "chess_item_c_03_e_b",
+    "isGolden": false,
+    "trapId": "trap_c_03",
+    "iconId": "trap_c_03",
+    "identifier": 905,
+    "name": "罗德岛抑制环",
+    "itemType": "EQUIP",
+    "tier": 2,
+    "shopSortId": 900,
+    "price": 2,
+    "hideInShop": false,
+    "shopExcluded": false,
+    "shopExcludedBy": null,
+    "mergeable": true,
+    "upgradeNum": 2,
+    "upgradeChessId": "chess_item_c_03_e_b",
+    "duration": -1,
+    "giveBondId": "rhodesShip",
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_rhodes_ring",
+    "effectName": "罗德岛抑制环",
+    "desc": "生命值+10%且受到的元素损伤-10%",
+    "descRaw": "生命值<@ba.vup>+10%</>且受到的元素损伤<@ba.vup>-10%</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "max_hp": 0.1
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      },
+      {
+        "key": "char_dynamic_ability_new",
+        "countType": "NONE",
+        "bb": {
+          "elem_taken": 0.1
+        },
+        "bbStr": {
+          "key": "act2autochess_equip_custom_rhodes_ring"
+        }
+      }
+    ],
+    "params": {
+      "max_hp": 0.1,
+      "key": "attr_common_global_buff",
+      "elem_taken": 0.1
+    },
+    "category": "STAT",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier max HP% += max_hp; element gauge intake x(1 - elem_taken) (elemTakenMul; bonds/custom.js).",
+    "note": null,
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "用来压制源石活性化反应的环形装置。"
+  },
+  "chess_item_c_03_e_b": {
+    "id": "chess_item_c_03_e_b",
+    "baseId": "chess_item_c_03_e_a",
+    "goldenId": "chess_item_c_03_e_b",
+    "isGolden": true,
+    "trapId": "trap_c_03",
+    "iconId": "trap_c_03",
+    "identifier": 906,
+    "name": "罗德岛抑制环",
+    "itemType": "EQUIP",
+    "tier": 2,
+    "shopSortId": 900,
+    "price": 2,
+    "hideInShop": true,
+    "shopExcluded": true,
+    "shopExcludedBy": "golden",
+    "mergeable": false,
+    "upgradeNum": 0,
+    "upgradeChessId": null,
+    "duration": -1,
+    "giveBondId": "rhodesShip",
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_rhodes_ring",
+    "effectName": "罗德岛抑制环",
+    "desc": "生命值+20%且受到的元素损伤-20%",
+    "descRaw": "生命值<@ba.vup>+20%</>且受到的元素损伤<@ba.vup>-20%</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "max_hp": 0.2
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      },
+      {
+        "key": "char_dynamic_ability_new",
+        "countType": "NONE",
+        "bb": {
+          "elem_taken": 0.2
+        },
+        "bbStr": {
+          "key": "act2autochess_equip_custom_rhodes_ring"
+        }
+      }
+    ],
+    "params": {
+      "max_hp": 0.2,
+      "key": "attr_common_global_buff",
+      "elem_taken": 0.2
+    },
+    "category": "STAT",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier max HP% += max_hp; element gauge intake x(1 - elem_taken) (elemTakenMul; bonds/custom.js).",
+    "note": null,
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "用来压制源石活性化反应的环形装置。"
+  },
+  "chess_item_c_04_e_a": {
+    "id": "chess_item_c_04_e_a",
+    "baseId": "chess_item_c_04_e_a",
+    "goldenId": "chess_item_c_04_e_b",
+    "isGolden": false,
+    "trapId": "trap_c_04",
+    "iconId": "trap_c_04",
+    "identifier": 907,
+    "name": "罗德岛特制源石弧",
+    "itemType": "EQUIP",
+    "tier": 6,
+    "shopSortId": 901,
+    "price": 4,
+    "hideInShop": false,
+    "shopExcluded": false,
+    "shopExcludedBy": null,
+    "mergeable": true,
+    "upgradeNum": 2,
+    "upgradeChessId": "chess_item_c_04_e_b",
+    "duration": -1,
+    "giveBondId": "rhodesShip",
+    "giveBondBiasOnly": true,
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_rhodes_arc",
+    "effectName": "罗德岛特制源石弧",
+    "desc": "攻击力、生命值+20%，受到的伤害-10%；若携带者为【罗德岛】干员，该干员获得当前场上所有干员攻击力和生命总和的10%加成\n若该【罗德岛】干员同时装备「罗德岛抑制环」，则使自身「罗德岛特制源石弧」的属性提升效果共享给场上所有干员",
+    "descRaw": "攻击力、生命值<@ba.vup>+20%</>，受到的伤害<@ba.vup>-10%</>；若携带者为<@ba.vup>【罗德岛】</>干员，该干员获得当前场上所有干员攻击力和生命总和的<@ba.vup>10%</>加成\n<@ba.acrem>若该【罗德岛】干员同时装备「罗德岛抑制环」，则使自身「罗德岛特制源石弧」的属性提升效果共享给场上所有干员</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "atk": 0.2,
+          "max_hp": 0.2
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      },
+      {
+        "key": "char_dynamic_ability_new",
+        "countType": "NONE",
+        "bb": {
+          "damage_taken": 0.1,
+          "field_sum_share": 0.1
+        },
+        "bbStr": {
+          "key": "act2autochess_equip_custom_rhodes_arc",
+          "bond": "rhodesShip",
+          "other_equip": "chess_item_c_03_e"
+        }
+      }
+    ],
+    "params": {
+      "atk": 0.2,
+      "max_hp": 0.2,
+      "key": "attr_common_global_buff",
+      "damage_taken": 0.1,
+      "field_sum_share": 0.1,
+      "bond": "rhodesShip",
+      "other_equip": "chess_item_c_03_e"
+    },
+    "category": "SET",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier ATK%/max HP% += atk/max_hp, damage taken x(1 - damage_taken). A rhodesShip member additionally gains field_sum_share x (sum ATK, sum max HP of every on-field operator) as flat stats; with the 罗德岛抑制环 equipped the whole effect is shared with the field — atk / max HP with every on-field operator, the damage-taken part with the others (the carrier already has its own) (bonds/custom.js).",
+    "note": null,
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "罗德岛的特制术师武装，弧光里映着同伴的影子。"
+  },
+  "chess_item_c_04_e_b": {
+    "id": "chess_item_c_04_e_b",
+    "baseId": "chess_item_c_04_e_a",
+    "goldenId": "chess_item_c_04_e_b",
+    "isGolden": true,
+    "trapId": "trap_c_04",
+    "iconId": "trap_c_04",
+    "identifier": 908,
+    "name": "罗德岛特制源石弧",
+    "itemType": "EQUIP",
+    "tier": 6,
+    "shopSortId": 901,
+    "price": 4,
+    "hideInShop": true,
+    "shopExcluded": true,
+    "shopExcludedBy": "golden",
+    "mergeable": false,
+    "upgradeNum": 0,
+    "upgradeChessId": null,
+    "duration": -1,
+    "giveBondId": "rhodesShip",
+    "giveBondBiasOnly": true,
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_rhodes_arc",
+    "effectName": "罗德岛特制源石弧",
+    "desc": "攻击力、生命值+40%，受到的伤害-20%；若携带者为【罗德岛】干员，该干员获得当前场上所有干员攻击力和生命总和的20%加成\n若该【罗德岛】干员同时装备「罗德岛抑制环」，则使自身「罗德岛特制源石弧」的属性提升效果共享给场上所有干员",
+    "descRaw": "攻击力、生命值<@ba.vup>+40%</>，受到的伤害<@ba.vup>-20%</>；若携带者为<@ba.vup>【罗德岛】</>干员，该干员获得当前场上所有干员攻击力和生命总和的<@ba.vup>20%</>加成\n<@ba.acrem>若该【罗德岛】干员同时装备「罗德岛抑制环」，则使自身「罗德岛特制源石弧」的属性提升效果共享给场上所有干员</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "atk": 0.4,
+          "max_hp": 0.4
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      },
+      {
+        "key": "char_dynamic_ability_new",
+        "countType": "NONE",
+        "bb": {
+          "damage_taken": 0.2,
+          "field_sum_share": 0.2
+        },
+        "bbStr": {
+          "key": "act2autochess_equip_custom_rhodes_arc",
+          "bond": "rhodesShip",
+          "other_equip": "chess_item_c_03_e"
+        }
+      }
+    ],
+    "params": {
+      "atk": 0.4,
+      "max_hp": 0.4,
+      "key": "attr_common_global_buff",
+      "damage_taken": 0.2,
+      "field_sum_share": 0.2,
+      "bond": "rhodesShip",
+      "other_equip": "chess_item_c_03_e"
+    },
+    "category": "SET",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier ATK%/max HP% += atk/max_hp, damage taken x(1 - damage_taken). A rhodesShip member additionally gains field_sum_share x (sum ATK, sum max HP of every on-field operator) as flat stats; with the 罗德岛抑制环 equipped the whole effect is shared with the field — atk / max HP with every on-field operator, the damage-taken part with the others (the carrier already has its own) (bonds/custom.js).",
+    "note": null,
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "罗德岛的特制术师武装，弧光里映着同伴的影子。"
+  },
+  "chess_item_c_05_e_a": {
+    "id": "chess_item_c_05_e_a",
+    "baseId": "chess_item_c_05_e_a",
+    "goldenId": "chess_item_c_05_e_b",
+    "isGolden": false,
+    "trapId": "trap_1035_acarm035",
+    "iconId": "trap_1035_acarm035",
+    "identifier": 909,
+    "name": "M3利爪",
+    "itemType": "EQUIP",
+    "tier": 4,
+    "shopSortId": 902,
+    "price": 2,
+    "hideInShop": false,
+    "shopExcluded": true,
+    "shopExcludedBy": "mon3tr",
+    "mergeable": true,
+    "upgradeNum": 2,
+    "upgradeChessId": "chess_item_c_05_e_b",
+    "duration": -1,
+    "giveBondId": null,
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_m3_claw",
+    "effectName": "M3利爪",
+    "desc": "攻击力+70%；当装备者同时装备M3护甲（M3茧甲）时，攻击时额外造成相当于30%攻击力的真实伤害",
+    "descRaw": "攻击力<@ba.vup>+70%</>；当装备者同时装备<@ba.vup>M3护甲</>时，攻击时额外造成相当于<@ba.vup>30%</>攻击力的<@ba.vup>真实伤害</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "atk": 0.7
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      },
+      {
+        "key": "char_dynamic_ability_new",
+        "countType": "NONE",
+        "bb": {
+          "atk_scale": 0.3
+        },
+        "bbStr": {
+          "key": "act2autochess_equip_custom_m3_claw",
+          "other_equip": "chess_item_4_12_e"
+        }
+      }
+    ],
+    "params": {
+      "atk": 0.7,
+      "key": "attr_common_global_buff",
+      "atk_scale": 0.3,
+      "other_equip": "chess_item_4_12_e"
+    },
+    "category": "SET",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier ATK% += atk. While the carrier also holds M3茧甲 (chess_item_4_12_e): every attack additionally deals atk_scale x ATK as TRUE damage (bonds/custom.js).",
+    "note": "PRTS 装置:M3利爪 技能1 = 攻击力+70%，同装M3护甲时攻击额外造成30%攻击力真实伤害。",
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "Mon3tr 换下的利爪，握上去还带着余温。"
+  },
+  "chess_item_c_05_e_b": {
+    "id": "chess_item_c_05_e_b",
+    "baseId": "chess_item_c_05_e_a",
+    "goldenId": "chess_item_c_05_e_b",
+    "isGolden": true,
+    "trapId": "trap_1035_acarm035",
+    "iconId": "trap_1035_acarm035",
+    "identifier": 910,
+    "name": "M3利爪",
+    "itemType": "EQUIP",
+    "tier": 4,
+    "shopSortId": 902,
+    "price": 2,
+    "hideInShop": true,
+    "shopExcluded": true,
+    "shopExcludedBy": "golden",
+    "mergeable": false,
+    "upgradeNum": 0,
+    "upgradeChessId": null,
+    "duration": -1,
+    "giveBondId": null,
+    "givePowerId": null,
+    "canGiveBond": false,
+    "requiresBondId": null,
+    "effectId": "eff_m3_claw",
+    "effectName": "M3利爪",
+    "desc": "攻击力+140%；当装备者同时装备M3护甲（M3茧甲）时，攻击时额外造成相当于50%攻击力的真实伤害",
+    "descRaw": "攻击力<@ba.vup>+140%</>；当装备者同时装备<@ba.vup>M3护甲</>时，攻击时额外造成相当于<@ba.vup>50%</>攻击力的<@ba.vup>真实伤害</>",
+    "buffs": [
+      {
+        "key": "env_gbuff_new_with_verify",
+        "countType": "NONE",
+        "bb": {
+          "atk": 1.4
+        },
+        "bbStr": {
+          "key": "attr_common_global_buff"
+        }
+      },
+      {
+        "key": "char_dynamic_ability_new",
+        "countType": "NONE",
+        "bb": {
+          "atk_scale": 0.5
+        },
+        "bbStr": {
+          "key": "act2autochess_equip_custom_m3_claw",
+          "other_equip": "chess_item_4_12_e"
+        }
+      }
+    ],
+    "params": {
+      "atk": 1.4,
+      "key": "attr_common_global_buff",
+      "atk_scale": 0.5,
+      "other_equip": "chess_item_4_12_e"
+    },
+    "category": "SET",
+    "kind": "passive",
+    "family": null,
+    "implFormula": "Carrier ATK% += atk. While the carrier also holds M3茧甲 (chess_item_4_12_e): every attack additionally deals atk_scale x ATK as TRUE damage (bonds/custom.js).",
+    "note": "PRTS 装置:M3利爪 技能2 = 攻击力+140%，同装M3护甲时攻击额外造成50%攻击力真实伤害。",
+    "rangeGrid": [
+      [
+        0,
+        0
+      ]
+    ],
+    "flavor": "Mon3tr 换下的利爪，握上去还带着余温。"
+  },
+  "chess_item_5_02_e_a": {
+    "tier": 3
+  },
+  "chess_item_5_02_e_b": {
+    "tier": 3
+  }
+}

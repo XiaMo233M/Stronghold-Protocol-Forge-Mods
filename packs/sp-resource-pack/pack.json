@@ -1,0 +1,54 @@
+{
+  "id": "sp-resource-pack",
+  "name": "完整资源包导入与准入（浏览器缓存分发）",
+  "version": "0.2.0",
+  "author": "原件作者未署名（分享版 2026-10-09）；本包是把原件按强堡协议中间层重写的版本",
+  "license": "GPL-3.0-only",
+  "description": "把 .spresources 资源包导入浏览器 Cache Storage、由 Service Worker 应答 /assets 与 /fonts、并在服务端按「持有证明」做进房准入。它自己不携带任何 A 层内容（没有干员 / 装备 / 怪物 / 地图 / 语音 / 美术），所以它不是一个能单独安装的内容包：它的全部声明都是中间层能力（assets / client / server.preDispatch / routes）。需要 0.11.0 及以上（MOD_API_VERSION = 1）。",
+  "gameVersion": "0.2.x",
+  "api": "1.x",
+  "layer": "C",
+  "combat": false,
+  "content": [],
+  "overrides": [],
+  "assets": {
+    "container": "packs/resources-77e70dbd8612.spresources",
+    "manifest": "resource-manifest.json",
+    "serverPolicy": "serve",
+    "verify": "sha256"
+  },
+  "client": {
+    "panels": [
+      {
+        "id": "resource-import",
+        "slot": "root.overlays",
+        "module": "resources/preloadModal.js",
+        "order": 10
+      }
+    ],
+    "requires": [
+      "serviceWorker",
+      "cacheStorage",
+      "webCrypto"
+    ]
+  },
+  "server": {
+    "preDispatch": {
+      "module": "server/resourceAdmission.mjs",
+      "policy": "admission-files.json",
+      "intercepts": [
+        "room.create",
+        "room.join",
+        "room.spectate",
+        "room.start"
+      ]
+    }
+  },
+  "routes": [
+    {
+      "path": "/data/resource-manifest.json",
+      "file": "resource-manifest.json",
+      "cache": "no-cache"
+    }
+  ]
+}
