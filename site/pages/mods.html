@@ -20,6 +20,11 @@
          color:#04140f; font-weight:700; text-decoration:none; }
   code { background:rgba(127,127,127,.14); padding:1px 5px; border-radius:4px; }
   .empty { color:var(--dim); }
+  .warnbox { border:1px solid var(--warn); border-left-width:4px; border-radius:10px; padding:12px 14px; margin:0 0 14px; }
+  .warnbox h3 { margin:0 0 4px; font-size:15px; color:var(--warn); }
+  .card.flagged { border-left:4px solid var(--warn); }
+  .badge.warn { color:var(--warn); border:1px solid var(--warn); font-size:11px; font-weight:700; padding:1px 7px; border-radius:99px; }
+  h2.sec { font-size:16px; margin:26px 0 10px; }
 </style>
 </head>
 <body>
@@ -32,29 +37,52 @@
 const list = document.getElementById('list');
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 
-fetch('/api/mods').then((r) => r.json()).then(({ mods }) => {
+function card(m, flagged) {
+  const c = el('div', 'card' + (flagged ? ' flagged' : ''));
+  const head = el('div');
+  head.append(el('h2', null, m.name));
+  if (flagged) { const b = el('span', 'badge warn', '含疑似官方素材'); head.append(b); }
+  c.append(head);
+  c.append(el('div', 'meta', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
+  if (m.note) c.append(el('div', 'note', m.note));
+  const a = el('a', 'dl', '下载 zip');
+  a.href = m.download;
+  c.append(a);
+  if (m.homepage) {
+    const s = el('div', 'meta');
+    s.append(document.createTextNode('原件来源：'));
+    const h = el('a', null, m.homepage);
+    h.href = m.homepage; h.rel = 'noopener noreferrer nofollow';
+    s.append(h);
+    c.append(s);
+  }
+  return c;
+}
+
+fetch('/api/mods').then((r) => r.json()).then(({ mods, flagged }) => {
   list.textContent = '';
-  if (!mods.length) {
+  if (!mods.length && !flagged.length) {
     list.append(el('p', 'empty', '还没有通过审核的包。'));
     return;
   }
-  for (const m of mods) {
-    const card = el('div', 'card');
-    card.append(el('h2', null, m.name));
-    card.append(el('div', 'meta', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
-    if (m.note) card.append(el('div', 'note', m.note));
-    const a = el('a', 'dl', '下载 zip');
-    a.href = m.download;
-    card.append(a);
-    if (m.homepage) {
-      const s = el('div', 'meta');
-      s.append(document.createTextNode('原件来源：'));
-      const h = el('a', null, m.homepage);
-      h.href = m.homepage; h.rel = 'noopener noreferrer nofollow';
-      s.append(h);
-      card.append(s);
+  if (mods.length) {
+    list.append(el('h2', 'sec', `正常的 mod（${mods.length}）`));
+    for (const m of mods) list.append(card(m, false));
+  }
+  if (flagged.length) {
+    const box = el('div', 'warnbox');
+    box.append(el('h3', null, `含疑似官方素材的 mod（${flagged.length}）`));
+    box.append(el('div', null, '这些包在自动检查里命中了「像官方解包素材」的特征（Spine 模型、官方立绘/语音路径等），' +
+      '维护者已人工看过并放行。**它们不是干净的工坊包**：里面的素材版权与可用范围请自行判断，' +
+      '也请勿据此再分发素材本身。仓库正式收录的 packs/ 不含这类素材。'));
+    list.append(box);
+    for (const m of flagged) {
+      const c = card(m, true);
+      if (m.suspectedReasons && m.suspectedReasons.length) {
+        c.append(el('div', 'meta', '命中的特征：' + m.suspectedReasons.join('、')));
+      }
+      list.append(c);
     }
-    list.append(card);
   }
 }).catch(() => { list.textContent = '载入失败，刷新试试。'; });
 </script>

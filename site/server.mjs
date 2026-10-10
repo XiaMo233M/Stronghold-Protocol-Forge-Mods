@@ -17,7 +17,7 @@
 //   · 每个 IP 有上传频率限制；公开列表只暴露已通过的东西。
 import { createServer } from 'node:http';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync, createReadStream, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync, createReadStream, statSync, renameSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readZipEntries, looksLikeZip } from './zip.mjs';
@@ -28,7 +28,8 @@ const PAGES = join(HERE, 'pages');
 
 const PORT = Number(process.env.PORT || 8787);
 const DATA_DIR = resolve(process.env.DATA_DIR || join(HERE, 'data'));
-const SUBS = join(DATA_DIR, 'submissions');
+const SUBS = join(DATA_DIR, 'submissions');   // 普通投稿
+const FLAGGED = join(DATA_DIR, 'flagged');    // **疑似夹带游戏素材**的投稿 —— 单独一处，便于整体处理或清空
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const MAX_BYTES = Number(process.env.MAX_MB || 100) * 1024 * 1024;
 const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
@@ -39,29 +40,42 @@ if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 16) {
   process.exit(2);
 }
 mkdirSync(SUBS, { recursive: true });
+mkdirSync(FLAGGED, { recursive: true });
 
 const ID_RE = /^[a-z0-9]{6,32}$/;
 const nowIso = () => new Date().toISOString();
 const idOf = () => randomBytes(6).toString('hex');            // 12 位十六进制
 const tokenOf = () => randomBytes(16).toString('hex');        // 给投稿人的回执令牌
 
-const subDir = (id) => join(SUBS, id);
-const metaPath = (id) => join(subDir(id), 'meta.json');
-const blobPath = (id) => join(subDir(id), 'mod.zip');
-const decisionPath = (id) => join(subDir(id), 'decision.json');
-const readJson = (p) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
+/** 一个投稿住哪个区：疑似素材的在 flagged/，其余在 submissions/。 */
+const AREAS = { normal: SUBS, flagged: FLAGGED };
+const dirIn = (area, id) => join(AREAS[area] ?? SUBS, id);
+/** 按编号找它的目录（两个区都找一遍）；找不到返回 null。 */
+const dirOf = (id) => {
+  for (const area of ['flagged', 'normal']) {
+    const d = dirIn(area, id);
+    if (existsSync(join(d, 'meta.json'))) return { area, dir: d };
+  }
+  return null;
+};
+const metaPath = (id) => { const f = dirOf(id); return f ? join(f.dir, 'meta.json') : null; };
+const blobPath = (id) => { const f = dirOf(id); return f ? join(f.dir, 'mod.zip') : null; };
+const decisionPath = (id) => { const f = dirOf(id); return f ? join(f.dir, 'decision.json') : null; };
+const readJson = (p) => { if (!p) return null; try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; } };
 const writeJson = (p, o) => writeFileSync(p, JSON.stringify(o, null, 2), 'utf8');
 
 const allSubs = () => {
-  if (!existsSync(SUBS)) return [];
-  return readdirSync(SUBS, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && ID_RE.test(e.name))
-    .map((e) => {
-      const meta = readJson(metaPath(e.name)) || {};
-      const decision = readJson(decisionPath(e.name)) || null;
-      return { id: e.name, ...meta, decision, state: decision ? decision.decision : 'pending' };
-    })
-    .sort((a, b) => String(b.uploadedAt).localeCompare(String(a.uploadedAt)));
+  const out = [];
+  for (const [area, root] of Object.entries(AREAS)) {
+    if (!existsSync(root)) continue;
+    for (const e of readdirSync(root, { withFileTypes: true })) {
+      if (!e.isDirectory() || !ID_RE.test(e.name)) continue;
+      const meta = readJson(join(root, e.name, 'meta.json')) || {};
+      const decision = readJson(join(root, e.name, 'decision.json')) || null;
+      out.push({ id: e.name, area, ...meta, decision, state: decision ? decision.decision : 'pending' });
+    }
+  }
+  return out.sort((a, b) => String(b.uploadedAt).localeCompare(String(a.uploadedAt)));
 };
 
 // ---------------------------------------------------------------- HTTP 小工具
@@ -143,13 +157,19 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true, at: nowIso(), submissions: allSubs().length });
     }
 
-    // ---- 公开：已上线的 mod
+    // ---- 公开：已上线的 mod（**疑似素材的单独一组**，前端要分开显示并标注）
     if (req.method === 'GET' && p === '/api/mods') {
-      const mods = allSubs()
-        .filter((s) => s.state === 'approved')
-        .map((s) => ({ id: s.id, name: s.name, note: s.note, uploadedAt: s.uploadedAt, size: s.size,
-          homepage: s.homepage || null, download: `${BASE_URL}/api/file/${s.id}` }));
-      return sendJson(res, 200, { mods });
+      const shape = (s) => ({
+        id: s.id, name: s.name, note: s.note, uploadedAt: s.uploadedAt, size: s.size,
+        homepage: s.homepage || null, suspected: s.suspected === true,
+        suspectedReasons: s.suspectedReasons || [],
+        download: `${BASE_URL}/api/file/${s.id}`,
+      });
+      const approved = allSubs().filter((s) => s.state === 'approved');
+      return sendJson(res, 200, {
+        mods: approved.filter((s) => !s.suspected).map(shape),
+        flagged: approved.filter((s) => s.suspected).map(shape),
+      });
     }
 
     // ---- 投稿人查自己的状态（要回执令牌）
@@ -200,37 +220,48 @@ const server = createServer(async (req, res) => {
       if (!looksLikeZip(body.subarray(0, 4))) return sendJson(res, 400, { error: '只收 zip（这个文件头不是 zip 魔数）' });
 
       const id = idOf();
-      mkdirSync(subDir(id), { recursive: true });
-      writeFileSync(blobPath(id), body);
+      // 先落到临时文件：要读完 zip 才知道它该进哪个区（普通 / 疑似素材）。
+      const tmpZip = join(DATA_DIR, `${id}.part`);
+      writeFileSync(tmpZip, body);
 
       let entries = [];
       let contentFlags = [];
       try {
-        entries = await readZipEntries(blobPath(id));
+        entries = await readZipEntries(tmpZip);
         contentFlags = reviewEntries(entries, { packIdHint: name });
       } catch (e) {
         contentFlags = [{ level: 'blocker', code: 'BAD_ZIP', text: `zip 读不了：${e.message}` }];
       }
 
+      // **疑似素材照收不拒**（业主裁决）：它进 flagged/ 单独存放，并且处处标注清楚。
+      // 「疑似」不等于「确认」—— 投稿人自己也未必知道原件里夹了什么。
+      const suspected = hasBlocker(contentFlags);
+      const area = suspected ? 'flagged' : 'normal';
+      const dir = dirIn(area, id);
+      mkdirSync(dir, { recursive: true });
+      renameSync(tmpZip, join(dir, 'mod.zip'));
+
+      const files = entries.filter((e) => !e.dir);
       const meta = {
-        id, name, note, homepage: homepage || null,
+        id, area, name, note, homepage: homepage || null,
         size: body.length, sha256: createHash('sha256').update(body).digest('hex'),
         uploadedAt: nowIso(), ip, receipt: tokenOf(),
-        entries: entries.filter((e) => !e.dir).length,
+        entries: files.length,
         unpackedBytes: entries.reduce((n, e) => n + e.uncompSize, 0),
         flags: [...nameFlags, ...contentFlags],
-        blocked: hasBlocker(contentFlags),
+        suspected,
+        suspectedReasons: contentFlags.filter((f) => f.level === 'blocker').map((f) => f.code),
       };
-      writeJson(metaPath(id), meta);
+      writeJson(join(dir, 'meta.json'), meta);
 
       return sendJson(res, 201, {
-        ok: true, id, receipt: meta.receipt,
-        state: 'pending', blocked: meta.blocked,
+        ok: true, id, area, receipt: meta.receipt,
+        state: 'pending', suspected,
         size: meta.size, sha256: meta.sha256, entries: meta.entries,
         statusUrl: `${BASE_URL}/api/status/${id}?t=${meta.receipt}`,
         flags: meta.flags,
-        message: meta.blocked
-          ? '已收到，但里面有需要维护者确认的东西（见 flags），已标记待查。'
+        message: suspected
+          ? '已收到。包里有疑似官方素材（见 flags），它已被单独存放并会公开标注；维护者人工确认后再决定上不上线。'
           : '已收到。维护者会下载下来跑测试，通过后再上线。',
       });
     }
@@ -263,18 +294,27 @@ const server = createServer(async (req, res) => {
         const raw = await readBody(req, 64 * 1024);
         let inObj = {};
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
-        const { id, decision, reason, displayName } = inObj;
+        const { id, decision, reason, displayName, acknowledge } = inObj;
         if (!ID_RE.test(String(id || ''))) return sendJson(res, 400, { error: 'id 形状不对' });
         if (!['approved', 'rejected'].includes(decision)) return sendJson(res, 400, { error: 'decision 只能是 approved / rejected' });
         if (!existsSync(blobPath(id))) return sendJson(res, 404, { error: '没有这条投稿' });
         const meta = readJson(metaPath(id)) || {};
-        if (decision === 'approved' && meta.blocked) {
-          return sendJson(res, 409, { error: '这条带着 blocker 标记（多半是疑似游戏素材）。确认无误的话先改 meta.json 里的 blocked，或者用 --force 语义：把 blocked 置 false 后再通过。' });
+        // 疑似素材**可以**上线（业主裁决：照收，但标注清楚），但必须**显式确认**过标记 ——
+        // 不允许默默放过：页面上那个勾选会把它带来，少了就拒。
+        if (decision === 'approved' && meta.suspected && acknowledge !== true) {
+          return sendJson(res, 409, {
+            error: '这条带「疑似官方素材」标记，上线后会在公开列表里明确标注。看过标记仍要上线的话，勾上确认再来。',
+            flags: (meta.flags || []).filter((f) => f.level === 'blocker'),
+            needsAcknowledge: true,
+          });
         }
-        writeJson(decisionPath(id), { decision, reason: reason || null, at: nowIso(), by: 'admin',
-          displayName: displayName || meta.name });
+        writeJson(decisionPath(id), {
+          decision, reason: reason || null, at: nowIso(), by: 'admin',
+          displayName: displayName || meta.name,
+          acknowledgedSuspected: meta.suspected === true && decision === 'approved',
+        });
         if (displayName && displayName !== meta.name) writeJson(metaPath(id), { ...meta, name: displayName });
-        return sendJson(res, 200, { ok: true, id, state: decision });
+        return sendJson(res, 200, { ok: true, id, state: decision, area: meta.area, suspected: meta.suspected === true });
       }
     }
 

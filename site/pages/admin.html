@@ -89,7 +89,8 @@ $('load').onclick = async () => {
     const top = el('div', 'flex');
     top.append(el('b', null, s.name || '(没名字)'));
     top.append(el('span', 'badge ' + s.state, s.state));
-    if (s.blocked) top.append(el('span', 'badge rejected', 'blocker'));
+    if (s.suspected) top.append(el('span', 'badge rejected', '疑似素材'));
+    if (s.area === 'flagged') top.append(el('span', 'badge pending', '在 flagged/'));
     li.append(top);
     li.append(el('div', 'dim', `${(s.size / 1048576).toFixed(2)} MB · ${String(s.uploadedAt).slice(0, 16).replace('T', ' ')}`));
     li.onclick = () => { [...ul.children].forEach((x) => x.classList.remove('on')); li.classList.add('on'); detail(s.id); };
@@ -154,19 +155,34 @@ async function detail(id) {
   const rs = el('textarea'); rs.rows = 2; reasonRow.append(rs);
   box.append(reasonRow);
 
+  // 疑似素材：可以上线，但必须显式确认过 —— 上线后会在公开列表里单独一组并标注
+  let ack = null;
+  if (meta.suspected) {
+    const w = el('div', 'flag blocker');
+    w.append(el('span', 'lv', '疑似官方素材'), document.createTextNode(
+      ' 这个包命中了「像官方解包素材」的特征，已单独存放在 flagged/。仍然可以上线，但公开列表会把它归到'
+      + '「含疑似官方素材」那一组并明确标注；仓库的 packs/ 里不会收这类素材。'));
+    box.append(w);
+    const lab = el('label');
+    lab.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px 0 12px';
+    ack = el('input'); ack.type = 'checkbox';
+    lab.append(ack, document.createTextNode('我已看过这些标记，仍要上线（公开时会标注）'));
+    box.append(lab);
+  }
+
   const acts = el('div', 'flex');
   const okB = el('button', 'ok', '通过并上线');
   const noB = el('button', 'no', '打回');
-  if (meta.blocked) { okB.disabled = true; okB.title = '有 blocker 标记，先确认内容'; }
   acts.append(okB, noB);
   box.append(acts);
 
   const decide = async (decision) => {
     if (decision === 'rejected' && !rs.value.trim()) { alert('打回要写理由。'); return; }
+    if (decision === 'approved' && ack && !ack.checked) { alert('这是疑似素材的包：上线会在公开列表里标注，先勾上确认。'); return; }
     okB.disabled = noB.disabled = true;
     const r2 = await api('/api/admin/decide', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id, decision, reason: rs.value.trim(), displayName: dn.value.trim() }),
+      body: JSON.stringify({ id, decision, reason: rs.value.trim(), displayName: dn.value.trim(), acknowledge: ack ? ack.checked : false }),
     });
     const j = await r2.json();
     if (!r2.ok) { alert('没成：' + (j.error || r2.status)); okB.disabled = false; noB.disabled = false; return; }

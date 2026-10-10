@@ -7,7 +7,7 @@
 // 这样连「故意夹带游戏素材的包」这种用例也能造出来。
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -125,7 +125,7 @@ try {
   const r1 = await submit(good, { name: '自测包', note: '来源：自测脚本\n原作者：无' });
   check(r1.status === 201 && r1.body?.id, '上传成功并返回编号', `id=${r1.body?.id}`);
   check(typeof r1.body?.receipt === 'string' && r1.body.receipt.length >= 16, '返回回执令牌');
-  check(r1.body?.blocked === false, '没有被标记为 blocker');
+  check(r1.body?.suspected === false && r1.body?.area === 'normal', '没被标疑似，进 submissions/');
   const idGood = r1.body.id;
   const goodSha = createHash('sha256').update(good).digest('hex');
   check(r1.body.sha256 === goodSha, '记录下来的 sha256 与本地一致');
@@ -143,14 +143,19 @@ try {
     { name: 'audio/voice/cn/char_003_kalts/cn_001.mp3', data: 'FAKE' },
   ]);
   const r4 = await submit(evil, { name: '夹带素材的包' });
-  check(r4.status === 201, '上传被受理（审核阶段才拦）');
-  check(r4.body?.blocked === true, '被标记 blocked', JSON.stringify((r4.body?.flags || []).filter((f) => f.level === 'blocker').map((f) => f.code)));
+  check(r4.status === 201, '上传被受理（疑似也照收）');
+  check(r4.body?.suspected === true, '被标记 suspected', JSON.stringify(r4.body?.suspectedReasons));
+  check(r4.body?.area === 'flagged', '单独存放在 flagged/', String(r4.body?.area));
   const idEvil = r4.body.id;
+  check(existsSync(join(dataDir, 'flagged', idEvil, 'mod.zip'))
+    && !existsSync(join(dataDir, 'submissions', idEvil)), '磁盘上确实落在 flagged/ 而不是 submissions/');
 
   console.log('④ 顶层套了一层文件夹：该提醒');
   const wrapped = makeZip([{ name: 'mypack/pack.json', data: '{"id":"mypack"}' }]);
   const r5 = await submit(wrapped, { name: '套了一层的包' });
+  const idWrapped = r5.body?.id;
   check((r5.body?.flags || []).some((f) => f.code === 'WRAPPED'), '提示 WRAPPED');
+  check(r5.body?.area === 'normal', '它进 submissions/（不是疑似）', String(r5.body?.area));
 
   console.log('⑤ 后台接口要令牌');
   const noTok = await fetch(`${BASE}/api/admin/list`);
@@ -160,6 +165,7 @@ try {
   const okTok = await admin('/api/admin/list');
   const list = await okTok.json();
   check(okTok.status === 200 && list.submissions.length === 3, `带令牌看到 ${list.submissions.length} 条投稿`);
+  check(list.submissions.some((s) => s.id === idEvil && s.area === 'flagged'), '列表里能看出哪条在 flagged/');
 
   console.log('⑥ 待审的包：外人下不到，维护者能下');
   const outsider = await fetch(`${BASE}/api/file/${idGood}`);
@@ -167,22 +173,30 @@ try {
   const insider = await admin(`/api/file/${idGood}`);
   const got = Buffer.from(await insider.arrayBuffer());
   check(insider.status === 200 && createHash('sha256').update(got).digest('hex') === goodSha, '维护者下载下来与上传的逐字节相同');
+  const evilDl = await admin(`/api/file/${idEvil}`);
+  check(evilDl.status === 200, '疑似素材的包，维护者也能下载下来人工看');
 
-  console.log('⑦ 带 blocker 的包不许直接通过');
-  const approveEvil = await admin('/api/admin/decide', {
+  console.log('⑦ 疑似素材：不勾确认不许上线，勾了就能上线');
+  const approveNoAck = await admin('/api/admin/decide', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id: idEvil, decision: 'approved' }),
   });
-  check(approveEvil.status === 409, 'blocker 包通过被拒（409）', (await approveEvil.json()).error?.slice(0, 40));
-
-  console.log('⑧ 打回必须写理由');
-  const rejectNoReason = await admin('/api/admin/decide', {
+  check(approveNoAck.status === 409, '没确认 → 409', (await approveNoAck.json()).needsAcknowledge ? 'needsAcknowledge=true' : '');
+  const approveAck = await admin('/api/admin/decide', {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id: idEvil, decision: 'rejected' }),
+    body: JSON.stringify({ id: idEvil, decision: 'approved', acknowledge: true, reason: '已人工看过：确实是官方 Spine，标注后放行' }),
   });
-  check(rejectNoReason.status === 200, '（服务端不强制理由，页面强制；这里只确认能打回）');
-  const stateEvil = await (await fetch(`${BASE}/api/status/${idEvil}?t=${r4.body.receipt}`)).json();
-  check(stateEvil.state === 'rejected', '状态变成 rejected', stateEvil.state);
+  check(approveAck.status === 200, '勾了确认 → 上线成功');
+
+  console.log('⑧ 打回');
+  const reject = await admin('/api/admin/decide', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id: idWrapped, decision: 'rejected', reason: '包内文件套了一层文件夹，装包器读不到 pack.json' }),
+  });
+  check(reject.status === 200, '打回成功');
+  const stateWrapped = await (await fetch(`${BASE}/api/status/${idWrapped}?t=${r5.body.receipt}`)).json();
+  check(stateWrapped.state === 'rejected', '状态变成 rejected', stateWrapped.state);
+  check(typeof stateWrapped.reason === 'string' && stateWrapped.reason.length > 0, '投稿人凭回执能看到打回理由', stateWrapped.reason?.slice(0, 24));
 
   console.log('⑨ 通过 → 上线');
   const approve = await admin('/api/admin/decide', {
@@ -191,8 +205,12 @@ try {
   });
   check(approve.status === 200, '通过成功');
   const mods = await (await fetch(`${BASE}/api/mods`)).json();
-  check(mods.mods.length === 1 && mods.mods[0].id === idGood, '公开列表里有它，且只有它');
+  check(mods.mods.length === 1 && mods.mods[0].id === idGood, '公开列表「正常」那一组里有它，且只有它');
   check(mods.mods[0].name === '自测包（上线名）', '上线显示名用的是决定时填的那个', mods.mods[0].name);
+  check(mods.flagged.length === 1 && mods.flagged[0].id === idEvil, '疑似素材单独一组，没混进正常那一组');
+  check(mods.flagged[0].suspected === true && (mods.flagged[0].suspectedReasons || []).length > 0,
+    '公开数据里带着疑似标记与命中的原因', JSON.stringify(mods.flagged[0].suspectedReasons));
+  check(mods.mods[0].suspected === false, '正常那一组里没带疑似标记');
 
   console.log('⑩ 上线后人人可下');
   const pub = await fetch(`${BASE}/api/file/${idGood}`);
@@ -219,8 +237,7 @@ try {
     const real = readFileSync(resolve(packArg));
     const r7 = await submit(real, { name: '真实包（自测）', note: '来自 ' + packArg, file: 'real.zip' });
     check(r7.status === 201, '真实包被受理', `id=${r7.body?.id} 条目 ${r7.body?.entries}`);
-    check(r7.body?.blocked === false, '真实包没有被标 blocker',
-      JSON.stringify((r7.body?.flags || []).filter((f) => f.level === 'blocker')));
+    check(r7.body?.suspected === false, '真实包没有被标疑似', JSON.stringify(r7.body?.suspectedReasons || []));
   }
 } finally {
   child.kill();
