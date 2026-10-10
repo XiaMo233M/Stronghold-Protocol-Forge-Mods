@@ -259,11 +259,12 @@ try {
     check(headerApi.status === 200, '原来的 x-admin-token 头仍然可用（后路没断）', String(headerApi.status));
   }
 
-  console.log('⑮ 管理白名单 ADMIN_IPS（另起一个实例）');
+  console.log('⑮ 管理白名单 ADMIN_IPS + 自定义审核路径 ADMIN_PATH（另起一个实例）');
   const PORT2 = 8801;
+  const ALT = 'review-x9';
   const child2 = spawn(process.execPath, [join(HERE, 'server.mjs')], {
     env: { ...process.env, PORT: String(PORT2), DATA_DIR: dataDir, ADMIN_TOKEN: TOKEN,
-      HOST: '127.0.0.1', ADMIN_IPS: '203.0.113.9', TRUST_PROXY: '1' },
+      HOST: '127.0.0.1', ADMIN_IPS: '203.0.113.9', TRUST_PROXY: '1', ADMIN_PATH: ALT },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   try {
@@ -272,16 +273,27 @@ try {
       try { up2 = (await fetch(`http://127.0.0.1:${PORT2}/healthz`)).ok; } catch { /* 等 */ }
       if (!up2) await sleep(120);
     }
-    check(up2, '带白名单的实例起来了');
+    check(up2, '带白名单与自定义路径的实例起来了');
     const B2 = `http://127.0.0.1:${PORT2}`;
-    const other = await fetch(`${B2}/api/admin/list`, { headers: { 'x-admin-token': TOKEN, 'x-forwarded-for': '198.51.100.7' } });
+    const other = await fetch(`${B2}/api/${ALT}/list`, { headers: { 'x-admin-token': TOKEN, 'x-forwarded-for': '198.51.100.7' } });
     check(other.status === 403, '不在白名单的来源 → 403（哪怕令牌是对的）', String(other.status));
-    const inList = await fetch(`${B2}/api/admin/list`, { headers: { 'x-admin-token': TOKEN, 'x-forwarded-for': '203.0.113.9' } });
+    const inList = await fetch(`${B2}/api/${ALT}/list`, { headers: { 'x-admin-token': TOKEN, 'x-forwarded-for': '203.0.113.9' } });
     check(inList.status === 200, '白名单里的来源 → 200', String(inList.status));
-    const loop = await fetch(`${B2}/api/admin/list`, { headers: { 'x-admin-token': TOKEN } });
+    const loop = await fetch(`${B2}/api/${ALT}/list`, { headers: { 'x-admin-token': TOKEN } });
     check(loop.status === 200, '本机回环永远放行（SSH 隧道就是这么进来的）', String(loop.status));
-    const noTok = await fetch(`${B2}/api/admin/list`, { headers: { 'x-forwarded-for': '203.0.113.9' } });
+    const noTok = await fetch(`${B2}/api/${ALT}/list`, { headers: { 'x-forwarded-for': '203.0.113.9' } });
     check(noTok.status === 401, '白名单内但没令牌 → 401（两道都要过）', String(noTok.status));
+
+    // 自定义路径生效后，默认名应当**彻底不存在**（否则「换名字」就是白换）
+    const oldApi = await fetch(`${B2}/api/admin/list`, { headers: { 'x-admin-token': TOKEN } });
+    check(oldApi.status === 404, '默认的 /api/admin/* 已不存在 → 404', String(oldApi.status));
+    const oldPage = await fetch(`${B2}/admin`, { headers: { 'x-admin-token': TOKEN } });
+    check(oldPage.status === 404, '默认的 /admin 已不存在 → 404', String(oldPage.status));
+    const altPage = await fetch(`${B2}/${ALT}`, { headers: { 'x-admin-token': TOKEN } });
+    const altHtml = await altPage.text();
+    check(altPage.status === 200 && altHtml.includes(`/api/${ALT}`) && !altHtml.includes('__ADMIN_API__'),
+      `新的 /${ALT} 能打开，且页面里注入的 API 前缀是对的、占位符已替换`,
+      `HTTP ${altPage.status} · 含前缀 ${altHtml.includes(`/api/${ALT}`)} · 残留占位符 ${altHtml.includes('__ADMIN_API__')}`);
   } finally {
     child2.kill();
   }

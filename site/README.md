@@ -48,7 +48,8 @@ ADMIN_TOKEN=$(node -e "console.log(require('crypto').randomBytes(24).toString('h
 | `DATA_DIR` | `site/data` | 投稿与决定的存放处。**要备份的就是它** |
 | `MAX_MB` | `100` | 单个 zip 的上限 |
 | `BASE_URL` | `http://127.0.0.1:<PORT>` | 生成回执链接用；放到公网要写成真实地址 |
-| `ADMIN_IPS` | 空 | 管理口白名单（逗号分隔）。**设了就只允许这些来源**访问 `/admin` 与 `/api/admin/*`，本机回环始终放行（SSH 隧道靠它） |
+| `ADMIN_IPS` | 空 | 管理口白名单（逗号分隔）。**设了就只允许这些来源**访问审核页与审核 API，本机回环始终放行（SSH 隧道靠它） |
+| `ADMIN_PATH` | `admin` | 审核入口的路径名（`/<ADMIN_PATH>` 与 `/api/<ADMIN_PATH>/*`）。换成猜不到的能少掉**自动扫描**；**它只是减少噪音，不是安全屏障** —— 真正拦住人的是 `ADMIN_IPS` + 令牌。改了之后旧名字会**彻底 404** |
 | `TRUST_PROXY` | `0` | 设 `1` 才按 `x-forwarded-for` 判来源地址。**只有确实挂在反代后面时才设** —— 那个头谁都能伪造 |
 
 自测（起一个临时实例把整条链走一遍，不碰你的数据）：
@@ -107,17 +108,27 @@ sudo bash deploy.sh --uninstall
 ### 只有 HTTP，所以管理口要额外保护
 
 这台机器 **443 没开**、也只给了 IP（没有域名，Let's Encrypt 签不了纯 IP），所以**没有 HTTPS**：
-令牌会以明文过网。两条路子，任选：
+令牌会以明文过网。**审核入口默认只认回环**（`ADMIN_IPS=127.0.0.1`），走公网 IP 直接 403：
 
 ```bash
-# a. 给管理口加 IP 白名单后重启本服务（本机回环始终放行）
-sudo sed -i 's|^ADMIN_IPS=.*|ADMIN_IPS=<你的固定IP>|' /etc/sp-modsite.env
-sudo systemctl restart sp-modsite
-
-# b. 或者干脆不给它公网入口，用 SSH 隧道访问审核页
-ssh -L 8787:127.0.0.1:8787 <user>@47.103.14.217
-#   然后本机浏览器开 http://127.0.0.1:8787/admin
+# 审核页必须走隧道（把本机的 25570 接到服务器的回环 25570）
+ssh -L 8787:127.0.0.1:8787 <user>@<服务器>
+# 然后浏览器开 http://127.0.0.1:8787/<ADMIN_PATH>
 ```
+
+**审核登录用浏览器原生登录框**（HTTP Basic）：用户名 `admin`，密码就是 `ADMIN_TOKEN`。
+浏览器会记住，不用每次翻服务器。
+（这个认证卡在**审核页本身**上 —— 因为 `fetch()` 拿到 401 是不弹登录框的，只有顶层导航才弹。）
+
+**想把审核路径换个名字**（少掉自动扫描）：
+
+```bash
+sudo sed -i 's|^ADMIN_PATH=.*|ADMIN_PATH=review-你随便起|' /etc/sp-modsite.env
+sudo systemctl restart sp-modsite     # 改了之后旧名字立刻 404
+```
+
+> 换名字**不提高**实际安全性 —— 挡人的是白名单 + 令牌。它只让全网那些按字典扫 `/admin` 的
+> 扫描器**注意不到这里**。别把它当唯一防线。
 
 白名单**只认真实 socket 地址**，不认 `x-forwarded-for`（那个头谁都能伪造）——
 除非你确实挂在反代后面并显式设了 `TRUST_PROXY=1`。

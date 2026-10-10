@@ -79,13 +79,14 @@ const el = (t, c, x) => { const n = document.createElement(t); if (c) n.classNam
 let TOKEN = sessionStorage.getItem('adminToken') || '';
 $('tok').value = TOKEN;
 
-const api = (p, opt = {}) => fetch(p, { ...opt, headers: { 'x-admin-token': TOKEN, ...(opt.headers || {}) } });
+const API = '__ADMIN_API__';
+const api = (p, opt = {}) => fetch(API + p, { ...opt, headers: { 'x-admin-token': TOKEN, ...(opt.headers || {}) } });
 
 $('save').onclick = () => { TOKEN = $('tok').value.trim(); sessionStorage.setItem('adminToken', TOKEN); $('load').click(); };
 $('forget').onclick = () => { TOKEN = ''; sessionStorage.removeItem('adminToken'); $('tok').value = ''; $('list').textContent = '已忘掉，重新填令牌。'; };
 $('load').onclick = async () => {
   TOKEN = $('tok').value.trim();
-  const r = await api('/api/admin/list');
+  const r = await api('/list');
   if (!r.ok) { $('list').textContent = '载入失败：HTTP ' + r.status + '（令牌对吗？）'; return; }
   renderList(await r.json());
 };
@@ -111,7 +112,7 @@ function renderList({ submissions }) {
 // 有就直接进；没有才把令牌输入框露出来当后路。
 (async () => {
   try {
-    const r = await fetch('/api/admin/list');
+    const r = await fetch(API + '/list');
     if (r.ok) {
       $('authNote').textContent = '已通过浏览器登录（HTTP Basic）。';
       $('tokBox').style.display = 'none';
@@ -127,7 +128,7 @@ function renderList({ submissions }) {
 async function detail(id) {
   const box = $('detail');
   box.textContent = '载入中…';
-  const r = await api('/api/admin/detail/' + id);
+  const r = await api('/detail/' + id);
   if (!r.ok) { box.textContent = '载入失败：HTTP ' + r.status; return; }
   const { meta, entries, topLevel, download } = await r.json();
   box.textContent = '';
@@ -206,7 +207,7 @@ async function detail(id) {
     if (decision === 'rejected' && !rs.value.trim()) { alert('打回要写理由。'); return; }
     if (decision === 'approved' && ack && !ack.checked) { alert('这是疑似素材的包：上线会在公开列表里标注，先勾上确认。'); return; }
     okB.disabled = noB.disabled = true;
-    const r2 = await api('/api/admin/decide', {
+    const r2 = await api('/decide', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id, decision, reason: rs.value.trim(), displayName: dn.value.trim(), acknowledge: ack ? ack.checked : false }),
     });

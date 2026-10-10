@@ -36,7 +36,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const MAX_BYTES = Number(process.env.MAX_MB || 100) * 1024 * 1024;
 const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
 /**
- * 管理口的 IP 白名单（逗号分隔）。设了就**只有**这些地址（外加本机回环）能碰 /admin 与 /api/admin/*。
+ * 管理口的 IP 白名单（逗号分隔）。设了就**只有**这些地址（外加本机回环）能碰审核页与审核 API。
  * 站点只有 HTTP、没有 HTTPS 时，这条是保护令牌的主要手段 —— 配合 SSH 隧道用：
  *   ssh -L 8787:127.0.0.1:8787 root@<服务器>
  * 隧道进来的是回环地址，所以永远放行。
@@ -47,6 +47,19 @@ const ADMIN_IPS = (process.env.ADMIN_IPS || '').split(',').map((s) => s.trim()).
  * 拿它当限流或白名单的依据等于没设防。只有确实挂在反代后面（且反代会覆盖这个头）时才设 TRUST_PROXY=1。
  */
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
+/**
+ * 审核入口的路径名（默认 `admin`）。改成一个别人猜不到的名字，能少掉一大票**自动扫描**：
+ * 全网一直在有人按字典扫 `/admin`、`/wp-admin`、`/phpmyadmin` 这类常见路径。
+ *
+ * **说清楚它是什么**：这只是「减少噪音」，**不是**安全屏障。真正拦住人的是
+ * ADMIN_IPS（只认回环）+ 令牌两道。名字只是别让扫描器注意到这里有个门。
+ */
+const ADMIN_PATH = String(process.env.ADMIN_PATH || 'admin').trim().replace(/^\/+|\/+$/g, '');
+if (!/^[a-z0-9][a-z0-9_-]{2,40}$/.test(ADMIN_PATH)) {
+  console.error('✖ ADMIN_PATH 只能是小写字母/数字/-/_，3–40 位，且以字母或数字开头。例如 ADMIN_PATH=review-7f3a1c');
+  process.exit(2);
+}
+const ADMIN_API = `/api/${ADMIN_PATH}`;
 
 if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 16) {
   console.error('✖ 必须设置 ADMIN_TOKEN（至少 16 位），否则谁都能通过审核。例如：');
@@ -104,6 +117,13 @@ const sendPage = (res, name) => {
   const p = join(PAGES, name);
   if (!existsSync(p)) return send(res, 404, '页面不存在', { 'content-type': 'text/plain; charset=utf-8' });
   send(res, 200, readFileSync(p), { 'content-type': 'text/html; charset=utf-8' });
+};
+/** 审核页要告诉前端「管理 API 现在挂在哪个前缀下」，所以把占位符换掉再发。 */
+const sendAdminPage = (res) => {
+  const p = join(PAGES, 'admin.html');
+  if (!existsSync(p)) return send(res, 404, '页面不存在', { 'content-type': 'text/plain; charset=utf-8' });
+  const html = readFileSync(p, 'utf8').split('__ADMIN_API__').join(ADMIN_API);
+  send(res, 200, html, { 'content-type': 'text/html; charset=utf-8' });
 };
 const sendFile = (res, path, downloadName, type = 'application/zip') => {
   const st = statSync(path);
@@ -204,10 +224,10 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && (p === '/mods' || p === '/mods.html')) return sendPage(res, 'mods.html');
     // 审核页本身就要认证 —— 只有**顶层导航**的 401 才会让浏览器弹登录框
     // （fetch 拿到 401 是不弹的，所以认证必须卡在页面这一层）。
-    if (req.method === 'GET' && (p === '/admin' || p === '/admin.html')) {
+    if (req.method === 'GET' && (p === `/${ADMIN_PATH}` || p === `/${ADMIN_PATH}/`)) {
       if (!adminAllowed(req)) return sendJson(res, 403, { error: '这个地址不在管理白名单里（ADMIN_IPS）' });
       if (!isAdmin(req)) return askForLogin(res);
-      return sendPage(res, 'admin.html');
+      return sendAdminPage(res);
     }
     if (req.method === 'GET' && p === '/healthz') {
       return sendJson(res, 200, { ok: true, at: nowIso(), submissions: allSubs().length });
@@ -323,14 +343,14 @@ const server = createServer(async (req, res) => {
     }
 
     // ---- 维护者：列表 / 详情 / 决定
-    if (p.startsWith('/api/admin/')) {
+    if (p.startsWith(`${ADMIN_API}/`)) {
       if (!adminAllowed(req)) return sendJson(res, 403, { error: '这个地址不在管理白名单里（ADMIN_IPS）' });
       if (!isAdmin(req)) return askForLogin(res);
 
-      if (req.method === 'GET' && p === '/api/admin/list') return sendJson(res, 200, { submissions: allSubs() });
+      if (req.method === 'GET' && p === `${ADMIN_API}/list`) return sendJson(res, 200, { submissions: allSubs() });
 
-      if (req.method === 'GET' && p.startsWith('/api/admin/detail/')) {
-        const id = p.slice('/api/admin/detail/'.length);
+      if (req.method === 'GET' && p.startsWith(`${ADMIN_API}/detail/`)) {
+        const id = p.slice(`${ADMIN_API}/detail/`.length);
         if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对' });
         const meta = readJson(metaPath(id));
         if (!meta) return sendJson(res, 404, { error: '没有这条投稿' });
@@ -347,7 +367,7 @@ const server = createServer(async (req, res) => {
           download: `${BASE_URL}/api/file/${id}` });
       }
 
-      if (req.method === 'POST' && p === '/api/admin/decide') {
+      if (req.method === 'POST' && p === `${ADMIN_API}/decide`) {
         const raw = await readBody(req, 64 * 1024);
         let inObj = {};
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
@@ -392,7 +412,8 @@ server.listen(PORT, HOST, () => {
   console.log(`  监听     ${HOST}:${PORT}`);
   console.log(`  上传页   ${BASE_URL}/`);
   console.log(`  已上线   ${BASE_URL}/mods`);
-  console.log(`  审核页   ${BASE_URL}/admin   （页面里填 ADMIN_TOKEN；服务端只认 x-admin-token）`);
+  console.log(`  审核页   ${BASE_URL}/${ADMIN_PATH}   （浏览器会弹登录框；用户名 admin，密码是 ADMIN_TOKEN）`);
+  console.log(`  审核 API ${ADMIN_API}/*`);
   console.log(`  数据目录 ${DATA_DIR}`);
   console.log(`  上传上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB`);
   if (ADMIN_IPS.length) console.log(`  管理白名单 ${ADMIN_IPS.join(', ')}（外加本机回环）`);

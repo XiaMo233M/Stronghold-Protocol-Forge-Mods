@@ -25,6 +25,7 @@ DIR=/opt/sp-modsite
 DATA=/var/lib/sp-modsite
 ADMIN_IPS=""
 NODE_VERSION="v22.11.0"
+ADMIN_PATH_OPT=""
 SERVICE=sp-modsite
 USER_NAME=spmodsite
 ENV_FILE=/etc/sp-modsite.env
@@ -38,6 +39,7 @@ while [ $# -gt 0 ]; do
     --dir) DIR="$2"; shift 2;;
     --data) DATA="$2"; shift 2;;
     --admin-ips) ADMIN_IPS="$2"; shift 2;;
+    --admin-path) ADMIN_PATH_OPT="$2"; shift 2;;
     --node-version) NODE_VERSION="$2"; shift 2;;
     --uninstall) UNINSTALL=1; shift;;
     -h|--help)
@@ -52,6 +54,8 @@ while [ $# -gt 0 ]; do
   --port N           监听端口（默认 8787）——必须是空闲端口，被占就报错退出
   --base-url URL     公开地址（默认 http://<本机IP>:<port>），回执链接用它拼
   --admin-ips LIST   管理口白名单，逗号分隔（强烈建议；本机回环始终放行，SSH 隧道靠它）
+  --admin-path NAME  审核入口的路径名（默认 admin）。换成猜不到的名字可少掉自动扫描；
+                     **它只是减少噪音，不是安全屏障** —— 真正拦住人的是白名单 + 令牌
   --dir PATH         安装目录（默认 /opt/sp-modsite）
   --data PATH        数据目录（默认 /var/lib/sp-modsite）
   --node-version V   系统 Node <18 时下到自己目录的版本（默认 v22.11.0）
@@ -185,6 +189,18 @@ if [ -z "$BASE_URL" ]; then
   [ "$BASE_URL" = "http://:$PORT" ] && BASE_URL="http://127.0.0.1:$PORT"
 fi
 
+# 审核路径名：命令行给了就用给的；没给就沿用环境文件里已有的；都没有才用 admin。
+if [ -z "$ADMIN_PATH_OPT" ]; then
+  if [ -f "$ENV_FILE" ] && grep -q '^ADMIN_PATH=' "$ENV_FILE"; then
+    ADMIN_PATH_OPT="$(grep '^ADMIN_PATH=' "$ENV_FILE" | cut -d= -f2-)"
+  fi
+fi
+[ -z "$ADMIN_PATH_OPT" ] && ADMIN_PATH_OPT=admin
+case "$ADMIN_PATH_OPT" in
+  *[!a-z0-9_-]*|'') die "ADMIN_PATH 只能用小写字母/数字/-/_：$ADMIN_PATH_OPT";;
+esac
+ok "审核入口路径：/$ADMIN_PATH_OPT"
+
 cat > "$ENV_FILE" <<EOF
 # 工坊包上传站（$SERVICE）—— 由 site/deploy.sh 生成
 ADMIN_TOKEN=$TOKEN
@@ -193,7 +209,9 @@ HOST=0.0.0.0
 DATA_DIR=$DATA
 BASE_URL=$BASE_URL
 MAX_MB=100
-# 管理口白名单：设了就只允许这些来源访问 /admin 与 /api/admin/*（本机回环始终放行）
+# 审核入口的路径名。换成猜不到的能少掉自动扫描；**不是安全屏障**（那靠白名单+令牌）。
+ADMIN_PATH=$ADMIN_PATH_OPT
+# 管理口白名单：设了就只允许这些来源访问审核页与审核 API（本机回环始终放行）
 ADMIN_IPS=$ADMIN_IPS
 # 没有反代就别设 1（x-forwarded-for 可以伪造）
 TRUST_PROXY=0
@@ -276,7 +294,10 @@ $(printf '\033[1m')下一步（都是你自己的决定，脚本不替你做）$
     以及**云控制台的安全组**里放行 $PORT/tcp。
 
  2) 打开看看：  http://${IP}:$PORT/         公开列表：  http://${IP}:$PORT/mods
-    审核页：     http://${IP}:$PORT/admin     （填下面的令牌）
+    **审核页**：   http://127.0.0.1:$PORT/${ADMIN_PATH_OPT}
+                  注意是 **127.0.0.1**，不是公网 IP —— 管理口只认回环，走 IP 会 403。
+                  所以要先开隧道（下面第 4 条），然后浏览器会弹登录框：
+                  用户名 admin，密码是下面的令牌。
 
  3) 你的管理令牌（也写在 $ENV_FILE 里，chmod 600）：
       $TOKEN
@@ -286,7 +307,7 @@ $(printf '\033[1m')下一步（都是你自己的决定，脚本不替你做）$
            sudo sed -i 's|^ADMIN_IPS=.*|ADMIN_IPS=<你的固定IP>|' $ENV_FILE && sudo systemctl restart $SERVICE
       b. 或者干脆走 SSH 隧道访问审核页（回环地址永远放行，不占公网）：
            ssh -L $PORT:127.0.0.1:$PORT <user>@${IP}
-         然后本机浏览器开 http://127.0.0.1:$PORT/admin
+         然后本机浏览器开 http://127.0.0.1:$PORT/${ADMIN_PATH_OPT}
 
  5) 想让它挂在 nginx 上（可选，且**不要**在本脚本里做）：见 site/README.md 的
     「挂到已有 nginx 上（可选，谨慎）」一节 —— 那里写了先 nginx -t 再 reload、以及回滚办法。
