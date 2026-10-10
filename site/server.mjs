@@ -266,7 +266,11 @@ const server = createServer(async (req, res) => {
       if (!existsSync(blobPath(id))) return sendJson(res, 404, { error: '文件不在' });
       const d = readJson(decisionPath(id));
       if (d?.decision !== 'approved' && !isAdmin(req)) {
-        return sendJson(res, 403, { error: '这个还没通过审核，只有维护者能下载' });
+        // 报错要自己说清怎么办，不然维护者本人也会以为「我不是维护者吗」
+        if (!adminAllowed(req)) {
+          return sendJson(res, 403, { error: '这个还没通过审核；而管理口只允许回环地址（ADMIN_IPS），公网上拿不到待审包。走 SSH 隧道再下。' });
+        }
+        return sendJson(res, 403, { error: '这个还没通过审核，只有维护者能下载：请从审核页进入（浏览器会弹登录框），或用 x-admin-token 头带上令牌' });
       }
       const meta = readJson(metaPath(id)) || {};
       return sendFile(res, blobPath(id), `${id}-${(meta.name || 'mod').replace(/[\\/:*?"<>|]/g, '_')}.zip`);

@@ -143,9 +143,34 @@ async function detail(id) {
   }
 
   // ① 下载（跑测试要用它）
+  //    不能用普通的 <a href> 直链：那样只有「浏览器弹框登录」（HTTP Basic）才带得上凭据；
+  //    手填令牌那条路是把令牌放在 x-admin-token 请求头里的，<a> 带不上 → 必然 403。
+  //    改成 fetch + blob：浏览器登录与手填令牌两种方式都能下。
   const bar = el('div', 'flex'); bar.style.margin = '12px 0';
-  const dl = el('a', null, '下载 zip（拿去跑测试）'); dl.href = download;
-  dl.style.cssText = 'font-weight:700';
+  const dl = el('button', 'ok', '下载 zip（拿去跑测试）');
+  dl.onclick = async () => {
+    dl.disabled = true;
+    dl.textContent = '下载中…';
+    try {
+      const r = await fetch(download, { headers: TOKEN ? { 'x-admin-token': TOKEN } : {} });
+      if (!r.ok) {
+        dl.textContent = `下载失败 HTTP ${r.status} —— 待审的包要维护者身份，先登录`;
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${meta.id}-${String(meta.name || 'mod').replace(/[\\/:*?"<>|]/g, '_')}.zip`;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      dl.textContent = `已下载 ${(blob.size / 1048576).toFixed(2)} MB（再点一次可重下）`;
+    } catch (e) {
+      dl.textContent = '下载出错：' + e.message;
+    } finally {
+      dl.disabled = false;
+    }
+  };
   bar.append(dl);
   if (meta.decision) bar.append(el('span', 'badge ' + meta.decision.decision, meta.decision.decision));
   box.append(bar);

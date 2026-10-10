@@ -170,6 +170,10 @@ try {
   console.log('⑥ 待审的包：外人下不到，维护者能下');
   const outsider = await fetch(`${BASE}/api/file/${idGood}`);
   check(outsider.status === 403, '待审包对外 403');
+  // 报错必须自己说清怎么取得维护者身份 —— 否则维护者本人看到「只有维护者能下载」
+  // 只会更困惑（业主实际就撞上过这条），而审核页那个下载按钮又只在 Basic 登录下才带得上凭据。
+  const outsiderMsg = (await outsider.json()).error || '';
+  check(/审核页|x-admin-token/.test(outsiderMsg), '403 的报错里写清了怎么取得维护者身份', outsiderMsg);
   const insider = await admin(`/api/file/${idGood}`);
   const got = Buffer.from(await insider.arrayBuffer());
   check(insider.status === 200 && createHash('sha256').update(got).digest('hex') === goodSha, '维护者下载下来与上传的逐字节相同');
