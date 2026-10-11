@@ -6,7 +6,7 @@
 
 | 片段 | 抄去哪里 | 说明 |
 |---|---|---|
-| `notices/pack.notices.json` | 粘进你自己的 `pack.json`（顶层那个 `notices` 键） | `notices` 的形状（见 [`../SKILL.md`](../SKILL.md) §5.4） |
+| `notices/pack.notices.json` | 粘进你自己的 `pack.json`（顶层那个 `notices` 键） | `notices` 的形状（见 [`../SKILL.md`](../SKILL.md) §6） |
 | `notices/notice/announcement.json` | 你包里的 `notice/announcement.json` | 公告文件的形状 |
 | `notices/notice/credits.json` | 你包里的 `notice/credits.json` | 鸣谢文件的形状（`url` 只能是 `https://`） |
 

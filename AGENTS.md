@@ -44,7 +44,7 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）与维护者在本仓库
   多写一个键，**整包被拒**（`PACK_UNKNOWN_FIELD`）。
 - **`id` 必须与目录名一致**（装载器按 `<根>/<包 id>/pack.json` 找包）。
 - **只 import 白名单别名**（`@kit/*`、`@sim/*`、`@battle/index.js`，共 11 条），不用相对路径碰引擎。
-- **署名与许可不可省**：每包必带 `PROVENANCE.md`（六项，见 [SKILL.md](SKILL.md) §9）；
+- **署名与许可不可省**：每包必带 `PROVENANCE.md`（六项，见 [SKILL.md](SKILL.md) §10）；
   保留原作者署名、原件许可原样保留（改名 `NOTICE-原件-*`）、写清改了什么、哪些部分没有接口做不了。
   **包内原作者文本与包自带元数据一字不改** —— 与新实现不符时，写在我们自己的 `PROVENANCE.md` 里。
 - **非商业**：本仓库及其收录的任何包都不得用于商业用途。
@@ -89,7 +89,7 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 站点收到原件          → 审核台下载、跑测试
 ① 重打成 zip 根形状      包内文件直接在 zip 顶层；顶层目录名 = 包 id
 ② 修包契约            pack.json 只留 PACK_FIELDS 的键；id = 目录名；content 声明到位
-③ 该用我们的实现就换   逐条过 SKILL.md §7 的替代表
+③ 该用我们的实现就换   逐条过 SKILL.md §8 的替代表
 ④ 干净 workshop 根装载  一包一根、单独装载、要 errors=0（原始输出留档）
 ⑤ 一包一 zip            顶层目录 = 包 id，条目名正斜杠
 ⑥ 补 PROVENANCE.md      六项，含「包内哪一节已与实现不符（保持原样未改）」

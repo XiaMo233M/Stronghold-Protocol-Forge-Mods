@@ -4,7 +4,7 @@
 两份文件不重叠：这里讲格式与流程，那里讲审核、发布与纪律。
 
 给 AI 助手与人类贡献者的同一份说明书。本文与**引擎文档**冲突时**以引擎文档为准**
-（见文末「引擎侧的权威文档」）；本文引用的每一处代码位置都核过（见 §12 的依据表）。
+（见文末「引擎侧的权威文档」）；本文引用的每一处代码位置都核过（见 §17 的依据表）。
 
 ---
 
@@ -139,7 +139,7 @@ forms, fx, notices, playtest, assets, client, server, routes
 `EMPTY_PACK` 拒，理由里点名这一句（`shared/workshop.js:1847-1862`；引擎
 `docs/WORKSHOP.md:665-666`、`:1897-1898` 也这么说）。
 
-### 5.4 公告 / 鸣谢走 `notices`（只认两个字段）
+## 6. 公告 / 鸣谢走 `notices`（只认两个字段）
 
 `notices` 只认 `announcement` / `credits`，**各指向一个包内相对 `.json` 路径**（不是内联文本）
 （`shared/workshop.js:1051-1073`）。两条都遵守同一条纪律：**清单里没写这个键，哈希逐字节不变**。
@@ -175,18 +175,18 @@ forms, fx, notices, playtest, assets, client, server, routes
 [`notice/credits.json`](docs-copy-examples/notices/notice/credits.json)（三份照抄即可）。
 本轮之前的先例是 `demo/plugin-pack/notice/credits.json`，但 `demo/` 已退役、**不要照抄那一份**。
 
-## 6. 落成包格式（最常用的一屏）
+## 7. 落成包格式（最常用的一屏）
 
 ```
 packs/<包 id>/
 ├── pack.json            必需
-├── PROVENANCE.md        必需：署名与来源（§9）
+├── PROVENANCE.md        必需：署名与来源（§10）
 ├── <content>.json       数据层：bonds / chess / garrisons / items / tokens …（名字由 pack.json 的 content 列出）
 ├── kits/*.js            行为层：自定义干员 kit（只能 import 白名单里的别名，见下）
 ├── ui/*.js              界面层：面板模块（浏览器原生 ESM）
 ├── css/*.css            界面层：样式
 ├── i18n/<lang>.json     文案（键与引擎一致：zh-CN / zh-TW / en / ja / ko）
-├── notice/*.json        公告与鸣谢（由 pack.json 的 notices 指向，§5.4）
+├── notice/*.json        公告与鸣谢（由 pack.json 的 notices 指向，§6）
 ├── assets/**            包自带的素材（图标、徽记、音效…）
 └── server/*.mjs         服务端成员：preDispatch / meta / modules / battle / room
 ```
@@ -214,7 +214,7 @@ screen.loadout.detail
 **包里的 URL 前缀**：素材 `/workshop-assets/<包 id>/…`，面板模块 `/workshop-panels/…`
 （`shared/workshop.js:147`、`:156`）。
 
-## 7. 「有更好的逻辑就用我们的」（业主原则）
+## 8. 「有更好的逻辑就用我们的」（业主原则）
 
 **写包之前先查引擎有没有现成通道。** 自己重造一份的代价是「两套真相会漂」，而且漂的方向通常是静默。
 下表左列是社区 mod 里反复出现的做法，右列是本仓库要求改用的通道 —— **逐条都可抄**。
@@ -228,10 +228,10 @@ screen.loadout.detail
 
 **关于「一律归零」**：引擎的通道要用户 / 系统**声明了 `reduce`** 才生效。
 如果原件的行为是「装上就一律归零」，**不要**写一份无条件的全局 `!important`；
-正确做法是把它做成**用户开关**（默认走引擎通道），开关状态存在 §8.4 的偏好口里。
+正确做法是把它做成**用户开关**（默认走引擎通道），开关状态存在 §9.3 的偏好口里。
 拆开说：**默认尊重平台偏好，用户主动打开才一律归零。**
 
-## 8. 面板 ctx：一个面板能拿到什么
+## 9. 面板 ctx：一个面板能拿到什么
 
 面板模块的 `mount(ctx)` 拿到的 `ctx` 是**冻结对象**，键就是下面这些（`public/js/ui/extensions.js:798-805`）：
 
@@ -245,26 +245,26 @@ screen.loadout.detail
 | `host` | 注册点拥有的那个容器元素 —— 包可以往里填，别的都不行 |
 | `hostKey` | **可重复宿主**里分辨「我是哪一份」（商店卡那个键就是棋子 id），不可重复宿主为 `null` |
 | `log` | `info` / `warn` / `error`，自动带 `[mod <包 id>]` 前缀 |
-| `session` | 见 §8.4 |
-| `net` | 见 §8.1 / §8.2 |
+| `session` | 见 §9.3 |
+| `net` | 见 §8.1 / §9.2 |
 | `data` | 只读数据口（§7 那一条） |
 | `me` | 只读会话态：`playerId` / `name` / `room`（房间**展示面**快照：`code` / `mode` / `difficulty` / `inMatch` / `mySeat` / `spectating` / `mods`），另有 `snapshot()` 一次取全 |
 
 **边界就是「没传什么」**：**没有** store 句柄、没有 match / battle 对象、没有 `battleRunner`、没有 audio。
 所以一个 C 层模块可以「画错」，但改不了对局结果。
 
-### 8.1 `ctx.net` 的全部成员（6 个）
+### 9.1 `ctx.net` 的全部成员（6 个）
 
 | 成员 | 做什么 |
 |---|---|
 | `on(type, fn)` | 订阅。**引擎类型**原样透传；其余名字必须先在 `client.panels[].messages` 里声明，否则点名 `CLIENT_CHANNEL_UNDECLARED` 并返回一个空退订函数 |
 | `send(channel, data)` | 发**自己的**通道消息（`pack.msg`），通道必须声明过 |
 | `sendResourceMessage(msg)` | 发资源挑战那一类**早于 `hello`** 的消息（走 `_sendRaw`，`send()` 会丢） |
-| **`status()`** | **本轮新增**：连接读数，见 §8.2 |
-| **`welcome()`** | **本轮新增**：服务器身份读数，见 §8.2 |
+| **`status()`** | **本轮新增**：连接读数，见 §9.2 |
+| **`welcome()`** | **本轮新增**：服务器身份读数，见 §9.2 |
 | （无其它） | 面板**拿不到** `WebSocket`、心跳往返、重连计数器 —— 所以那两格只能由引擎给 |
 
-### 8.2 两格新读数的返回形状与只读语义
+### 9.2 两格新读数的返回形状与只读语义
 
 ```jsonc
 // ctx.net.status() —— 每次调用都是一份新的、冻结的副本
@@ -298,7 +298,7 @@ screen.loadout.detail
 
 > 引擎侧的规范：`docs/design/mod-layer.md` **§28.24**（`status()`，`:1943`）与 **§28.25**（`welcome()`，`:1973`）。
 
-### 8.3 `ctx.session.setPref` / `getPref` —— 唯一一格能写的东西
+### 9.3 `ctx.session.setPref` / `getPref` —— 唯一一格能写的东西
 
 面板**没有** `localStorage`、也没有 store 的写权限。要记住「每干员选了哪套」这类东西，用这一格：
 键自动按 `<包 id>/` 分区（两个包用同一个键名不会互相覆盖），值只收 `string` / `number` / `boolean` / `null`，
@@ -312,12 +312,12 @@ ctx.session.setPref('hardOff', true);              // 返回 true / false
 
 `session` 的另一半是 `setPreload({ required, ready })` —— 入场闸门，**唯一**一格 store 写。
 
-### 8.4 `ctx` 之外的兜底写法
+### 9.4 未声明的通道会被点名
 
-`client.panels[].messages` 里声明过通道才能收发（§8.1）。一个**永远不响的订阅**是这一层最不愿留下的东西，
+`client.panels[].messages` 里声明过通道才能收发（§9.1）。一个**永远不响的订阅**是这一层最不愿留下的东西，
 所以未声明的通道是**点名**而不是静默。
 
-## 9. 署名与许可纪律（不可省）
+## 10. 署名与许可纪律（不可省）
 
 **每个包必带 `PROVENANCE.md`**（放在包根，与 `pack.json` 同级），写清**六项**：
 
@@ -344,15 +344,15 @@ ctx.session.setPref('hardOff', true);              // 返回 true / false
 - **非商业**：本仓库及其收录的包**不得用于任何商业用途**（见 `NOTICE.md`）
 - 游戏本体的名称、素材与商标归**鹰角网络**所有
 
-## 10. 工作流（本轮实际怎么做的）
+## 11. 工作流（本轮实际怎么做的）
 
 ```
 ① 重打成 zip 根形状      包内文件直接放在 zip 顶层；顶层目录名 = 包 id（§3 规则 ③）
 ② 修包契约              pack.json 只留 PACK_FIELDS 的键；id = 目录名；content 声明到位（§5）
-③ 该用我们的实现就换    逐条过 §7 的替代表，别自己重造引擎已有的通道
+③ 该用我们的实现就换    逐条过 §8 的替代表，别自己重造引擎已有的通道
 ④ 干净 workshop 根装载   一包一根、单独装载、要 errors=0（把原始输出贴进交付说明）
 ⑤ 一包一 zip             顶层目录 = 包 id；条目名正斜杠
-⑥ 补 PROVENANCE.md       六项（§9）
+⑥ 补 PROVENANCE.md       六项（§10）
 ⑦ 记字节与 sha256        zip 的字节数与哈希记在交付清单里，不写进包内文本
 ```
 
@@ -362,7 +362,7 @@ ctx.session.setPref('hardOff', true);              // 返回 true / false
 **多 mod 时：一个 mod 一个子 agent 并行。** 这是业主明确口径 —— 包之间不共享状态，
 唯一要共享的是「引擎通道怎么用」这条知识（本文 §7）。
 
-## 11. 验证（做完必跑）
+## 12. 验证（做完必跑）
 
 ```bash
 # 拿引擎自己那一份装载器过一遍三个目录（引擎升级后也这么验）
@@ -387,7 +387,7 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json
 > **`EMPTY_PACK` 会掩住后面的判罚**：`content` 为空且没有其它贡献项时，它先报出来，
 > 于是 `api` 的类型错误（`BAD_API_TYPE`）看不到。**补上 `content` 再跑一次**（§5.2）。
 
-## 12. 命令速查
+## 13. 命令速查
 
 ```bash
 node tools/check-packs.mjs --engine <引擎目录>          # 全部包过一遍
@@ -397,14 +397,14 @@ SP_ENGINE=<引擎目录> node tools/check-packs.mjs          # 用环境变量�
 
 Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否则 Git 会把整文件当改动）。
 
-## 13. 禁止事项
+## 14. 禁止事项
 
 - ❌ 提交任何官方游戏素材（§6 的红线见下）
 - ❌ 在 `pack.json` 里写 `PACK_FIELDS` 之外的字段（装载器会**整包拒**，且玩家装不上）
 - ❌ 把 `api` 写成数字（类型闸门会拒；老版本引擎会**静默读成没声明**）
 - ❌ `content` 不声明 `chess` 却指望 `chess.json` 生效（静默失败，§5.3）
 - ❌ 用相对路径 import 引擎模块（只用白名单别名）
-- ❌ 自己重造引擎已有的通道（§7：主题变量、关动画、只读数据、资源分发）
+- ❌ 自己重造引擎已有的通道（§8：主题变量、关动画、只读数据、资源分发）
 - ❌ 删掉原作者的署名或原件许可、改包内原作者文本
 - ❌ 声称本仓库或任何包可以商业使用
 - ❌ 为了让校验通过而放宽校验（应当改包，不是改闸门）
@@ -417,7 +417,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 - **不可以**把官方素材拷进仓库
 - 包**不可以**声明把自己挂成官方素材的替代品（引擎有准入规则，会拒）
 
-## 14. 做不成包的情形（先判断，别白做）
+## 15. 做不成包的情形（先判断，别白做）
 
 | 原件做了什么 | 能不能成包 |
 |---|---|
@@ -431,14 +431,14 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 **做不了的部分要如实写进包的说明**（`fanpack-kazdel-rhodes` 的
 `README-改写说明.md` / `NOTICE-来源说明.md` 是这个体例：原件哪些部分没有接口、为什么、影响了什么）。
 
-## 15. 引擎侧的权威文档（本仓库只做索引）
+## 16. 引擎侧的权威文档（本仓库只做索引）
 
 - `docs/WORKSHOP.md` —— 工坊包格式的完整规则（`pack.json` 每个字段、层、覆盖、语音、准入）
 - `docs/MOD-SURFACE.md` —— 模组能碰到的**全部表面**（钩子、槽位、包裹组件、服务端成员）
-- `docs/design/mod-layer.md` —— 为什么是现在这个边界（§28），含 **§28.24 / §28.25**（§8.2）
+- `docs/design/mod-layer.md` —— 为什么是现在这个边界（§28），含 **§28.24 / §28.25**（§9.2）
 - `AGENTS.md`（引擎仓库自己的）—— 引擎仓库的贡献规则
 
-## 16. 本文引用位置的依据表
+## 17. 本文引用位置的依据表
 
 | 本文说的 | 依据（引擎仓库，只读核过） |
 |---|---|
