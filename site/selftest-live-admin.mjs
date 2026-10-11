@@ -1,6 +1,9 @@
 // 审核台「线上那一份页面」的桩测试（**默认跳过**；要它跑，必须显式给地址与令牌）。
 //
 //   SP_LIVE_BASE=http://127.0.0.1:25570 SP_LIVE_ADMIN=review-2228 SP_LIVE_TOKEN=... node site/selftest-live-admin.mjs
+//   （可选）SP_LIVE_COPY=1                另外在**副本实例**上跑那几条「本质上必须写」的断言
+//   （可选）SP_LIVE_DATA_DIR=/var/lib/sp-modsite   副本与「一字未变」自证用的生产数据目录
+//   （可选）SP_LIVE_COPY_PORT=25591       副本实例用的端口（**绝不能是生产端口**）
 //
 // 为什么单独一个文件、还不进默认测试：`selftest-admin.mjs` 是**自足**的（自己起服务、
 // 自己造数据、跑完就删），任何人 clone 下来都能跑。这条不一样 —— 它打的是**真实部署**，
@@ -9,22 +12,203 @@
 // 它治的是「桩里过了、线上那份页面还是死的」这一类：这里喂进去的 HTML 是**服务器实际发出的那一段字节**
 // （与部署产物同源），列表数据是**线上真实的 `/list` 响应**，不是造出来的。
 // 上次那个 TDZ 事故就是「接口好、页面死」，靠自足测试与线上字节两处都过才算数。
+//
+// ================================================================
+// ⚠️ 2026-10-11 修的 bug（业主口径：**我们的 bug 必须修**）：
+//   这一份**原本会写生产数据**。它拿线上的真 `/hide` 端点把某条记录「勾上 → 取消」，
+//   每跑一次就往那条记录的 `revisions` **追加 2 笔**（账本是追加式的，**历史无法逐字节复原**），
+//   并把 `hiddenAt` 前移。**测试绝不该改生产数据。** 实测：`compat/a84e3a916517` 因此被追加了 2 笔。
+//
+//   现在分成三件事：
+//     ① 保险（`assertWriteAllowed` / `allowCopyBase`）：**默认拒绝**。拿不出「这是副本」的证据
+//        （目标 DATA_DIR 里没有哨兵 `.selftest-copy.json`）就当生产处理 —— 对生产**一个非 GET 请求都不发**；
+//     ② 主体验法全部**只读**：要验「勾上之后长什么样」，就把线上真实 `/list` 里那一条在**内存里**
+//        标成 `hidden:true`（即服务端写完之后 `/list` 会返回的样子），再喂**服务器实际发出的那份 HTML**。
+//        一次写操作都不发，覆盖一条不减；
+//     ③ 有几条**本质上必须写**才能验（真写盘后的 `changed:true`、幂等、坏形状不写盘、隐藏期间的公开面、
+//        可逆），把它们挪到**副本实例**上跑：拷一份 DATA_DIR 到临时目录 → 起临时端口实例 → 跑完销毁。
+//        这些断言在输出里一律标着 **【仅副本】**。
+// ================================================================
 import vm from 'node:vm';
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const BASE = process.env.SP_LIVE_BASE;
-const ADMIN_PATH = process.env.SP_LIVE_ADMIN || 'admin';
-const TOKEN = process.env.SP_LIVE_TOKEN;
-if (!BASE || !TOKEN) {
-  console.log('（跳过：没有给 SP_LIVE_BASE / SP_LIVE_TOKEN —— 这条只对真实部署有意义）');
-  process.exit(0);
+const HERE = dirname(fileURLToPath(import.meta.url));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ================================================================
+// 保险：什么算「生产」，以及写路径凭什么被放行
+// ================================================================
+/** 副本 DATA_DIR 的哨兵文件名。**只有我们脚本自己造的副本才有这个文件。** */
+const COPY_SENTINEL = '.selftest-copy.json';
+/** 线上生产实例的端口 / 主机 / 数据目录（来自 /etc/sp-modsite.env 与部署文档）。 */
+const PROD_PORTS = new Set([25570]);
+const PROD_HOSTS = new Set(['47.103.14.217', 'sp-modsite']);
+const PROD_DATA_DIRS = new Set(['/var/lib/sp-modsite', '/opt/sp-modsite/data']);
+
+const originOf = (u) => {
+  try { const x = new URL(u); return { host: x.hostname, port: Number(x.port || (x.protocol === 'https:' ? 443 : 80)) }; }
+  catch { return null; }
+};
+const baseOf = (u) => { const o = originOf(u); return o ? `${new URL(u).protocol}//${o.host}:${o.port}` : String(u); };
+
+/** 「这个目录是副本」的**唯一**凭据：里面有一个说自己是副本的哨兵文件。 */
+function copySentinelOk(dir) {
+  if (typeof dir !== 'string' || !dir) return false;
+  try { if (!statSync(dir).isDirectory()) return false; } catch { return false; }
+  try { return JSON.parse(readFileSync(join(dir, COPY_SENTINEL), 'utf8'))?.copy === true; } catch { return false; }
 }
+
+/**
+ * 判断一个写目标是不是生产。**默认拒绝**：说不清、拿不出副本证据，一律算生产。
+ * 返回 { production, reasons }；reasons 为空才允许写。
+ */
+function classifyWriteTarget({ base, dataDirHint = null }) {
+  const reasons = [];
+  const o = originOf(base);
+  if (!o) reasons.push('目标地址读不出来');
+  else {
+    if (PROD_PORTS.has(o.port)) reasons.push(`端口 ${o.port} 是线上生产实例的端口`);
+    if (PROD_HOSTS.has(o.host)) reasons.push(`主机 ${o.host} 是线上生产主机`);
+  }
+  if (dataDirHint && PROD_DATA_DIRS.has(String(dataDirHint))) reasons.push(`DATA_DIR ${dataDirHint} 是线上生产数据目录`);
+  if (!copySentinelOk(dataDirHint)) reasons.push(`DATA_DIR ${dataDirHint || '(没给)'} 里没有副本哨兵 ${COPY_SENTINEL}`);
+  return { production: reasons.length > 0, reasons };
+}
+
+/** 被显式登记为「可写」的副本 base。**只有**带哨兵的副本实例能进来。 */
+const writeOkBases = new Map();
+function allowCopyBase(base, dataDirHint) {
+  const v = classifyWriteTarget({ base, dataDirHint });
+  if (v.production) throw new Error(`保险：拒绝把 ${base} 登记为可写目标 —— ${v.reasons.join('；')}`);
+  writeOkBases.set(baseOf(base), { dataDirHint });
+  return true;
+}
+/** 发请求前的最后一道闸：非 GET/HEAD 且目标没被登记过 ⇒ 抛错，**请求一个字节都不发**。 */
+function assertWriteAllowed(url, method) {
+  const m = String(method || 'GET').toUpperCase();
+  if (m === 'GET' || m === 'HEAD') return;
+  if (writeOkBases.has(baseOf(url))) return;
+  const v = classifyWriteTarget({ base: baseOf(url), dataDirHint: null });
+  throw new Error(`保险拦下了一次写请求：${m} ${url} —— ${v.reasons.join('；')}。`
+    + '本脚本的写路径只允许跑在「带副本哨兵的临时实例」上（SP_LIVE_COPY=1 + SP_LIVE_DATA_DIR）。');
+}
+/** 所有出网都从这里走：先过闸，再发。`fetchImpl` 只为自证时可注入替身。 */
+async function guardedFetch(fetchImpl, url, opts = {}) {
+  assertWriteAllowed(url, opts.method);
+  return fetchImpl(url, opts);
+}
+const liveFetch = (url, opts = {}) => guardedFetch(globalThis.fetch, url, opts);
 
 let failures = 0;
 const check = (ok, label, extra = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${label}${extra ? ` — ${extra}` : ''}`);
   if (!ok) failures++;
 };
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ================================================================
+// ① 保险自证（离线 · 不碰网络）：喂「生产目标」的假配置 ⇒ 必须拒绝
+// ================================================================
+console.log('① 保险自证（离线，不碰网络）：喂「生产目标」的假配置 ⇒ 必须拒绝');
+{
+  const spy = (...a) => { spy.calls++; return Promise.resolve({ ok: true, status: 200, json: async () => ({}), text: async () => '' }); };
+  spy.calls = 0;
+  const noSentinel = mkdtempSync(join(tmpdir(), 'sp-guard-nosentinel-'));
+  const withSentinel = mkdtempSync(join(tmpdir(), 'sp-guard-copy-'));
+  writeFileSync(join(withSentinel, COPY_SENTINEL), '{"copy":true}\n');
+
+  const c1 = classifyWriteTarget({ base: 'http://127.0.0.1:25570' });
+  check(c1.production, '生产端口 25570 ⇒ 判为生产', c1.reasons[0]);
+  const c2 = classifyWriteTarget({ base: 'http://47.103.14.217:25571' });
+  check(c2.production, '生产主机 47.103.14.217 ⇒ 判为生产', c2.reasons[0]);
+  const c3 = classifyWriteTarget({ base: 'http://127.0.0.1:25571', dataDirHint: '/var/lib/sp-modsite' });
+  check(c3.production, '生产 DATA_DIR /var/lib/sp-modsite ⇒ 判为生产', c3.reasons.join('；'));
+  const c4 = classifyWriteTarget({ base: 'http://127.0.0.1:25571', dataDirHint: noSentinel });
+  check(c4.production, '目录存在但**没有副本哨兵** ⇒ 默认拒绝（拿不出证据就是生产）', c4.reasons[0]);
+  const c5 = classifyWriteTarget({ base: 'http://127.0.0.1:25571' });
+  check(c5.production, '数据目录说不清 ⇒ 默认拒绝', c5.reasons[0]);
+
+  let refused = false;
+  try {
+    await guardedFetch(spy, 'http://127.0.0.1:25570/api/review-2228/hide', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'a84e3a916517', hidden: true }),
+    });
+  } catch { refused = true; }
+  check(refused && spy.calls === 0,
+    '对生产发 POST /hide ⇒ 抛错，且**一个字节都没发出去**（底层 fetch 调用次数 0）',
+    `底层 fetch 被调用 ${spy.calls} 次`);
+
+  const copyBase = 'http://127.0.0.1:25571';
+  let registered = false;
+  try { registered = allowCopyBase(copyBase, withSentinel); } catch { registered = false; }
+  check(registered, '正向对照：带哨兵 + 非生产端口 ⇒ 允许登记为可写目标');
+  let posted = false;
+  try { await guardedFetch(spy, `${copyBase}/api/review-2228/hide`, { method: 'POST' }); posted = true; } catch { posted = false; }
+  check(posted && spy.calls === 1, '正向对照：副本目标上的 POST 照常放行（保险只挡生产，不是「一律拒绝」）', `底层 fetch 被调用 ${spy.calls} 次`);
+  let got = false;
+  try { await guardedFetch(spy, 'http://127.0.0.1:25570/api/review-2228/list', { method: 'GET' }); got = true; } catch { got = false; }
+  check(got && spy.calls === 2, '正向对照：生产上的 GET 照常放行（只读不受影响）', `底层 fetch 被调用 ${spy.calls} 次`);
+  let regRefused = false;
+  try { allowCopyBase('http://127.0.0.1:25570', withSentinel); } catch { regRefused = true; }
+  check(regRefused, '哪怕哨兵齐了，**生产端口**也绝不登记（端口这道独立生效）');
+  writeOkBases.delete(copyBase);
+  rmSync(noSentinel, { recursive: true, force: true });
+  rmSync(withSentinel, { recursive: true, force: true });
+}
+
+const BASE = process.env.SP_LIVE_BASE;
+const ADMIN_PATH = process.env.SP_LIVE_ADMIN || 'admin';
+const TOKEN = process.env.SP_LIVE_TOKEN;
+if (!BASE || !TOKEN) {
+  console.log('\n（跳过：没有给 SP_LIVE_BASE / SP_LIVE_TOKEN —— 这条只对真实部署有意义）');
+  process.exit(failures ? 1 : 0);
+}
+/** 生产数据目录（只读快照用；也决定副本从哪儿拷）。 */
+const PROD_DATA = process.env.SP_LIVE_DATA_DIR || '/var/lib/sp-modsite';
+
+/** 只读走一遍数据目录，取「每条 meta.json 的 sha256 + revisions 总数」。这就是验收核心那份账。 */
+function snapshotData(root) {
+  if (!root) return null;
+  try { if (!statSync(root).isDirectory()) return null; } catch { return null; }
+  const shas = new Map();
+  let files = 0, revs = 0;
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else {
+        files++;
+        if (e.name === 'meta.json') {
+          const b = readFileSync(p);
+          const j = JSON.parse(b.toString('utf8'));
+          revs += Array.isArray(j.revisions) ? j.revisions.length : 0;
+          shas.set(relative(root, p), createHash('sha256').update(b).digest('hex'));
+        }
+      }
+    }
+  };
+  try { walk(root); } catch { return null; }
+  return { root, files, meta: shas.size, revs, shas };
+}
+function diffSnapshot(a, b, { ignoreFiles = false } = {}) {
+  if (!a || !b) return ['拿不到快照'];
+  const out = [];
+  for (const [k, v] of a.shas) if (b.shas.get(k) !== v) out.push(`${k}: ${String(v).slice(0, 12)}… → ${String(b.shas.get(k)).slice(0, 12)}…`);
+  for (const k of b.shas.keys()) if (!a.shas.has(k)) out.push(`${k}: 新增`);
+  for (const k of a.shas.keys()) if (!b.shas.has(k)) out.push(`${k}: 消失`);
+  if (a.revs !== b.revs) out.push(`revisions 总数 ${a.revs} → ${b.revs}`);
+  if (!ignoreFiles && a.files !== b.files) out.push(`文件数 ${a.files} → ${b.files}`);
+  return out;
+}
+const prodSnap0 = snapshotData(PROD_DATA);
+console.log(prodSnap0
+  ? `\n生产数据目录 ${PROD_DATA} · ${prodSnap0.meta} 条 meta.json · revisions 合计 ${prodSnap0.revs}（**本次运行前后必须一模一样**）`
+  : `\n（读不到生产数据目录 ${PROD_DATA}：不在同一台机器上？「一字未变」自证这条会跳过）`);
 
 // ---------------------------------------------------------------- 最小 DOM 桩（与 selftest-admin.mjs 同一套）
 function makeDom() {
@@ -87,7 +271,35 @@ function find(n, pred, out = []) {
   return out;
 }
 
-const adm = (p) => fetch(`${BASE}${p}`, { headers: { 'x-admin-token': TOKEN } });
+/** 所有请求都过保险（`liveFetch`）：GET 放行，写请求只可能落到登记过的副本 base 上。 */
+const admAt = (base, p) => liveFetch(`${base}${p}`, { headers: { 'x-admin-token': TOKEN } });
+const adm = (p) => admAt(BASE, p);
+/** 取「某个 base 的审核页 HTML」，喂 online 的真实 `/list` 响应，回可见性 + 计数。 */
+async function viewProbe(base, listData, id) {
+  const out = [];
+  for (const [view, label] of [['main', '待审'], ['approved', '已通过'], ['rejected', '已打回']]) {
+    const url = view === 'main' ? `/${ADMIN_PATH}` : `/${ADMIN_PATH}?view=${view}`;
+    const r = await admAt(base, url);
+    const vh = await r.text();
+    const b = bootInline(vh, {
+      path: url,
+      fetchImpl: async (u) => (String(u).endsWith('/list')
+        ? { ok: true, status: 200, json: async () => listData }
+        : { ok: true, status: 200, json: async () => ({}) }),
+    });
+    await sleep(50);
+    const rows = [...items(b.dom.byId.get('list')), ...items(b.dom.byId.get('alist')), ...items(b.dom.byId.get('rlist'))];
+    const shown = rows.filter((li) => li.style.display !== 'none');
+    const rr = b.sandbox.readFilter();
+    out.push({
+      view, label, threw: b.threw,
+      visible: shown.some((li) => li.meta && li.meta.id === id),
+      drawn: rows.some((li) => li.meta && li.meta.id === id),
+      sum: rr.nMain + rr.nApproved + rr.nRejected + rr.nHidden, nHidden: rr.nHidden, total: listData.submissions.length,
+    });
+  }
+  return out;
+}
 
 const pageRes = await adm(`/${ADMIN_PATH}`);
 const html = await pageRes.text();
@@ -193,58 +405,32 @@ for (const [view, label, panel, tab] of [
 const badLive = await adm(`/${ADMIN_PATH}?view=nope`);
 check(badLive.status === 404, '线上 view 不在白名单里 → 404（不悄悄回落到主列表）', `HTTP ${badLive.status}`);
 
-// ---------------------------------------------------------------- 线上「不再显示」勾选框
+// ---------------------------------------------------------------- 线上「不再显示」勾选框：**只读**验法
 // 业主 2026-10-11：「有可能 mod 名字和兼容后的名字不一样，导致依旧存在两个 mod（一个在兼容，
 // 一个在上传待定），所以给我一个勾选框，选后就不显示这个 mod 了」。
-// 这里打的是**真实部署**：真端点、真记录、真三个视图、真计数；**跑完把勾取消掉恢复原状**。
-console.log('\n线上「不再显示」勾选框：勾上 ⇒ 三个视图都不见 · 取消 ⇒ 回来 · 计数对得上');
-const hidePost = (body) => fetch(`${BASE}/api/${ADMIN_PATH}/hide`, {
-  method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': TOKEN },
-  body: JSON.stringify(body),
-});
-/** 把三个视图各拿一份**线上真实 HTML**，喂真 /list，返回「这次可见的行里有没有它」+ 计数。 */
-async function viewProbe(listData, id) {
-  const out = [];
-  for (const [view, label] of [['main', '待审'], ['approved', '已通过'], ['rejected', '已打回']]) {
-    const url = view === 'main' ? `/${ADMIN_PATH}` : `/${ADMIN_PATH}?view=${view}`;
-    const r = await adm(url);
-    const vh = await r.text();
-    const b = bootInline(vh, {
-      path: url,
-      fetchImpl: async (u) => (String(u).endsWith('/list')
-        ? { ok: true, status: 200, json: async () => listData }
-        : { ok: true, status: 200, json: async () => ({}) }),
-    });
-    await sleep(50);
-    const rows = [...items(b.dom.byId.get('list')), ...items(b.dom.byId.get('alist')), ...items(b.dom.byId.get('rlist'))];
-    const shown = rows.filter((li) => li.style.display !== 'none');
-    const rr = b.sandbox.readFilter();
-    out.push({
-      view, label, threw: b.threw,
-      visible: shown.some((li) => li.meta && li.meta.id === id),
-      drawn: rows.some((li) => li.meta && li.meta.id === id),
-      sum: rr.nMain + rr.nApproved + rr.nRejected + rr.nHidden, nHidden: rr.nHidden, total: listData.submissions.length,
-    });
-  }
-  return out;
-}
+//
+// 【2026-10-11 修 bug 的改法（a）】原本这一段**直接打线上 /hide**：勾上 → 取消，每跑一次给那条
+// 记录的 revisions 追加 2 笔。现在**一个写请求都不发**：
+//   · 「勾上之后长什么样」= 把线上真实 `/list` 里那一条在**内存里**标成 `hidden:true`
+//     （这正是服务端写完之后 `/list` 会返回的那份数据），再喂**服务器实际发出的那份 HTML**；
+//   · 「取消之后回来」= 直接用**线上真实的那份 `/list`**（这条本来就没被勾上，不必先写再撤）。
+// 要验的渲染与计数一条不减；真写盘那一路（`changed:true`/幂等/坏形状/隐藏期间公开面/可逆）
+// 挪到 ④ 的副本实例上跑。
+console.log('\n线上「不再显示」勾选框（**只读**）：合成「已隐藏」那一份 /list ⇒ 三个视图都不见 · 计数对得上 · 公开面不动');
 const target = listJson.submissions.find((s) => s.kind === 'compat' && s.hidden !== true)
   || listJson.submissions.find((s) => s.hidden !== true);
 if (!target) {
-  check(false, '线上没有可用来测勾选框的记录（难道全被隐藏了？）');
+  check(false, '线上没有可用来验勾选框的记录（难道全被隐藏了？）');
 } else {
-  console.log(`  用它测：${target.id}（${target.name}）`);
-  const pubJson0 = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
-  const pubPage0 = await (await fetch(`${BASE}/mods`)).text();
-  const hide1 = await hidePost({ id: target.id, hidden: true });
-  const hide1b = await hide1.json();
-  check(hide1.status === 200 && hide1b.changed === true && hide1b.hidden === true,
-    '勾上（线上真端点 · 一次一个 id）', `HTTP ${hide1.status} · ${JSON.stringify({ changed: hide1b.changed, hidden: hide1b.hidden })}`);
-  const hide2 = await hidePost({ id: target.id, hidden: true });
-  check((await hide2.json()).changed === false, '幂等：再勾一次 → changed:false（不写第二笔）');
-  const listHid = await (await adm(`/api/${ADMIN_PATH}/list`)).json();
-  check(listHid.submissions.find((s) => s.id === target.id)?.hidden === true, '线上 /list 里这条带着 hidden:true');
-  const probeHid = await viewProbe(listHid, target.id);
+  console.log(`  用它验：${target.id}（${target.name}）· 线上现在 hidden=${target.hidden === true}`);
+  check(target.hidden !== true, '线上这条本来就没被勾上（**测试不需要先写它一下**）', `hidden=${target.hidden}`);
+  // 合成的「已隐藏」那一份（只在内存里；一个字节都不落盘）
+  const synthHid = { ...listJson, submissions: listJson.submissions.map((s) => (s.id === target.id ? { ...s, hidden: true } : s)) };
+  const synthHidden = hidN(synthHid.submissions);
+  check(synthHidden === liveHidden + 1,
+    '合成的那一份 = 线上那一份 + 这一条标成 hidden:true（**只在内存里**，没落盘）',
+    `已隐藏 ${liveHidden} → ${synthHidden}`);
+  const probeHid = await viewProbe(BASE, synthHid, target.id);
   for (const p of probeHid) {
     check(!p.threw && !p.visible,
       `线上「${p.label}」那一页：勾上之后**看不到它**（本页画了它吗：${p.drawn ? '画了但不显示' : '不属这页'}）`,
@@ -256,25 +442,13 @@ if (!target) {
   check(probeHid.reduce((n, p) => n + p.nHidden, 0) === 3 && probeHid.every((p) => p.nHidden === 1),
     '线上三页都算出了「已隐藏 1」（同一份 /list，三页各算一遍）',
     probeHid.map((p) => `${p.label}:${p.nHidden}`).join(' '));
-  // 形状：绝不批量 / 不存在 404
-  const batchLive = await hidePost({ ids: [target.id], hidden: true });
-  check(batchLive.status === 400, '线上：报文里带「一批」的形状（ids）→ 400（绝不批量）', `HTTP ${batchLive.status}`);
-  const arrIdLive = await hidePost({ id: [target.id], hidden: true });
-  check(arrIdLive.status === 400, '线上：id 给了数组 → 400', `HTTP ${arrIdLive.status}`);
-  const noSuch = await hidePost({ id: 'ffffffffffff', hidden: true });
-  check(noSuch.status === 404, '线上：不存在的 id → 404', `HTTP ${noSuch.status}`);
-  const stillHid = await (await adm(`/api/${ADMIN_PATH}/list`)).json();
-  check(stillHid.submissions.find((s) => s.id === target.id)?.hidden === true,
-    '那一串坏形状**一条都没写盘**（这条仍然是勾上的那个值）');
-  // 公开面不动（隐藏 ≠ 下架）
-  const pubJson1 = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
-  const pubPage1 = await (await fetch(`${BASE}/mods`)).text();
-  check(pubJson1 === pubJson0, '隐藏期间**线上 /api/mods 一个字节都没变**（条数与下载地址一字不变）');
-  check(pubPage1 === pubPage0, '隐藏期间线上 /mods 那一页也一个字都没变');
-  // 「显示已隐藏」开关：勾上能看见（便于取消勾选）
+  check(probeHid.every((p) => p.nHidden === synthHidden),
+    '（只读版补强）三页各自算出的「已隐藏」= 合成之后的真实条数 —— 三页都没多算也没少算',
+    `${probeHid.map((p) => p.nHidden).join('/')} vs ${synthHidden}`);
+  // 「显示已隐藏」开关：勾上能看见（便于取消勾选）—— 喂合成那一份
   const bShow = bootInline(html, {
     fetchImpl: async (u) => (String(u).endsWith('/list')
-      ? { ok: true, status: 200, json: async () => listHid }
+      ? { ok: true, status: 200, json: async () => synthHid }
       : { ok: true, status: 200, json: async () => ({}) }),
   });
   await sleep(60);
@@ -284,22 +458,28 @@ if (!target) {
   check(rShow.visibleHidden === 1 && rowsShow.some((li) => li.meta && li.meta.id === target.id && li.style.display !== 'none'),
     '勾上「显示已隐藏」→ 线上那条被隐藏的又看得见（就是给你取消勾选用的）',
     `可见的已隐藏 ${rShow.visibleHidden} 条`);
-  // 取消勾选 ⇒ 回来（**可逆**）
-  const un1 = await hidePost({ id: target.id, hidden: false });
-  check((await un1.json()).hidden === false, '取消勾选：写回 hidden:false（**可逆**）');
-  const listBack = await (await adm(`/api/${ADMIN_PATH}/list`)).json();
-  const probeBack = await viewProbe(listBack, target.id);
+  // 公开面：隐藏 ≠ 下架。只读版的两条独立证据 ——
+  //   ① /api/mods 的字段里**根本没有** hidden 这一栏（服务端不读它）；
+  //   ② 连读两次字节一致（服务端也没在别处偷偷用它改输出）。
+  // 「真在隐藏状态下的公开面字节」那一条挪到 ④ 的副本上验（那才是真隐藏着取的）。
+  const pubJsonA = JSON.stringify(await (await liveFetch(`${BASE}/api/mods`)).json());
+  const pubPageA = await (await liveFetch(`${BASE}/mods`)).text();
+  check(!/"hidden"/.test(pubJsonA),
+    '公网 /api/mods 的字段里没有 hidden 这一栏 ⇒ 隐藏不改公开面（隐藏 ≠ 下架）');
+  check(pubJsonA === JSON.stringify(await (await liveFetch(`${BASE}/api/mods`)).json())
+    && pubPageA === await (await liveFetch(`${BASE}/mods`)).text(),
+    '公网 /api/mods 与 /mods 各连读两次，字节完全一致（全程没动过）');
+  // 取消勾选 ⇒ 回来（**可逆**）：用线上真实那一份 /list，不必先写
+  const listBack = listJson;
+  const probeBack = await viewProbe(BASE, listBack, target.id);
   const own = probeBack.find((p) => (target.kind === 'compat' ? p.view === 'approved' : p.view === 'main'))
     || probeBack.find((p) => p.drawn);
   check(!!own && probeBack.find((p) => p.view === own.view).visible,
-    '取消勾选之后：它又出现在自己该在的那一页上',
+    '没被勾上的那条：它出现在自己该在的那一页上',
     probeBack.map((p) => `${p.label}:可见=${p.visible}`).join(' · '));
   check(probeBack.every((p) => p.nHidden === hidN(listBack.submissions)),
-    '取消之后「已隐藏」那一栏回到线上的真实条数（不再因为测试而虚高）',
+    '「已隐藏」那一栏就是线上的真实条数（测试没有让它虚高）',
     probeBack.map((p) => `${p.label}:${p.nHidden}`).join(' '));
-  check(JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json()) === pubJson0
-    && await (await fetch(`${BASE}/mods`)).text() === pubPage0,
-    '一来一回之后，线上公开面仍是那串基准字节（全程没动过）');
 }
 
 // ---------------------------------------------------------------- 线上 /mods：备注文案
@@ -308,9 +488,9 @@ if (!target) {
 // 这里喂进去的是**线上 /mods 实际发出的那段字节** + **线上真实的 /api/mods 响应**，
 // 断言「渲染出来的备注是新文案，且不含『链路实测』『不发布』」—— 不是拿造的数据自证。
 const NOTE_NEW = '兼容改写版：基于原投稿改写，原作者署名与许可原样保留。';
-const modsPage = await fetch(`${BASE}/mods`);
+const modsPage = await liveFetch(`${BASE}/mods`);
 const modsHtml = await modsPage.text();
-const modsJson = await (await fetch(`${BASE}/api/mods`)).json();
+const modsJson = await (await liveFetch(`${BASE}/api/mods`)).json();
 console.log(`线上 ${BASE}/mods · HTTP ${modsPage.status} · ${modsHtml.length} 字节 · 公开 ${modsJson.mods.length} 条`);
 const modsBoot = bootInline(modsHtml, {
   path: '/mods',
@@ -350,7 +530,181 @@ for (const nm of ['ave-mujica 1.1.0', 'makoto-yuki 1.0.1']) {
 }
 check(modsJson.mods.length >= 5, `线上公开主列表至少 5 条（本轮 3 → 5）`, `mods=${modsJson.mods.length} · flagged=${modsJson.flagged.length}`);
 
+// ================================================================
+// ④ **写依赖**断言 —— 只在副本实例上跑（SP_LIVE_COPY=1）
+//
+// 这几条**本质上必须写**才能验，所以生产上一条都不发，全部挪到副本：
+//   · /hide 真写盘后的返回（changed:true / hidden:true）与幂等（changed:false 不留第二笔）
+//   · /list 里真的带着 hidden:true（服务端**读盘**那一路，不是内存合成）
+//   · 勾上之后三个视图真的都不见（服务端 /list 真的变了）
+//   · 坏形状（ids 一批 / id 数组 / 不存在的 id）→ 400 / 400 / 404，且**一条都没写盘**
+//   · 隐藏期间 /api/mods 与 /mods 字节不变（真在隐藏状态下取的）
+//   · 取消勾选 ⇒ 真的写回 hidden:false（**可逆**）
+// ================================================================
+if (process.env.SP_LIVE_COPY !== '1') {
+  console.log('\n④ 写依赖断言（副本实例）：**跳过** —— 没给 SP_LIVE_COPY=1。'
+    + '生产上一条写请求都不会发（本次运行所有非 GET 请求都被保险拦着）。');
+} else if (!prodSnap0) {
+  check(false, `副本实例：读不到生产数据目录 ${PROD_DATA}（SP_LIVE_DATA_DIR 指对了吗？）`);
+} else {
+  console.log(`\n④ 写依赖断言（**仅副本**）：把 ${PROD_DATA} 拷到临时目录 ⇒ 起临时实例 ⇒ 在副本上写`);
+  const tmp = mkdtempSync(join(tmpdir(), 'sp-live-copy-'));
+  const dataDir = join(tmp, 'data');
+  const port = Number(process.env.SP_LIVE_COPY_PORT || 25591);
+  const copyBase = `http://127.0.0.1:${port}`;
+  let child = null;
+  let childLog = '';
+  try {
+    cpSync(PROD_DATA, dataDir, { recursive: true });
+    writeFileSync(join(dataDir, COPY_SENTINEL), JSON.stringify({ copy: true, at: new Date().toISOString(), from: PROD_DATA }) + '\n');
+    const verdict = classifyWriteTarget({ base: copyBase, dataDirHint: dataDir });
+    check(!verdict.production, '副本目标过了保险（带哨兵 + 非生产端口 + 非生产主机）', verdict.reasons.join('；') || '无理由拒绝');
+    if (verdict.production) throw new Error('副本目标被保险判为生产，不跑写路径');
+    const copySnap0 = snapshotData(dataDir);
+    const drift = diffSnapshot(prodSnap0, copySnap0, { ignoreFiles: true });
+    check(drift.length === 0, '副本与生产**逐字节相同**（每条 sha256 + revisions 总数；多出的 1 个文件是副本哨兵）',
+      drift.length ? drift.join(' ; ') : `副本 revisions=${copySnap0.revs}`);
+    allowCopyBase(copyBase, dataDir);
+
+    child = spawn(process.execPath, [join(HERE, 'server.mjs')], {
+      env: {
+        ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dataDir,
+        ADMIN_TOKEN: TOKEN, ADMIN_PATH, BASE_URL: copyBase, MAX_MB: '100', ADMIN_IPS: '127.0.0.1', TRUST_PROXY: '0',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    child.stdout.on('data', (b) => { childLog += b; });
+    child.stderr.on('data', (b) => { childLog += b; });
+    let up = false;
+    for (let i = 0; i < 80 && !up; i++) {
+      try { up = (await liveFetch(`${copyBase}/healthz`)).ok; } catch { /* 还没起 */ }
+      if (!up) await sleep(100);
+    }
+    check(up, `副本实例起来了（:${port}）`, up ? (childLog.split('\n').find((l) => l.includes('数据目录')) || '').trim() : childLog.slice(-300));
+    // 前置断言：答话的必须是**从副本起的**那个实例（编排踩过一次：端口被 env 覆盖 ⇒ 又打到生产）
+    check(up && new RegExp(`监听\\s+127\\.0\\.0\\.1:${port}`).test(childLog) && childLog.includes(`数据目录 ${dataDir}`),
+      '答话的就是这个副本实例（启动日志里写着副本数据目录与端口 —— 前置断言，防端口被覆盖后又打到生产）');
+    if (!up) throw new Error('副本实例没起来');
+    const copyHtml = await (await admAt(copyBase, `/${ADMIN_PATH}`)).text();
+    check(copyHtml === html, '副本发的审核页 HTML 与生产一字不差（同一份代码、同一份数据）');
+    const copyList0 = await (await admAt(copyBase, `/api/${ADMIN_PATH}/list`)).json();
+    check(JSON.stringify(copyList0) === JSON.stringify(listJson), '副本实例的 /list 与生产一字不差（**同一份数据**）');
+
+    const t = listJson.submissions.find((s) => s.kind === 'compat' && s.hidden !== true)
+      || listJson.submissions.find((s) => s.hidden !== true);
+    if (!t) throw new Error('副本上没有可用来测勾选框的记录');
+    console.log(`  · 在副本上写它：${t.id}（${t.name}）`);
+    const hidePost = (body) => liveFetch(`${copyBase}/api/${ADMIN_PATH}/hide`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': TOKEN },
+      body: JSON.stringify(body),
+    });
+    const pubJson0 = JSON.stringify(await (await liveFetch(`${copyBase}/api/mods`)).json());
+    const pubPage0 = await (await liveFetch(`${copyBase}/mods`)).text();
+
+    const hide1 = await hidePost({ id: t.id, hidden: true });
+    const hide1b = await hide1.json();
+    check(hide1.status === 200 && hide1b.changed === true && hide1b.hidden === true,
+      '【仅副本】勾上（真端点 · 一次一个 id）', `HTTP ${hide1.status} · changed=${hide1b.changed} hidden=${hide1b.hidden}`);
+    const hide2 = await hidePost({ id: t.id, hidden: true });
+    check((await hide2.json()).changed === false, '【仅副本】幂等：再勾一次 → changed:false（不写第二笔）');
+    const listHid = await (await admAt(copyBase, `/api/${ADMIN_PATH}/list`)).json();
+    check(listHid.submissions.find((s) => s.id === t.id)?.hidden === true,
+      '【仅副本】/list 里这条带着 hidden:true（服务端**读盘**那一路）');
+    const probeHid = await viewProbe(copyBase, listHid, t.id);
+    for (const p of probeHid) {
+      check(!p.threw && !p.visible,
+        `【仅副本】线上「${p.label}」那一页：勾上之后**看不到它**（本页画了它吗：${p.drawn ? '画了但不显示' : '不属这页'}）`,
+        `可见=${p.visible} · 已隐藏计数=${p.nHidden}`);
+      check(p.sum === p.total,
+        `【仅副本】线上「${p.label}」那一页：三页相加 + 已隐藏 = 全部`,
+        `${p.sum} = ${p.total}（其中已隐藏 ${p.nHidden}）`);
+    }
+    check(probeHid.every((p) => p.nHidden === hidN(listHid.submissions)),
+      '【仅副本】三页各自算出的「已隐藏」= 写盘之后的真实条数',
+      `${probeHid.map((p) => `${p.label}:${p.nHidden}`).join(' ')}（真实 ${hidN(listHid.submissions)}）`);
+    // 形状：绝不批量 / 不存在 404
+    const batchLive = await hidePost({ ids: [t.id], hidden: true });
+    check(batchLive.status === 400, '【仅副本】报文里带「一批」的形状（ids）→ 400（绝不批量）', `HTTP ${batchLive.status}`);
+    const arrIdLive = await hidePost({ id: [t.id], hidden: true });
+    check(arrIdLive.status === 400, '【仅副本】id 给了数组 → 400', `HTTP ${arrIdLive.status}`);
+    const noSuch = await hidePost({ id: 'ffffffffffff', hidden: true });
+    check(noSuch.status === 404, '【仅副本】不存在的 id → 404', `HTTP ${noSuch.status}`);
+    const stillHid = await (await admAt(copyBase, `/api/${ADMIN_PATH}/list`)).json();
+    check(stillHid.submissions.find((s) => s.id === t.id)?.hidden === true,
+      '【仅副本】那一串坏形状**一条都没写盘**（这条仍然是勾上的那个值）');
+    // 公开面不动（隐藏 ≠ 下架）—— 这一条**只在真隐藏着的副本上**才验得实
+    const pubJson1 = JSON.stringify(await (await liveFetch(`${copyBase}/api/mods`)).json());
+    const pubPage1 = await (await liveFetch(`${copyBase}/mods`)).text();
+    check(pubJson1 === pubJson0, '【仅副本】隐藏期间 /api/mods 一个字节都没变（条数与下载地址一字不变）');
+    check(pubPage1 === pubPage0, '【仅副本】隐藏期间 /mods 那一页也一个字都没变');
+    // 「显示已隐藏」开关：**写盘之后**真去取一次
+    const bShow = bootInline(copyHtml, {
+      fetchImpl: async (u) => (String(u).endsWith('/list')
+        ? { ok: true, status: 200, json: async () => listHid }
+        : { ok: true, status: 200, json: async () => ({}) }),
+    });
+    await sleep(60);
+    bShow.dom.byId.get('fHidden').checked = true;
+    const rShow = bShow.sandbox.readFilter();
+    const rowsShow = [...items(bShow.dom.byId.get('list')), ...items(bShow.dom.byId.get('alist')), ...items(bShow.dom.byId.get('rlist'))];
+    check(rowsShow.some((li) => li.meta && li.meta.id === t.id && li.style.display !== 'none'),
+      '【仅副本】勾上「显示已隐藏」→ 那条被隐藏的又看得见（就是给你取消勾选用的）',
+      `可见的已隐藏 ${rShow.visibleHidden} 条`);
+    // 取消勾选 ⇒ 回来（**可逆**）
+    const un1 = await hidePost({ id: t.id, hidden: false });
+    check((await un1.json()).hidden === false, '【仅副本】取消勾选：写回 hidden:false（**可逆**）');
+    const listBack = await (await admAt(copyBase, `/api/${ADMIN_PATH}/list`)).json();
+    const probeBack = await viewProbe(copyBase, listBack, t.id);
+    const own = probeBack.find((p) => (t.kind === 'compat' ? p.view === 'approved' : p.view === 'main'))
+      || probeBack.find((p) => p.drawn);
+    check(!!own && probeBack.find((p) => p.view === own.view).visible,
+      '【仅副本】取消勾选之后：它又出现在自己该在的那一页上',
+      probeBack.map((p) => `${p.label}:可见=${p.visible}`).join(' · '));
+    check(probeBack.every((p) => p.nHidden === hidN(listBack.submissions)),
+      '【仅副本】取消之后「已隐藏」那一栏回到真实条数（不再因为测试而虚高）',
+      probeBack.map((p) => `${p.label}:${p.nHidden}`).join(' '));
+    check(JSON.stringify(await (await liveFetch(`${copyBase}/api/mods`)).json()) === pubJson0
+      && await (await liveFetch(`${copyBase}/mods`)).text() === pubPage0,
+      '【仅副本】一来一回之后，公开面仍是那串基准字节（全程没动过）');
+    // 写**确实**发生了 —— 而且只落在副本的账本上
+    const copySnap1 = snapshotData(dataDir);
+    check(copySnap1.revs === copySnap0.revs + 2,
+      '【仅副本】写确实发生了：副本账本 revisions +2（这就是**原来**会落到生产上的那 2 笔）',
+      `副本 revisions ${copySnap0.revs} → ${copySnap1.revs}`);
+    const keyT = [...copySnap1.shas.keys()].find((k) => k.endsWith(`/${t.id}/meta.json`) || k === `${t.id}/meta.json`);
+    check(!!keyT && copySnap0.shas.get(keyT) !== copySnap1.shas.get(keyT),
+      '【仅副本】副本里**那一条**的 meta.json 真的被改了（而且只有它）',
+      keyT ? `${keyT}: ${String(copySnap0.shas.get(keyT)).slice(0, 12)}… → ${String(copySnap1.shas.get(keyT)).slice(0, 12)}…` : '没找到那条的 meta.json');
+    check(diffSnapshot(prodSnap0, snapshotData(PROD_DATA)).length === 0,
+      '【仅副本】此刻生产 DATA_DIR 仍与开跑前逐字节相同（写只落在副本上）');
+  } catch (e) {
+    check(false, '副本实例那一段没能跑完', `${e?.name}: ${e?.message}`);
+  } finally {
+    if (child) child.kill('SIGTERM');
+    await sleep(150);
+    rmSync(tmp, { recursive: true, force: true });
+    console.log(`  · 副本已销毁（${tmp}）：${existsSync(tmp) ? '还在（异常，请看一眼）' : '已清掉'}`);
+  }
+}
+
+// ================================================================
+// ⑤ 验收核心自证：本次运行**没有**改动生产数据
+// ================================================================
+console.log('\n⑤ 验收核心自证：本次运行前后，生产 DATA_DIR 逐字节未变');
+const prodSnap1 = snapshotData(PROD_DATA);
+if (!prodSnap0 || !prodSnap1) {
+  console.log(`  · （读不到 ${PROD_DATA}：这条自证跳过 —— 在服务器上跑才会生效）`);
+} else {
+  const drift = diffSnapshot(prodSnap0, prodSnap1);
+  check(drift.length === 0,
+    `生产 ${prodSnap1.meta} 条 meta.json 的 sha256 与 revisions 总数（${prodSnap1.revs}）一字未变`,
+    drift.length ? drift.join(' ; ') : `meta=${prodSnap1.meta} · revisions=${prodSnap1.revs} · 文件=${prodSnap1.files}`);
+  check(prodSnap1.revs === prodSnap0.revs, 'revisions 总笔数没涨（一次运行不再产生任何新历史）',
+    `${prodSnap0.revs} → ${prodSnap1.revs}`);
+}
+
 console.log('');
 if (failures) { console.log(`✖ ${failures} 项没通过`); process.exit(1); }
-console.log('✔ 线上那一份审核台：脚本跑到底 · 筛选真的减少可见条数 · 清空恢复 · 计数显示（三页相加 + 已隐藏 = 全部）· '
-  + '每条记录一个「不再显示」勾选框（勾上三视图都不见、取消就回来）· /mods 备注是新文案');
+console.log('✔ 线上那一份审核台（**只读**）：脚本跑到底 · 筛选真的减少可见条数 · 清空恢复 · 计数显示'
+  + '（三页相加 + 已隐藏 = 全部）· 每条记录一个「不再显示」勾选框（合成「已隐藏」那一份 ⇒ 三视图都不见；'
+  + '真实那一份 ⇒ 回来）· /mods 备注是新文案 · 生产数据一字未变');
