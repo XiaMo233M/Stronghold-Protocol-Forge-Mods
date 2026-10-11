@@ -107,7 +107,9 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge
 ## 什么样的包会被收发
 
 - **要带上真实功能**：装上会改变某项游戏内行为（数据 / 界面 / 服务端任一层）才收；
-  自述 `documentation-only` / 只读参考 / 只放 JSON 与说明面板的**不予上架**，等它带上真实功能再投
-  （见 [AGENTS.md](AGENTS.md) §4）。
+  自述 `documentation-only` / 只读参考 / 只放 JSON 与说明面板的**不上架** —— 但**处理方式是
+  「留在待审」，不是「打回」**：**记录与简介要保留**，那是我们**做兼容包改写的依据**
+  （打回会写下 `decision.json` 的 `rejected`、该条离开待审队列掉到 `?view=rejected`）
+  —— 等它带上真实功能再上架（见 [AGENTS.md](AGENTS.md) §4）。
 - **会改对局结果的包要标注清楚**：`combat: true` 的包**不另设闸门**（mod 由房主建房间时自己选装），
   但**必须在包自述里讲明「会影响对局结果」**；不标才是问题（见 [SKILL.md](SKILL.md) §4）。
