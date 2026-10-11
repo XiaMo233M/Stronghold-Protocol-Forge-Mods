@@ -333,15 +333,93 @@ check(vis() === all.length - liveHidden,
   '默认视图只藏了「不再显示」的那些，别的一条没藏',
   `可见 ${vis()} / ${all.length}（其中已隐藏 ${liveHidden} 条）`);
 
-// 关键字：拿线上真实记录里一个唯一片段来筛
-const sample = listJson.submissions.find((s) => (s.name || '').includes('皮肤选择器'));
-if (sample) {
-  dom.byId.get('fKey').value = '皮肤选择器';
-  const r = sandbox.readFilter();
-  check(vis() >= 1 && r.visible === vis(), `关键字「皮肤选择器」筛出 ${vis()} 条（线上确有这条）`);
-  dom.byId.get('fClear').onclick();
-  check(vis() === all.length - liveHidden, '清空筛选 → 恢复（仍然只剩已隐藏的那些不显示）');
+// 【2026-10-11 修「过时断言」· 数据漂移，不是产品 bug】关键字筛选：**不写死任何关键词**。
+//   原先写死「皮肤选择器」＝一条**当前线上已经 hidden:true** 的记录 ⇒ 默认视图本来就不画它，
+//   筛出 0 条是**正确行为**，是断言写错了。现在改成从**当前线上真实数据**里现挑：
+//     · 挑一条**默认可见**（hidden !== true）的记录，取它名字里一段**只有它命中**的片段；
+//     · 断言「筛出的可见条数 == 数据里真的命中这个关键词的可见条数」（两边现算，不是常数）；
+//     · 再断言它会**真的筛掉别条**（否则「筛」字就是虚的）；
+//     · 命中数 > 1 时按名字精确到那一条再断言；== 1 时直接断言那一条可见。
+//   ⚠️ 命中判据必须与页面 `matches()` 的 key 那一路**同一套**（id 或 name 含关键词、大小写不敏感）。
+const keyHits = (rows, k) => rows.filter((s) => String(s.id || '').toLowerCase().includes(k)
+  || String(s.name || '').toLowerCase().includes(k));
+const visibleInDom = () => all.filter((li) => li.style.display !== 'none');
+const firstVisible = listJson.submissions.find((s) => s.hidden !== true);
+let kw = null, kwRow = null, kwN = 0;
+if (firstVisible) {
+  // 先拿**整名**：它通常只命中这一条 ⇒ 关键词直接就是记录自己的名字（最好读的一档）。
+  kw = String(firstVisible.name || '').trim() || String(firstVisible.id);
+  if (keyHits(listJson.submissions, kw.toLowerCase()).length !== 1) {
+    // 整名也撞了：再往名字里找一段**只有它命中**的片段；实在没有就退回编号。
+    const nm = String(firstVisible.name || '');
+    let found = null;
+    for (let len = Math.min(12, nm.length); len >= 2 && !found; len--) {
+      for (let i = 0; i + len <= nm.length; i++) {
+        const cand = nm.slice(i, i + len);
+        const hitsAll = keyHits(listJson.submissions, cand.toLowerCase());
+        if (hitsAll.length === 1 && hitsAll[0].id === firstVisible.id) { found = cand; break; }
+      }
+    }
+    kw = found || String(firstVisible.id);
+  }
+  kwRow = firstVisible;
+  kwN = keyHits(listJson.submissions, kw.toLowerCase()).filter((s) => s.hidden !== true).length;
 }
+if (!kw) {
+  check(false, '线上没有可用于筛选断言的可搜索字段（难道名字与编号全空？）');
+} else {
+  console.log(`  用它筛：${kwRow.id}（${kwRow.name}）· 关键词「${kw}」在数据里可见命中 ${kwN} 条`);
+  dom.byId.get('fKey').value = kw;
+  const rKw = sandbox.readFilter();
+  check(vis() === kwN, `关键字「${kw}」筛出 ${vis()} 条 == 数据里的可见命中数 ${kwN} 条`);
+  check(visibleInDom().length === kwN && visibleInDom().every((li) => keyHits([li.meta], kw.toLowerCase()).length === 1),
+    `筛出的 ${visibleInDom().length} 条**每一条都真的命中**这个关键词（一条不多）`);
+  // 这一档**必跑**：把关键词逼成「只命中它一条」的样式，再验「筛出来就是它自己」。
+  // 定不下来就显式打一条 ✗（不许静默跳过 —— 跳过就等于这条断言不存在）。
+  const soloKw = keyHits(listJson.submissions, String(kwRow.name).toLowerCase()).length === 1
+    ? String(kwRow.name)
+    : (keyHits(listJson.submissions, String(kwRow.id).toLowerCase()).length === 1 ? String(kwRow.id) : null);
+  if (!soloKw) {
+    check(false, '找不出一个「只命中它一条」的关键词来验收窄那一档（数据里的名字与编号都不唯一）');
+  } else {
+    const soloN = keyHits(listJson.submissions, soloKw.toLowerCase()).filter((s) => s.hidden !== true).length;
+    dom.byId.get('fKey').value = soloKw;
+    const rSolo = sandbox.readFilter();
+    check(soloN === 1 && vis() === 1 && visibleInDom().length === 1 && visibleInDom()[0].meta?.id === kwRow.id,
+      `把关键词收窄到「${soloKw}」→ 只剩它自己那一条（筛出来的就是它）`,
+      `可见 ${vis()} 条 · 数据里可见命中 ${soloN} 条`);
+    check(rSolo.visibleHidden === 0, '收窄之后仍然看不到任何已隐藏记录（默认不勾「显示已隐藏」）',
+      `可见的已隐藏 ${rSolo.visibleHidden} 条`);
+  }
+  dom.byId.get('fKey').value = '';
+  check(rKw.visibleHidden === 0, '默认（不勾「显示已隐藏」）下筛不到任何已隐藏记录',
+    `可见的已隐藏 ${rKw.visibleHidden} 条`);
+}
+// 反例：一个**压根不存在**的关键词 ⇒ 一条都不该可见（否则筛选是虚的）
+const MISSING_KEY = 'zz-no-such-key-zz';
+check(keyHits(listJson.submissions, MISSING_KEY).length === 0, `反例关键词「${MISSING_KEY}」在数据里本来就不命中任何记录`);
+dom.byId.get('fKey').value = MISSING_KEY;
+const rMiss = sandbox.readFilter();
+check(vis() === 0 && visibleInDom().length === 0,
+  `反例关键词「${MISSING_KEY}」一条都不留（筛选真的在筛）`, `可见 ${vis()} 条`);
+dom.byId.get('fKey').value = '';
+// 已隐藏那条：默认看不见；勾上「显示已隐藏」才找得回来（**原来那条错断言的真身**）
+const hidSample1 = listJson.submissions.find((s) => s.hidden === true && String(s.name || '').trim());
+if (!hidSample1) {
+  check(false, '线上没有已隐藏记录（一条都没被勾上？）—— 这条断言本来就盯「隐藏 ≠ 消失」');
+} else {
+  const hidName = String(hidSample1.name);
+  const hidHitN = keyHits(listJson.submissions, hidName.toLowerCase()).filter((s) => s.hidden !== true).length;
+  dom.byId.get('fKey').value = hidName;
+  const rHid = sandbox.readFilter();
+  check(hidHitN === 0 && vis() === 0,
+    `已隐藏的那条（${hidSample1.id}）默认筛不出来 —— 原来那条断言写成 0 条的真身，**不是 bug**`,
+    `数据里可见命中 ${hidHitN} 条 · 页面可见 ${vis()} 条`);
+  dom.byId.get('fKey').value = '';
+}
+// 清空筛选 ⇒ 恢复默认（不管上面哪条路走过，这里都必跑）
+dom.byId.get('fClear').onclick();
+check(vis() === all.length - liveHidden, '清空筛选 → 恢复（仍然只剩已隐藏的那些不显示）');
 // 区域：compat 那一组
 dom.byId.get('fArea').value = 'compat';
 const rArea = sandbox.readFilter();
@@ -356,14 +434,35 @@ check(/compat/.test(html) && /fCounts/.test(html), '线上页面上确实是带�
 // 业主 2026-10-11：「给我一个勾选框，选后就不显示这个 mod 了」。这一条只查**线上那份 HTML**
 // 渲染出来的东西：每一行都有勾选框、文案写对、默认不勾；筛选栏有「显示已隐藏」；导航有「已隐藏」。
 console.log('\n线上页面：每条记录一个「不再显示」勾选框 + 「显示已隐藏」开关');
+// 【2026-10-11 修「过时断言」· 数据漂移】勾选框：**不再假定「一条都没被勾上」**。
+//   线上现在确实有 11 条 hidden:true ⇒ 它们的勾选框**本来就该是勾上的**（勾选框反映记录的
+//   真实 hidden 值，见 admin.html 的 `cb.checked = isHidden(s)`）。原来写死「默认一个都没勾上」
+//   是把「线上一条都没隐藏」当成了不变量 —— 数据一漂移就红，而且它**盯错了对象**：
+//   真正要防的是「**画出来给别人看的那些行**被勾上」（＝有记录被悄悄藏起来了）。
+//   现在改成**两条现算的比对**（都以当前线上数据为准）：
+//     · 被勾上的行数 == 数据里 hidden===true 的条数（多一条少一条都红）；
+//     · 被勾上的那些行 == 数据里那批 hidden===true 的记录（id 一个不差；不是随便勾了同样多条数）。
+//   前提（也断出来）：线上 hidden 字段一律是**严格布尔** true/false/undefined，没有 Truthy 的杂质。
+check(listJson.submissions.every((s) => s.hidden === true || s.hidden === false || s.hidden === undefined),
+  '线上 hidden 字段一律是严格布尔（true / false / 缺省）—— 下面按 `!== true` 分流才站得住');
 const liveRows = [...items(ul), ...items(al), ...items(rl)];
 const liveBoxes = liveRows.map((li) => find(li, (n) => n.tagName === 'input' && n.type === 'checkbox')[0] || null);
 check(liveBoxes.length === liveRows.length && liveBoxes.every(Boolean),
   `线上**每一行**都画出了勾选框（${liveBoxes.filter(Boolean).length} / ${liveRows.length} 行）`);
 check(liveRows.every((li) => /不再显示（已由兼容包取代）/.test(textOf(li).join(' '))),
   '线上文案就是「不再显示（已由兼容包取代）」');
-check(liveBoxes.every((b) => b.checked === false), '线上默认一个都没勾上（谁也不许被悄悄藏起来）',
-  `checked 的个数 ${liveBoxes.filter((b) => b.checked).length}`);
+const drawnIds = new Set(liveRows.map((li) => li.meta && li.meta.id).filter(Boolean));
+const hidInData = listJson.submissions.filter((s) => s.hidden === true);
+const checkedRows = liveRows.filter((li, i) => liveBoxes[i] && liveBoxes[i].checked === true);
+const checkedIds = checkedRows.map((li) => li.meta && li.meta.id).filter(Boolean);
+check(checkedRows.length === hidInData.length,
+  '勾上的行数 == 线上 hidden===true 的记录条数（勾选框反映的是记录真实的 hidden 值）',
+  `勾上 ${checkedRows.length} 行 · 数据里已隐藏 ${hidInData.length} 条`);
+check(checkedIds.length === hidInData.length
+  && hidInData.every((s) => drawnIds.has(s.id) && checkedIds.includes(s.id))
+  && checkedIds.every((id) => hidInData.some((s) => s.id === id)),
+  '勾上的那些行**就是**数据里那批 hidden===true 的记录（id 一个不差：没有哪条被多勾 / 少勾）',
+  `勾上：${checkedIds.slice(0, 4).join(',')}${checkedIds.length > 4 ? `…（共 ${checkedIds.length}）` : ''}`);
 check(/id="fHidden"/.test(html) && /显示已隐藏/.test(html), '线上筛选栏里有「显示已隐藏」开关');
 check(/id="nHidden"/.test(html), '线上导航里有「已隐藏」那一格（三页相加 + 这一格 = 全部）');
 
@@ -439,12 +538,9 @@ if (!target) {
       `线上「${p.label}」那一页：三页相加 + 已隐藏 = 全部`,
       `${p.sum} = ${p.total}（其中已隐藏 ${p.nHidden}）`);
   }
-  check(probeHid.reduce((n, p) => n + p.nHidden, 0) === 3 && probeHid.every((p) => p.nHidden === 1),
-    '线上三页都算出了「已隐藏 1」（同一份 /list，三页各算一遍）',
-    probeHid.map((p) => `${p.label}:${p.nHidden}`).join(' '));
   check(probeHid.every((p) => p.nHidden === synthHidden),
-    '（只读版补强）三页各自算出的「已隐藏」= 合成之后的真实条数 —— 三页都没多算也没少算',
-    `${probeHid.map((p) => p.nHidden).join('/')} vs ${synthHidden}`);
+    '线上三页各自算出的「已隐藏」= 合成之后的真实条数（三页都没多算也没少算）',
+    `${probeHid.map((p) => `${p.label}:${p.nHidden}`).join(' ')} vs ${synthHidden}`);
   // 「显示已隐藏」开关：勾上能看见（便于取消勾选）—— 喂合成那一份
   const bShow = bootInline(html, {
     fetchImpl: async (u) => (String(u).endsWith('/list')
@@ -454,10 +550,18 @@ if (!target) {
   await sleep(60);
   bShow.dom.byId.get('fHidden').checked = true;
   const rShow = bShow.sandbox.readFilter();
-  const rowsShow = [...items(bShow.dom.byId.get('list')), ...items(bShow.dom.byId.get('alist')), ...items(bShow.dom.byId.get('rlist'))];
-  check(rShow.visibleHidden === 1 && rowsShow.some((li) => li.meta && li.meta.id === target.id && li.style.display !== 'none'),
-    '勾上「显示已隐藏」→ 线上那条被隐藏的又看得见（就是给你取消勾选用的）',
-    `可见的已隐藏 ${rShow.visibleHidden} 条`);
+  // ⚠️ 必须**现读 DOM**，不许用 readFilter 之前抓下来的一份数组快照：
+  //    快照会在「这条记录从 DOM 里被吞掉」时仍然留着它，断言就退化成了永真。
+  //    而且筛选条件必须带上 `display !== 'none'` —— 隐藏的那些**也画在 DOM 里**，只是不显示。
+  const shownHiddenIds = () => [...items(bShow.dom.byId.get('list')), ...items(bShow.dom.byId.get('alist')), ...items(bShow.dom.byId.get('rlist'))]
+    .filter((li) => li.meta && li.meta.hidden === true && li.style.display !== 'none')
+    .map((li) => li.meta.id);
+  check(rShow.visibleHidden === synthHidden && shownHiddenIds().length === synthHidden,
+    '勾上「显示已隐藏」→ 可见的已隐藏条数 == 数据里的已隐藏条数（**从数据现算，不是常数**）',
+    `页面 ${rShow.visibleHidden} 条 · DOM 里显示着的 ${shownHiddenIds().length} 条 · 合成数据 ${synthHidden} 条`);
+  check(shownHiddenIds().includes(target.id),
+    '勾上「显示已隐藏」→ 现场挑中用来验的那条被隐藏的**又看得见**（就是给你取消勾选用的）',
+    `它现在显示着：${shownHiddenIds().includes(target.id)}`);
   // 公开面：隐藏 ≠ 下架。只读版的两条独立证据 ——
   //   ① /api/mods 的字段里**根本没有** hidden 这一栏（服务端不读它）；
   //   ② 连读两次字节一致（服务端也没在别处偷偷用它改输出）。
@@ -482,12 +586,14 @@ if (!target) {
     probeBack.map((p) => `${p.label}:${p.nHidden}`).join(' '));
 }
 
-// ---------------------------------------------------------------- 线上 /mods：备注文案
+// ---------------------------------------------------------------- 线上 /mods：备注（结构，不是写死的文案）
 // 业主 2026-10-11：那三条已上线的兼容包，公网页备注留的还是上传时那句内部链路实测的话
 // （「兼容包入口链路实测：只上传，不通过、不发布。」）—— 它们**已经发布**，那句话在公网上是假的。
 // 这里喂进去的是**线上 /mods 实际发出的那段字节** + **线上真实的 /api/mods 响应**，
-// 断言「渲染出来的备注是新文案，且不含『链路实测』『不发布』」—— 不是拿造的数据自证。
-const NOTE_NEW = '兼容改写版：基于原投稿改写，原作者署名与许可原样保留。';
+// 断言「备注不含『链路实测』『不发布』、两栏一致、渲染层只画一次」—— 不是拿造的数据自证。
+// 【2026-10-11 修「过时断言」】原先这里还写死了一句「新文案」的常量去比对 ——
+//   那条记录（a84e3a916517）的备注后来改成了另一段真实的「装前必读」长文，
+//   于是断言因为**内容变了**而红。内容本来就会变，不该拿它当断言；现在一律从线上数据现取。
 const modsPage = await liveFetch(`${BASE}/mods`);
 const modsHtml = await modsPage.text();
 const modsJson = await (await liveFetch(`${BASE}/api/mods`)).json();
@@ -503,8 +609,14 @@ check(!modsBoot.threw, '线上 /mods 那份真实 HTML 喂 DOM 桩不抛错',
 await sleep(80);
 const modsList = modsBoot.dom.byId.get('list');
 const modsText = textOf(modsList).join(' ');
-check(modsText.includes(NOTE_NEW), '公网渲染出的备注是新文案（正文里能看到）',
-  (modsText.match(/.{0,10}兼容改写版.{0,22}/) || ['（没找到）'])[0]);
+const notedPub = modsJson.mods.filter((m) => typeof m.compatNote === 'string' && m.compatNote.trim() !== '');
+const firstNote = notedPub.length ? notedPub[0].compatNote : null;
+check(!!firstNote && modsText.includes(firstNote),
+  '公网渲染出的备注就是线上数据里那条（**从 /api/mods 现取，不比对写死的文案**）',
+  firstNote ? `${firstNote.length} 字 · 出现 ${modsText.split(firstNote).length - 1} 次` : '线上没有带备注的兼容包');
+check(!!firstNote && modsText.split(firstNote).length - 1 === 1,
+  '公网渲染出的备注**只出现一次**（渲染层去重：两栏逐字相同时只画一遍）',
+  firstNote ? `出现 ${modsText.split(firstNote).length - 1} 次` : '（无线索）');
 check(!/链路实测/.test(modsText) && !/不发布/.test(modsText),
   '公网渲染出的备注不含「链路实测」「不发布」',
   (modsText.match(/.{0,14}(链路实测|不发布).{0,14}/) || ['（没有，符合预期）'])[0]);
@@ -512,16 +624,50 @@ const rawJson = JSON.stringify(modsJson);
 check(!rawJson.includes('链路实测') && !rawJson.includes('不发布'),
   '线上公开数据 /api/mods 里也搜不到「链路实测」「不发布」');
 const compatPub = modsJson.mods.filter((m) => m.kind === 'compat');
-// 线上备注只允许两种状态：**这句正常文案**，或者**没有备注**（null）。
-// 绝不允许再出现旧那句内部链路实测的话 —— 那才是这一条要盯的东西。
+// 【2026-10-11 修「过时断言」· 数据漂移、不是产品 bug】备注：**不再比对写死的文案**。
+//   原先写死「备注 == 那一句『兼容改写版：基于原投稿改写…』或 null」——
+//   而 `a84e3a916517` 的备注已经**改成了另一段真实的「装前必读」长文**（那是内容，不是 bug）。
+//   客户端也**不许**再出现旧的内部链路话术（那才是这一条当初要盯的东西）。
+//   现在改成**结构断言**（口径来自 2026-10-11 那次「两栏逐字相同只画一次」的渲染层去重）：
+//     · 两栏（note / compatNote）逐条一致 —— 发布兼容包时两栏是同一段文案（不一致就是有一栏没跟上）；
+//     · 没有哪条备注还是旧的『链路实测 / 不发布』话术；
+//     · 至少一条有备注、至少一条没有 —— 两边都非空，断言才不是空转；
+//     · /mods 渲染出来的那张卡里，**该条备注只出现一次** —— 这正是去重那条的回归位。
 check(compatPub.length > 0 && compatPub.every((m) => m.note === m.compatNote),
   `线上每条已发布兼容包的两栏备注都一致（共 ${compatPub.length} 条）`,
   compatPub.map((m) => `${m.id}:${m.note === m.compatNote ? 'ok' : 'MISMATCH'}`).join(' '));
-check(compatPub.length > 0 && compatPub.every((m) => m.note === NOTE_NEW || m.note === null),
-  `线上每条已发布兼容包的备注都是「新文案」或「没有备注」（共 ${compatPub.length} 条）`,
-  compatPub.map((m) => `${m.id}:${m.note === NOTE_NEW ? '新文案' : (m.note === null ? '无备注' : 'CHE?')}`).join(' '));
-check(compatPub.some((m) => m.note === NOTE_NEW),
-  '线上至少有一条带着那句新文案（备注改写的目标记录确实改到了）');
+const compatWithNote = compatPub.filter((m) => typeof m.compatNote === 'string' && m.compatNote.trim() !== '');
+const compatNoNote = compatPub.filter((m) => m.compatNote === null);
+check(compatWithNote.length > 0,
+  '线上至少有一条已发布兼容包**带备注**（备注这一路确实在发数据）',
+  `带备注 ${compatWithNote.length} 条 / 共 ${compatPub.length} 条`);
+check(compatNoNote.length > 0,
+  '线上也至少有一条**没有备注**（没有备注是合法值，不是错）', `无备注 ${compatNoNote.length} 条`);
+check(compatWithNote.every((m) => !/链路实测/.test(m.compatNote) && !/不发布/.test(m.compatNote)),
+  '线上**没有任何一条**备注还在讲旧的内部链路话术（「链路实测」「不发布」）',
+  compatWithNote.map((m) => `${m.id}:${/链路实测|不发布/.test(m.compatNote) ? 'STALE' : 'ok'}`).join(' '));
+const modsCards = find(modsList, (n) => /panel/.test(String(n.className || '')));
+const cardTextOf = (m) => {
+  const card = find(modsList, (n) => /panel/.test(String(n.className || ''))
+    && textOf(n).join(' ').includes(String(m.name)))[0];
+  return card ? textOf(card).join(' ') : '';
+};
+for (const m of compatWithNote) {
+  const t = cardTextOf(m);
+  const appears = t ? t.split(m.compatNote).length - 1 : 0;
+  check(appears === 1,
+    `公网 /mods 上「${m.name}」那张卡里，它那条备注**只出现一次**（渲染层去重：两栏相同时只画一遍）`,
+    `出现 ${appears} 次 · 备注 ${m.compatNote.length} 字`);
+}
+check(compatWithNote.length === 0 || modsCards.length >= compatWithNote.length,
+  '公网 /mods 上确实画出了那些带备注的卡（卡片数 ≥ 带备注的条数）',
+  `卡片 ${modsCards.length} 张 · 带备注 ${compatWithNote.length} 条`);
+// 原来的「至少有一条带着那句新文案」仍然要成立，但**不把那句话写死**：
+//   它现在从线上数据里现取（哪条带备注就取哪条），断言的是「那条备注真的画到了页面上」。
+const anyNoted = compatWithNote[0];
+check(!!anyNoted && cardTextOf(anyNoted).includes(anyNoted.compatNote),
+  '线上带备注的那条，备注真的画到了公网页上（备注改写的目标记录确实改到了）',
+  anyNoted ? `${anyNoted.id} · ${anyNoted.compatNote.length} 字` : '线上没有带备注的兼容包');
 // 【2026-10-11 业主第四件事】那两个真素材路径的包经逐条人工确认后上线 ——
 // 公网页上必须**真的能看见**它们（不是只在接口里存在）。
 for (const nm of ['ave-mujica 1.1.0', 'makoto-yuki 1.0.1']) {
