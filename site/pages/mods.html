@@ -73,8 +73,27 @@ function card(m, flagged) {
     line.id = 'compatof-' + m.id;
     body.append(line);
   }
-  if (m.compatNote) body.append(el('div', 'note', '兼容说明：' + m.compatNote));
-  if (m.note) body.append(el('div', 'note', m.note));
+  // 「兼容说明」与「备注」是两个来源不同的栏位：
+  //   · `compatNote` 是站点侧的「兼容说明」（管理端点 `/compat/note` 改它）；
+  //   · `note` 是记录自己的备注栏。
+  // 站点的**存储层**在发布兼容包时会把同一段文案**同时写进两栏**（`server.mjs` 里那是有意为之，
+  // 本页不碰存储层、也不碰任何记录的数据），于是**两栏逐字相同**成了常态。
+  // 两栏都画 = 同一段字画两遍。所以这里只做**渲染层的去重**，判据一句话：
+  //   两栏都非空且（规范化空白后）逐字相同 ⇒ **只画一次**；只有一栏非空 ⇒ 画那一栏；
+  //   两栏都空 ⇒ **这一块不画**。两栏内容**不同**时两段都画（不相同就不是重复，不许并掉）。
+  // 相等判定先规范化（两端 trim + 连续空白折叠成单空格），免得只差空格还画两遍；
+  // **展示用原文**，不改写正文一个字。
+  // 相同时画 `compatNote`：它是「兼容说明」的语义栏，且带得出「兼容说明：」这个标签 ——
+  // 只画 `note` 会丢掉这个语义。
+  const noteKey = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const cNote = noteKey(m.compatNote);
+  const pNote = noteKey(m.note);
+  if (cNote) {
+    body.append(el('div', 'note', '兼容说明：' + m.compatNote));
+    if (pNote && pNote !== cNote) body.append(el('div', 'note', m.note));
+  } else if (pNote) {
+    body.append(el('div', 'note', m.note));
+  }
 
   const a = el('a', 'btn btn--primary', m.kind === 'compat' ? '下载兼容改写版 zip' : '下载 zip');
   a.href = m.download;

@@ -15,6 +15,10 @@
 //   ⑥ 投稿详情页（下载那一行）有那个**独立的上传按钮**，点开发布走的是一次到位的 `publish=1`；
 //   ⑦ 公网 /mods 上，compatOf 有值时多画一行「由投稿 … 改写来」（带 id），为空时**整行不画**。
 //
+//   ⑦b 公网 /mods 的**渲染层去重**：两栏（`compatNote` 与 `note`）逐字相同 ⇒ 只画一次。
+//   存储层「发布时把同一段文案同时写进两栏」是有意为之（本页不动它），重复是**渲染层**的事。
+//   2026-10-11 业主裁令 (a)：去重只做在渲染层，存储层与任何 `meta.json` 一个字节不动。
+//
 // 2026-10-11 口径变更（业主）：管理界面里**不再有**独立的「兼容包」区/列表/页面，
 // 入口只剩投稿详情页下载按钮那一行的**一个独立上传按钮**（选 zip → 填名 → 点发布 = 上传+通过+发布）。
 // 于是本文件里两条相关断言**原地改语义**（不是删掉）：见下面「①」那一段里的注释。
@@ -805,10 +809,88 @@ try {
     '空值时署名两栏照旧都在（不是把整块都省了）',
     (noOfText.match(/.{0,26}原作者丙.{0,26}/) || [''])[0]);
 
+  // 【2026-10-11 业主裁令 (a)：渲染层去重】两栏（`compatNote` / `note`）逐字相同 ⇒ **只画一次**。
+  // 背景：站点的**存储层**在发布兼容包时把同一段文案同时写进两栏 —— 那是**有意为之**，
+  // 谁都不许动（`/compat/note` 的注释里写着为什么）。所以重复不在数据里，在**渲染**里：
+  // `mods.html` 早先两栏都画，同一段字就出现两遍。修法只在那一页的渲染层，判据一句话：
+  //   两栏都非空且（规范化空白后）逐字相同 ⇒ 只画一次；只有一栏非空 ⇒ 画那一栏；
+  //   两栏都空 ⇒ 这一块不画；两栏**不同** ⇒ 两段都画（不相同就不是重复，不许并掉）。
+  // 拿**同一份服务器实际发出的 /mods HTML**（`modsHtml`）逐个喂进同一个 DOM 桩，只换数据。
+  // 数的是 `note` 那一类节点 —— 它才是「画了一段字」这件事本身，比字符串出现次数硬。
+  const noteNodesIn = async (modsArr) => {
+    const b = bootInline(modsHtml, {
+      fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ mods: modsArr, flagged: [] }) }),
+    });
+    if (b.threw) return { threw: b.threw };
+    await sleep(30);
+    const probes = find(b.dom.byId.get('list'), (n) => String(n.className || '').split(/\s+/).includes('note'));
+    return { probes, text: textOf(b.dom.byId.get('list')).join(' '), nodes: probes.length };
+  };
+
+  // ① 两栏**逐字相同**（就是线上 a84e3a916517 那条的形状）⇒ 那段文字**只出现 1 次**。
+  const DUP = '【误伤无救济 · 装前必读】本包会改变对局结果，装前请读完这一段。';
+  const dup = await noteNodesIn([{ id: 'a84e3a916517', kind: 'compat', name: '两栏逐字相同的兼容包',
+    author: '原作者戊', compatAuthor: '维护者戊', compatOf: 'aaaa1111bbbb',
+    compatNote: DUP, note: DUP, size: 4096, uploadedAt: '2026-10-11T00:00:00.000Z',
+    download: '/api/file/a84e3a916517' }]);
+  const dupHits = dup.probes ? dup.probes.filter((n) => textOf(n).join(' ').includes(DUP)).length : -1;
+  check(dupHits === 1, '两栏逐字相同时，那段文字在渲染结果里**只出现 1 次**',
+    `出现 ${dupHits} 次 · note 节点 ${dup.nodes} 个`);
+  check(dup.nodes === 1, '两栏逐字相同时只画 1 个 note 节点（另一栏不再画一遍）', `note 节点 ${dup.nodes} 个`);
+  check(/兼容说明：/.test(dup.text || ''), '相同时留的是「兼容说明」那一栏（带标签，语义栏优先）',
+    ((dup.text || '').match(/.{0,8}兼容说明：.{0,16}/) || [''])[0]);
+
+  // ② 只有一栏非空 ⇒ 画那一栏（1 次）。两种都有：只有 compatNote / 只有 note。
+  const onlyCompat = await noteNodesIn([{ id: 'aaaabbbb0001', kind: 'compat', name: '只有兼容说明',
+    author: '原作者己', compatAuthor: '维护者己', compatNote: '只有兼容说明这一栏有字。', note: null,
+    size: 1024, uploadedAt: '2026-10-11T00:00:00.000Z', download: '/api/file/aaaabbbb0001' }]);
+  check(onlyCompat.nodes === 1
+    && onlyCompat.probes.some((n) => textOf(n).join(' ').includes('只有兼容说明这一栏有字。')),
+    '只有 `compatNote` 非空 ⇒ 画那一栏、正好 1 次', `note 节点 ${onlyCompat.nodes} 个`);
+  const onlyNote = await noteNodesIn([{ id: 'aaaabbbb0002', kind: 'compat', name: '只有备注',
+    author: '原作者庚', compatAuthor: '维护者庚', compatNote: null, note: '只有备注这一栏有字。',
+    size: 1024, uploadedAt: '2026-10-11T00:00:00.000Z', download: '/api/file/aaaabbbb0002' }]);
+  check(onlyNote.nodes === 1 && onlyNote.probes.some((n) => textOf(n).join(' ').includes('只有备注这一栏有字。')),
+    '只有 `note` 非空 ⇒ 画那一栏、正好 1 次', `note 节点 ${onlyNote.nodes} 个`);
+
+  // ③ 两栏**不同** ⇒ **两段都出现**（不相同就不是重复，不许顺手并掉）。
+  const diff = await noteNodesIn([{ id: 'aaaabbbb0003', kind: 'compat', name: '两栏不同',
+    author: '原作者辛', compatAuthor: '维护者辛', compatNote: '兼容说明这一栏：改了 api 与 game。',
+    note: '备注这一栏：另一段完全不同的话。', size: 1024, uploadedAt: '2026-10-11T00:00:00.000Z',
+    download: '/api/file/aaaabbbb0003' }]);
+  check(diff.nodes === 2, '两栏不同 ⇒ 两栏都画（画 2 个 note 节点），不许把不同内容也并掉',
+    `note 节点 ${diff.nodes} 个`);
+  check(diff.probes.some((n) => textOf(n).join(' ').includes('兼容说明这一栏：改了 api 与 game。'))
+    && diff.probes.some((n) => textOf(n).join(' ').includes('备注这一栏：另一段完全不同的话。')),
+    '两栏不同的两份文字在渲染结果里**都在**', JSON.stringify(diff.probes.map((n) => textOf(n).join(' ').slice(0, 12))));
+
+  // ④ 两栏都空 ⇒ **不画**这一块（不留空 note 节点）。
+  const bothEmpty = await noteNodesIn([{ id: 'aaaabbbb0004', kind: 'compat', name: '两栏都空',
+    author: '原作者壬', compatAuthor: '维护者壬', compatNote: null, note: '',
+    size: 1024, uploadedAt: '2026-10-11T00:00:00.000Z', download: '/api/file/aaaabbbb0004' }]);
+  check(bothEmpty.nodes === 0, '两栏都空 ⇒ 这一块**不画**（没有空 note 节点、没有空块）',
+    `note 节点 ${bothEmpty.nodes} 个`);
+  check(!/兼容说明：/.test(bothEmpty.text || ''), '两栏都空时页面上连「兼容说明：」这个标签都没有');
+
+  // ⑤ 只差空白（规范化后相同）⇒ 也算重复，只画一次；而且**展示的是原文**（正文一个字没被改写）。
+  // 夹具得**真的只差空白**：两栏去掉首尾空白、把连续空白折叠成单空格之后要逐字相同。
+  // 反例（别拿它当夹具）：`…只差空白。` 与 `…只差\n空白。` **不算**只差空白 —— 后者中间多一个空格，
+  // 规范完仍不相等，那种情况照旧两段都画（就是上面第 ③ 条的意思）。
+  const SPACE_A = '空格判定：这两段只差空白。';
+  const SPACE_B = ' \t空格判定：这两段只差空白。\n';
+  const sp = await noteNodesIn([{ id: 'aaaabbbb0005', kind: 'compat', name: '只差空白',
+    author: '原作者癸', compatAuthor: '维护者癸', compatNote: SPACE_A, note: SPACE_B,
+    size: 1024, uploadedAt: '2026-10-11T00:00:00.000Z', download: '/api/file/aaaabbbb0005' }]);
+  check(sp.nodes === 1, '两栏只差空白（规范化后逐字相同）⇒ 同样只画一次', `note 节点 ${sp.nodes} 个`);
+  check(sp.probes.length === 1 && String(sp.probes[0].textContent).endsWith(SPACE_A),
+    '只画的那一段用的是**原文**（规范化只用于相等判定，不拿它改写展示的正文）',
+    JSON.stringify(sp.probes.map((n) => n.textContent)));
+
   // 【2026-10-11 业主：公网上那条备注是假的】备注文案重写之后，公网**渲染出来的**必须是新文案。
   // 喂的是**服务器实际发出的那份 /mods HTML**（不是另写一份），数据换成「两栏都是新文案」的
-  // 兼容包：`mods.html` 对 compat 记录是**两处都画**的（`兼容说明：` 那一行 + 备注正文那一行），
-  // 所以两处都要是新文案，而且整页渲染结果里**不许**再出现旧那句里的「链路实测」「不发布」。
+  // 兼容包。两栏文案相同 ⇒ 按上面的去重判据**只画一次**（这一条原地改了语义：早先要的是 2 处，
+  // 那是重复显示还没修的时候；现在同一段文案在整页渲染结果里**只许出现 1 次**）。
+  // 两条一起钉住：新文案在、旧那句里的「链路实测」「不发布」不在，而且不重复。
   const NOTE_NEW = '兼容改写版：基于原投稿改写，原作者署名与许可原样保留。';
   const noteBoot = bootInline(modsHtml, {
     fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({
@@ -827,9 +909,9 @@ try {
   check(!/链路实测/.test(noteText) && !/不发布/.test(noteText),
     '公网渲染出的备注不含「链路实测」「不发布」',
     (noteText.match(/.{0,14}(链路实测|不发布).{0,14}/) || ['（没有，符合预期）'])[0]);
-  check((noteText.match(/兼容改写版：基于原投稿改写，原作者署名与许可原样保留。/g) || []).length === 2,
-    '两处都渲染成了新文案（`兼容说明：` 那一行 + 备注正文那一行）',
-    `${(noteText.match(/兼容改写版/g) || []).length} 处`);
+  check((noteText.match(/兼容改写版：基于原投稿改写，原作者署名与许可原样保留。/g) || []).length === 1,
+    '这段文字在整页渲染结果里**只出现 1 次**（两栏相同 ⇒ 渲染层去重，不再画两遍）',
+    `出现 ${(noteText.match(/兼容改写版：基于原投稿改写，原作者署名与许可原样保留。/g) || []).length} 次`);
 } finally {
   child.kill();
   await sleep(200);
@@ -840,4 +922,4 @@ console.log('');
 if (failures) { console.log(`✖ ${failures} 项没通过`); process.exit(1); }
 console.log('✔ 审核台页面：脚本跑到底 · 待审 / 已通过 / 已打回三页各归各位（三页相加 + 已隐藏 = 全部）· '
   + '每条记录一个「不再显示」勾选框（勾上三视图都不见、取消就回来，一次一个 id）· '
-  + '兼容者空 = 未填 · 全站没有 Mo233 兜底 · /mods 多一行「由投稿 … 改写来」且备注是新文案');
+  + '兼容者空 = 未填 · 全站没有 Mo233 兜底 · /mods 多一行「由投稿 … 改写来」且备注是新文案、两栏相同只画一次');
