@@ -1,0 +1,6 @@
+{
+  "notices": {
+    "announcement": "notice/announcement.json",
+    "credits": "notice/credits.json"
+  }
+}

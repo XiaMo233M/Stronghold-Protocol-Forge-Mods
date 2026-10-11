@@ -26,7 +26,8 @@
 
 - **不要**把这些目录压成 zip 装进游戏，也**不要**当模板照抄。
 - **要写新包**：读引擎侧的包格式规则（`docs/WORKSHOP.md`、`docs/MOD-SURFACE.md`），
-  再读 [`../SKILL.md`](../SKILL.md) 的流程。
+  再读 [`../SKILL.md`](../SKILL.md) 的流程。要看**当前格式**的可抄片段，用
+  [`../docs-copy-examples/`](../docs-copy-examples/README.md)，**不要**回头抄这里的旧包。
 - **要进 `packs/`**：走 [`../packs/README.md`](../packs/README.md) 的四条收录条件。
 - **站上也不提供**：审核站（[`../site/`](../site/README.md)）上对应这三份的记录已**逐个打回**，
   公开列表里看不到、下载口返回 403；记录本身保留，便于追溯。
