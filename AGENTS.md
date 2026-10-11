@@ -148,7 +148,13 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 ⑤ 一包一 zip            顶层目录 = 包 id，条目名正斜杠
 ⑥ 补 PROVENANCE.md      六项，含「包内哪一节已与实现不符（保持原样未改）」
 ⑦ 记字节与 sha256       zip 的字节数与哈希记在交付清单里，不写进包内文本
+⑧ 投站改扁平            上传（compat-submit / 普通投稿）要的**不是**①⑤ 那个形状：站点只读 zip 根的 `pack.json`
+                        （`site/server.mjs:180-185` 精确匹配条目名，`site/zip.mjs:110`），套了顶层目录即 400 拒收
+                        ⇒ 另做一份 `pack.json` 在 zip 根的扁平件去投，原交付件保留（判据与两个落点的对照见 SKILL.md §3）
 ```
+
+> ①⑤ 与 ⑧ 是**两个落点的两套形状**，不是矛盾：装载器只认 `<工坊根>/<包 id>/pack.json`（包装成 zip 时
+> `pack.json` 在根或在唯一顶层目录里**都收**，引擎 `tools/workshop-pack.mjs:191-200`），而**站点上传只认 zip 根**。
 
 **多 mod 时：一个 mod 一个子 agent 并行。** 包之间不共享状态；要共享的只有「引擎通道怎么用」这条知识。
 
