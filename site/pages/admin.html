@@ -15,6 +15,14 @@
   .filterbar select, .filterbar input { width: 100%; }
   .filterbar__count { margin-left: auto; font-size: 13px; opacity: .85; white-space: nowrap; }
   .filterbar__clear { align-self: flex-end; }
+  /* 「显示已隐藏」那一格（业主 2026-10-11）：它是**一个勾选框**，不是文本框 ——
+     所以要把上面那条 `.filterbar input { width: 100% }` 收回来，否则勾选框会被拉成一整行。 */
+  .filterbar .chk { display: flex; align-items: center; gap: 7px; font-size: 13px; padding: 7px 0; cursor: pointer; }
+  .filterbar .chk input { width: auto; margin: 0; }
+  /* 每条记录上的「不再显示」勾选框：与列表行同宽，点了不跳详情（事件在脚本里掐住）。 */
+  .hidebox { display: flex; align-items: center; gap: 7px; font-size: 12.5px; opacity: .92; margin: 8px 0 2px; cursor: pointer; }
+  .hidebox input { width: auto; margin: 0; }
+  .badge.hidden { border-color: #b98a2e; }
   /* 三个视图的导航（业主 2026-10-11：「已经通过的也要另开一页」）。
      三条真实地址，当前那一页高亮（`on` + aria-current="page"）。 */
   .views { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
@@ -24,6 +32,8 @@
     font-size: 13.5px; color: inherit; opacity: .78;
   }
   .viewtab.on { opacity: 1; border-color: var(--mint-500, #4ed8af); font-weight: 600; }
+  /* 「已隐藏」那一格：**不是链接、不可点**（它不是一个视图，只是计数格 —— 视图白名单仍然只有三个） */
+  .viewtab--count { opacity: .7; cursor: default; border-style: dashed; }
   .viewtab__n { font-size: 12px; opacity: .8; }
   .viewnote { font-size: 12.5px; margin-left: 4px; }
   .viewhead { margin: 0 0 12px; font-size: 13.5px; }
@@ -47,6 +57,9 @@
   <a id="vMain" class="viewtab" href="?view=main">待审<span class="viewtab__n" id="nMain">0</span></a>
   <a id="vApproved" class="viewtab" href="?view=approved">已通过<span class="viewtab__n" id="nApproved">0</span></a>
   <a id="vRejected" class="viewtab" href="?view=rejected">已打回<span class="viewtab__n" id="nRejected">0</span></a>
+  <!-- 「已隐藏」**不是第四个视图**（白名单里仍然只有 main / approved / rejected，坏 view 照旧 404）——
+       它是一个计数格：三页相加 + 这一格 = 全部。业主口径：不许因为隐藏而对不上。 -->
+  <span id="nHiddenBox" class="viewtab viewtab--count" title="勾了「不再显示」的记录数 · 三页相加 + 已隐藏 = 全部">已隐藏<span class="viewtab__n" id="nHidden">0</span></span>
   <span id="viewNote" class="dim viewnote"></span>
 </nav>
 <!-- 「当前在哪一页」写死一行字，一眼可见（导航上那一格同时高亮）。 -->
@@ -120,6 +133,11 @@
             <div class="field__label">关键字（编号或名称）</div>
             <input id="fKey" type="search" placeholder="输入编号片段或名字里的一段">
           </div>
+          <!-- 「显示已隐藏」开关（业主 2026-10-11）：默认**不勾** —— 勾了「不再显示」的记录
+               从三个视图里都不显示；想找回来看/取消勾选，就把它勾上。纯前端显示层，不动记录。 -->
+          <label class="chk" for="fHidden" title="勾上就能看见被标了「不再显示」的那些记录（便于取消勾选）">
+            <input id="fHidden" type="checkbox"> 显示已隐藏
+          </label>
           <button id="fClear" class="btn btn--ghost btn--sm filterbar__clear">清空筛选</button>
           <span id="fCounts" class="filterbar__count" aria-live="polite"></span>
         </div>
@@ -202,12 +220,28 @@ $('load').onclick = async () => {
 // 状态口径：decision.decision（没有决定记录 = 待审 / pending）。
 // 档位口径：flags 里有没有 level === 'blocker'。
 // ================================================================
-const FILTER_DEFAULT = { area: '', state: '', blocker: '', key: '' };
+const FILTER_DEFAULT = { area: '', state: '', blocker: '', key: '', showHidden: false };
 let filter = { ...FILTER_DEFAULT };
 let lastList = { submissions: [] };                      // 上一次 /list 的原始结果（筛选只读它）
 const countAll = (arr, p) => arr.reduce((n, x) => n + (p(x) ? 1 : 0), 0);
 
 const stateOf = (s) => (s.decision && s.decision.decision) || s.state || 'pending';
+
+// ================================================================
+// 「不再显示」标志位（业主 2026-10-11，见 server.mjs 的 `POST ${ADMIN_API}/hide`）。
+//
+// 业主原话：「有可能 mod 名字和兼容后的名字不一样，导致依旧存在两个 mod（一个在兼容，
+// 一个在上传待定），所以给我一个勾选框，选后就不显示这个 mod 了」。
+//
+// 三条口径（**与端点一一对应**）：
+//   · 勾上 ⇒ 这条从**审核页的三个视图**（待审 / 已通过 / 已打回）里都不再显示；
+//   · 取消勾选 ⇒ **重新显示**（可逆，不是「删掉」）；
+//   · **公开面不动**：只影响审核页显不显示。要下架用「打回」，不是这个勾选框。
+//
+// 服务端把标志位存在记录自己的 `meta.json`（`hidden` / `hiddenBy` / `hiddenAt`），
+// `/list` 原样带出来；页面**只读服务端给的值**，不在前端自己猜。
+// ================================================================
+const isHidden = (s) => !!s && s.hidden === true;
 
 // ================================================================
 // 三个视图（业主 2026-10-11：「已经通过的也要另开一页」）。
@@ -261,6 +295,9 @@ const areaOf = (s) => {
 };
 const hasBlocker = (s) => (s.flags || []).some((f) => f.level === 'blocker');
 const matches = (s) => {
+  // 「不再显示」那一条**默认不画**（三个视图一视同仁 —— 换到哪一页都不显示）；
+  // 只有勾上筛选栏那个「显示已隐藏」开关时才看得见（用它来取消勾选、把记录找回来）。
+  if (isHidden(s) && !filter.showHidden) return false;
   if (filter.area && areaOf(s) !== filter.area) return false;
   if (filter.state && stateOf(s) !== filter.state) return false;
   if (filter.blocker === 'with' && !hasBlocker(s)) return false;
@@ -279,18 +316,31 @@ const makeVisible = (li, show) => { li.style.display = show ? '' : 'none'; retur
  *
  * ⚠️ 这里的口径（2026-10-11 改版后）：那几栏数的是**整份记录**，不是「筛完可见」；
  *    「筛完可见多少」由末尾的「本页可见 / 本页共」单独给 —— 两者混在一栏里正是上一版看不清的地方。
+ *
+ * ⚠️「不再显示」（业主 2026-10-11 追加）之后的**分桶口径**：一条记录**恰好**落在四个桶里的一个 ——
+ *    待审页 / 已通过页 / 已打回页 / **已隐藏**。所以两条恒等式永远成立，业主直接拿它对账：
+ *      ① 待审页 A + 已通过页 B + 已打回页 C + 已隐藏 D = 全部 N（**这就是业主这次要的那条**）；
+ *      ② 待审 p + 已通过 a + 已打回 r + 已被取代 s + 已隐藏 D = 全部 N（按状态再数一遍）。
+ *    三个视图那三栏**不含**已隐藏的那些（它们本来就不显示了）—— 已隐藏单独一栏，加回去才等于全部。
  */
 function paintCounts(all, vis) {
   const n = (arr, p) => countAll(arr, p);
   const nOn = filter.area || filter.state || filter.blocker || filter.key;
-  const np = n(all, (s) => stateOf(s) === 'pending');
-  const na = n(all, (s) => stateOf(s) === 'approved');
-  const nr = n(all, (s) => stateOf(s) === 'rejected');
-  const ns = n(all, (s) => stateOf(s) === 'superseded');
+  // 已隐藏是**独立的一个桶**（不管它原本是什么状态）；剩下那些才进三个视图的计数。
+  const nh = n(all, isHidden);
+  const shownAll = all.filter((s) => !isHidden(s));
+  const np = n(shownAll, (s) => stateOf(s) === 'pending');
+  const na = n(shownAll, (s) => stateOf(s) === 'approved');
+  const nr = n(shownAll, (s) => stateOf(s) === 'rejected');
+  const ns = n(shownAll, (s) => stateOf(s) === 'superseded');
   const nMain = np + ns;                                   // 待审那一页（含已被取代）
   const nApproved = na, nRejected = nr;
-  const nView = nMain + nApproved + nRejected;             // 三页相加，恒等于 all.length
-  const nPage = VIEW === 'approved' ? nApproved : (VIEW === 'rejected' ? nRejected : nMain);
+  const nView = nMain + nApproved + nRejected + nh;        // 三页相加 + 已隐藏，恒等于 all.length
+  const nState = np + na + nr + ns + nh;                   // 按状态再数一遍，同样恒等于 all.length
+  // 本页共几条：默认不含已隐藏；勾上「显示已隐藏」就把它这一页里藏着的那些加回来（才有「可见 / 共」可比）。
+  const hiddenInView = all.filter((s) => isHidden(s) && viewOf(s) === VIEW).length;
+  const nPage = (VIEW === 'approved' ? nApproved : (VIEW === 'rejected' ? nRejected : nMain))
+    + (filter.showHidden ? hiddenInView : 0);
   const visView = vis.filter((s) => viewOf(s) === VIEW).length;
   $('fCounts').textContent = `${nOn ? '筛选后可见' : '全部'} ${vis.length} 条（共 ${all.length} 条）`
     + ` · 投稿 ${n(vis, (s) => areaOf(s) === 'submissions')}`
@@ -300,20 +350,25 @@ function paintCounts(all, vis) {
     + ` · 已通过 ${na}`
     + ` · 已打回 ${nr}`
     + ` · 已被取代 ${ns}`
-    + `（待审页 ${nMain} + 已通过页 ${nApproved} + 已打回页 ${nRejected} = 全部 ${nView} 条；已通过与已打回各自另开一页）`
+    + ` · 已隐藏 ${nh}`
+    + `（待审页 ${nMain} + 已通过页 ${nApproved} + 已打回页 ${nRejected} + 已隐藏 ${nh} = 全部 ${nView} 条`
+    + `；待审 ${np} + 已通过 ${na} + 已打回 ${nr} + 已被取代 ${ns} + 已隐藏 ${nh} = 全部 ${nState} 条`
+    + `；已通过与已打回各自另开一页）`
     + ` · 有 blocker ${n(all, hasBlocker)}`
-    + ` · 本页（${VIEW_TITLE[VIEW]}）可见 ${visView} / ${nPage} 条`;
-  // 每页面板标题上的条数（换页也在标题上看得见三处各有多少）。
+    + ` · 本页（${VIEW_TITLE[VIEW]}）可见 ${visView} / ${nPage} 条`
+    + (filter.showHidden ? `（含已隐藏 ${hiddenInView}，勾着「显示已隐藏」）` : '');
+  // 每页面板标题上的条数（换页也在标题上看得见三处各有多少；这三栏不含已隐藏）。
   if ($('pCount')) $('pCount').textContent = String(nMain);
   if ($('aCount')) $('aCount').textContent = String(nApproved);
   if ($('rCount')) $('rCount').textContent = String(nRejected);
-  // 导航三格上的条数。
+  // 导航三格上的条数 + 「已隐藏」那一格。
   if ($('nMain')) $('nMain').textContent = String(nMain);
   if ($('nApproved')) $('nApproved').textContent = String(nApproved);
   if ($('nRejected')) $('nRejected').textContent = String(nRejected);
+  if ($('nHidden')) $('nHidden').textContent = String(nh);
   const note = $('viewNote');
-  if (note) note.textContent = `三页相加 = 全部 ${all.length} 条 · 本页 ${VIEW_TITLE[VIEW]}`;
-  return { np, na, nr, ns, nMain, nApproved, nRejected, nView, visView };
+  if (note) note.textContent = `三页相加 + 已隐藏 = 全部 ${all.length} 条 · 本页 ${VIEW_TITLE[VIEW]}`;
+  return { np, na, nr, ns, nh, nMain, nApproved, nRejected, nView, nState, visView, nPage, hiddenInView };
 }
 
 /**
@@ -350,8 +405,13 @@ function applyFilters() {
   return {
     total: all.length, visible: vis,
     visibleMain: visMain, visibleApproved: visApproved, visibleRejected: visRejected,
-    // 三页各自的**总条数**（与筛不筛无关）—— 「三页相加 = 全部」用这三个数核对。
-    nMain: c.nMain, nApproved: c.nApproved, nRejected: c.nRejected, nView: c.nView,
+    // 三页各自的**总条数**（与筛不筛无关），以及**已隐藏**那一栏 ——
+    // 「待审页 + 已通过页 + 已打回页 + 已隐藏 = 全部」用这四个数核对（业主口径，不许对不上）。
+    nMain: c.nMain, nApproved: c.nApproved, nRejected: c.nRejected, nHidden: c.nh,
+    nView: c.nView, nState: c.nState, nPage: c.nPage, hiddenInView: c.hiddenInView,
+    // 这一轮筛完「已隐藏」的记录可见了几条（只有勾着「显示已隐藏」才可能 > 0）。
+    visibleHidden: all.filter((s) => matches(s) && isHidden(s)).length,
+    showHidden: !!filter.showHidden,
     view: VIEW, ...filter,
   };
 }
@@ -361,12 +421,14 @@ function readFilter() {
     state: ($('fState') && $('fState').value) || '',
     blocker: ($('fBlocker') && $('fBlocker').value) || '',
     key: (($('fKey') && $('fKey').value) || '').trim(),
+    // 「显示已隐藏」默认**不勾**（＝按业主口径，勾了「不再显示」的记录三个视图都不显示）。
+    showHidden: !!($('fHidden') && $('fHidden').checked),
   };
   return applyFilters();
 }
 // 测试桩里没有 addEventListener —— 上面 applyFilters / readFilter 都挂在全局，
 // 桩直接调它们；浏览器里则由下面这几个 change/input 事件驱动。
-for (const [id, ev] of [['fArea', 'change'], ['fState', 'change'], ['fBlocker', 'change'], ['fKey', 'input']]) {
+for (const [id, ev] of [['fArea', 'change'], ['fState', 'change'], ['fBlocker', 'change'], ['fKey', 'input'], ['fHidden', 'change']]) {
   if ($(id) && typeof $(id).addEventListener === 'function') $(id).addEventListener(ev, () => readFilter());
 }
 if ($('fClear')) $('fClear').onclick = () => {
@@ -377,8 +439,87 @@ if ($('fClear')) $('fClear').onclick = () => {
   if ($('fState')) $('fState').value = '';
   if ($('fBlocker')) $('fBlocker').value = '';
   if ($('fKey')) $('fKey').value = '';
+  if ($('fHidden')) $('fHidden').checked = false;      // 「显示已隐藏」也归默认（不勾）—— 否则清不干净
   return readFilter();
 };
+
+// ================================================================
+// 「不再显示」那一个勾选框（业主 2026-10-11）。
+//
+// 业主原话：「有可能 mod 名字和兼容后的名字不一样，导致依旧存在两个 mod（一个在兼容，
+// 一个在上传待定），所以给我一个勾选框，选后就不显示这个 mod 了」。
+//
+// 做在两处（业主口径「列表行上，或详情里 —— 两者都给更好」），**同一份实现**：
+//   · 列表每一行一个（`listItemFor` 里 append）；
+//   · 详情页头部一个（`detail()` 里 append）。
+// 文案写死「**不再显示（已由兼容包取代）**」—— 维护者一眼看懂这是「不再显示这条」，
+// 而不是「删除」或「打回」（那两件事各有各的按钮）。
+//
+// 三个不许忘的点：
+//   · **只发一个 id**（`{ id, hidden }`）：端点自己会拒掉任何「一批」的形状，前端也不做循环。
+//   · **可逆**：勾上 / 取消是同一个请求的两个方向，取消就重新显示。
+//   · **公开面不动**：这一栏只让审核页别显示它；公网 `/mods` 与 `/api/mods` 一个字都不变
+//     （要下架用「打回」）。这一点也写在勾选框的 title 里，免得维护者误会。
+// ================================================================
+function hideBox(s) {
+  const wrap = el('label', 'hidebox');
+  // 列表行整行是「点开详情」，勾选框的点击**不许冒泡上去**（否则一勾就跳详情）。
+  wrap.onclick = (ev) => { if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation(); };
+  const cb = el('input');
+  cb.type = 'checkbox';
+  cb.className = 'hidebox__cb';
+  cb.checked = isHidden(s);
+  cb.title = '勾上 = 这条从审核页的三个视图里都不再显示；取消勾选 = 重新显示（可逆）。'
+    + '只影响审核页 —— 公网 /mods 与 /api/mods 不动（要下架请用「打回」）。';
+  cb.onclick = (ev) => { if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation(); };
+  cb.onchange = () => setHidden(s, cb.checked, cb);
+  wrap.append(cb);
+  wrap.append(el('span', null, '不再显示（已由兼容包取代）'));
+  return wrap;
+}
+/** 勾选框旁边给一句大白话，免得「隐藏」被当成「删除」或「下架」。 */
+const HIDE_NOTE = '只让审核页不再显示它 · 记录与文件一个都不删 · 公网 /mods 与 /api/mods 不动（下架请用「打回」）· 取消勾选就回来';
+/**
+ * 勾上 / 取消勾选那一下真正做的事：**一次请求只带一个 id** ——
+ * `POST ${ADMIN_API}/hide` `{ id, hidden }`。
+ *
+ * 服务端成功之后**重新拉一次 `/list`**（`reloadList`），一切以服务端返回为准：
+ * 三个视图的显示、四个计数桶、「已隐藏 N」都会跟着对上，前端不自己猜、不自己改本地数组。
+ * 失败就把勾选框**拨回原样**（不让界面显示出一个磁盘上并没生效的状态）。
+ */
+async function setHidden(s, want, cb) {
+  if (cb && cb.__busy) return false;
+  if (cb) cb.__busy = true;
+  try {
+    const r = await api('/hide', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: s.id, hidden: !!want }),        // ← 只带这一个 id，绝不批量
+    });
+    let j = {};
+    try { j = await r.json(); } catch { j = {}; }
+    if (!r.ok) {
+      alert('改不了「不再显示」：HTTP ' + r.status + ' ' + (j.error || ''));
+      if (cb) cb.checked = isHidden(s);                          // 拨回去，别骗人
+      return false;
+    }
+    await reloadList();
+    return true;
+  } catch (e) {
+    alert('改不了「不再显示」：' + e.message);
+    if (cb) cb.checked = isHidden(s);
+    return false;
+  } finally {
+    if (cb) cb.__busy = false;
+  }
+}
+/** 重新拉一次 `/list` 并重画（勾选框生效后走这一条，手动「载入列表」也走它）。 */
+async function reloadList() {
+  const r = await api('/list');
+  if (!r.ok) return false;
+  renderList(await r.json());
+  return true;
+}
 
 function renderList({ submissions }) {
   lastList = { submissions: submissions || [] };
@@ -400,15 +541,22 @@ function renderList({ submissions }) {
   // 「状态=已打回」照旧捞得到、「区域=compat」照旧数得全。
   // 一条 record → 一个 <li> 的构造只写这一份，三个列表共用（不复制一份画法）。
   const listItemFor = (s) => {
+    // ⚠️ 这里刻意**不改** `className`（就一个 `item`）：「这一行是不是被隐藏」由下面那个
+    //    `已隐藏` badge 表示。className 一旦变成 `item hidden`，所有按 `className === 'item'`
+    //    数行的自测（桩里 classList 是空的）会一起数不到它 —— 那正是「悄悄改坏断言」。
     const li = el('li', 'item');
     li.meta = s;                                    // 筛选要读的原始记录（DOM 上看不见）
+    li.hiddenRow = isHidden(s);                     // 行的隐藏状态（DOM 上看不见，但桩里查得到）
     const top = el('div', 'flex');
     top.append(el('b', null, s.name || '(没名字)'));
     top.append(el('span', 'badge ' + s.state, s.state));
     if (s.kind === 'compat') top.append(el('span', 'badge ok', '兼容包'));
     if (s.suspected) top.append(el('span', 'badge rejected', '疑似素材'));
     if (s.area === 'flagged') top.append(el('span', 'badge pending', '在 flagged/'));
+    // 已被勾上「不再显示」的那条：即使把它显示出来（勾了筛选栏那个开关），也要一眼看出状态。
+    if (isHidden(s)) top.append(el('span', 'badge hidden', '已隐藏'));
     li.append(top);
+    li.append(hideBox(s));                          // ← 每条记录一个勾选框（业主口径）
     if (s.kind === 'compat') {
       // 两个署名各占一栏，列表里就分开摆。兼容者空 = 未填，如实写出来。
       li.append(el('div', 'dim', `原作者 ${s.author || UNFILLED} · 兼容者 ${s.compatAuthor ? s.compatAuthor : UNFILLED}`));
@@ -612,6 +760,16 @@ async function detail(id) {
   head.append(h);
   if (meta.kind === 'compat') head.append(el('span', 'badge ok', '兼容包'));
   inner.append(head);
+
+  // 「不再显示」勾选框 —— **详情里也有一个**（业主口径：列表行上，或详情里，「两者都给更好」）。
+  // 与列表行上那一个同一份实现（`hideBox`），勾上就整条从三个视图消失、取消就回来。
+  const hb = el('div', 'hidebox2');
+  hb.style.margin = '10px 0 2px';
+  hb.append(hideBox(meta));
+  hb.append(el('div', 'kv dim', isHidden(meta)
+    ? `已勾上「不再显示」：这条从审核页三个视图里都不再显示（${meta.hiddenBy || 'admin'} · ${meta.hiddenAt || '—'}）。${HIDE_NOTE}`
+    : HIDE_NOTE));
+  inner.append(hb);
 
   // 被兼容包取代的那条（业主 B 口径）：说清「被哪一条取代、什么时候」，并给一个直达那条
   // 兼容包的入口 —— 记录与文件都还在，只是不在待审队列里了（不再单独上线，免得公网两份）。

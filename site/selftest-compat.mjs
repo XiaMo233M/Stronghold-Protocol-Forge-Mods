@@ -1032,6 +1032,54 @@ try {
     await sleep(200);
   }
 
+  // ---------------------------------------------------------------- ⑥e 「不再显示」在 compat / flagged 区也一样
+  // 业主 2026-10-11 要的那个勾选框：**每条记录一个**，三个区（submissions / flagged / compat）
+  // 都得能勾。页面那一段「勾上 ⇒ 三视图都不显示」由 selftest-admin.mjs 打；这里补的是
+  // **区覆盖**：兼容包那条（compat 区）与原件那条（superseded）都要能勾上、能取消。
+  // 同一条铁律照旧：一次一个 id、幂等、只动 meta.json 那一个标志位、公开面不动。
+  console.log('\n⑥e 「不再显示」：compat 区与 superseded 的那条也勾得上（一次一个 id · 可逆）');
+  const hidePost = (body) => adm(`${ADMIN}/hide`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const cParts = ['compat', cid];
+  const cMetaFile = join(dataDir, cParts[0], cParts[1], 'meta.json');
+  const cDecFile = join(dataDir, cParts[0], cParts[1], 'decision.json');
+  const cZipFile = join(dataDir, cParts[0], cParts[1], 'mod.zip');
+  const cZip0 = sha(readFileSync(cZipFile)), cDec0 = sha(readFileSync(cDecFile));
+  const pubC0 = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
+  const oMetaFile = join(dataDir, 'submissions', origId, 'meta.json');
+  const oDecFile = join(dataDir, 'submissions', origId, 'decision.json');
+  const oMeta0 = sha(readFileSync(oMetaFile)), oDec0 = sha(readFileSync(oDecFile));
+
+  const hc = await hidePost({ id: cid, hidden: true });
+  const hcb = await hc.json();
+  check(hc.status === 200 && hcb.changed === true && hcb.area === 'compat',
+    '6e-1 兼容包（compat 区）也勾得上 —— 端点认的是「哪条记录」，不是「哪个区」',
+    `HTTP ${hc.status} · area=${hcb.area}`);
+  const ho = await hidePost({ id: origId, hidden: true });
+  check(ho.status === 200 && (await ho.json()).changed === true,
+    '6e-2 被取代的那条原件（superseded）也勾得上（正是业主抱怨的那一份）', `HTTP ${ho.status}`);
+  const listH = await (await adm(`${ADMIN}/list`)).json();
+  check(listH.submissions.find((s) => s.id === cid)?.hidden === true
+    && listH.submissions.find((s) => s.id === origId)?.hidden === true,
+    '6e-3 /list 里这两条都带着 hidden:true');
+  const hc2 = await hidePost({ id: cid, hidden: true });
+  check((await hc2.json()).changed === false, '6e-4 幂等：同一件事发两次，第二次 changed:false');
+  check(sha(readFileSync(cZipFile)) === cZip0 && sha(readFileSync(cDecFile)) === cDec0
+    && sha(readFileSync(oMetaFile)) !== oMeta0 && sha(readFileSync(oDecFile)) === oDec0,
+    '6e-5 只动 meta.json 那一个标志位：mod.zip 与两份 decision.json 的 sha256 一字不变');
+  const pubC1 = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
+  check(pubC1 === pubC0, '6e-6 隐藏期间公网 /api/mods 与基准字节完全一致（隐藏 ≠ 下架）');
+  const hc3 = await hidePost({ id: cid, hidden: false });
+  const ho3 = await hidePost({ id: origId, hidden: false });
+  const listB = await (await adm(`${ADMIN}/list`)).json();
+  check((await hc3.json()).hidden === false && (await ho3.json()).hidden === false
+    && listB.submissions.find((s) => s.id === cid)?.hidden === false
+    && listB.submissions.find((s) => s.id === origId)?.hidden === false,
+    '6e-7 取消勾选：两条都写回 hidden:false，又显示出来了（**可逆**）');
+  check(JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json()) === pubC0,
+    '6e-8 一来一回之后公开面仍然是那串基准字节');
+
   // 收尾总检查：整场测试跑完（成功的、被拒的、抛错的路径都走过），
   // 数据目录根下**一个 .part 都不该有** —— 临时文件只该以「已经改名成正式 mod.zip」的形式存在。
   const leftover = await partFilesSettled();

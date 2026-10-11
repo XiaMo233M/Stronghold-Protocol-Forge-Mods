@@ -281,11 +281,17 @@ try {
   check(approvedIds.every((id) => ids(al).includes(id)),
     '已通过的记录**都在「已通过」那一页**',
     `#alist=${JSON.stringify(ids(al))}`);
-  // 【本版新增】三页计数之和 = 磁盘总数（页面自己算的那三个数，与磁盘对照）。
+  // 【原地改语义】上一版这里只有三个桶（待审页 + 已通过页 + 已打回页 = 全部）。
+  // 业主 2026-10-11 追加「不再显示」勾选框之后，一条记录**恰好**落在四个桶里的一个：
+  // 待审页 / 已通过页 / 已打回页 / **已隐藏**。同一个意图因此改断成：
+  // 「三页相加 **加上已隐藏** = 磁盘上的记录总数」—— 业主明确要求不许因为隐藏而对不上。
   const rSum0 = sandbox.readFilter();
-  check(rSum0.nMain + rSum0.nApproved + rSum0.nRejected === subs.length + comps.length,
-    '三页计数之和 = 磁盘上的记录总数',
-    `待审页 ${rSum0.nMain} + 已通过页 ${rSum0.nApproved} + 已打回页 ${rSum0.nRejected} = ${rSum0.nMain + rSum0.nApproved + rSum0.nRejected}（磁盘 ${subs.length + comps.length}）`);
+  check(rSum0.nMain + rSum0.nApproved + rSum0.nRejected + rSum0.nHidden === subs.length + comps.length,
+    '三页计数之和 + 已隐藏 = 磁盘上的记录总数',
+    `待审页 ${rSum0.nMain} + 已通过页 ${rSum0.nApproved} + 已打回页 ${rSum0.nRejected} + 已隐藏 ${rSum0.nHidden} = ${rSum0.nMain + rSum0.nApproved + rSum0.nRejected + rSum0.nHidden}（磁盘 ${subs.length + comps.length}）`);
+  check(rSum0.nState === subs.length + comps.length,
+    '按状态再数一遍也对得上（待审 + 已通过 + 已打回 + 已被取代 + 已隐藏 = 全部）',
+    `${rSum0.np} + ${rSum0.na} + ${rSum0.nr} + ${rSum0.ns} + ${rSum0.nh} = ${rSum0.nState}`);
   const rendered = textOf(ul).join(' ');
   check(rendered.includes('普通投稿甲') && rendered.includes('普通投稿乙'), '两条普通投稿的名字都出现在列表里');
   check(!rendered.includes('还没载入'), '列表不再停在「还没载入。」');
@@ -325,11 +331,13 @@ try {
   // 【原地改语义】上一版这句是「另放在下面「已打回」那一块」（同一页里另开一块）；
   // 本版业主明确要「另开一页」，所以同一个意图改断成：计数行必须点明**已经另开一页**，
   // 并且把「三页相加 = 全部」这条恒等式写出来。
+  // 【再改一次语义 · 2026-10-11「不再显示」】恒等式多了「已隐藏」这一个桶：
+  //   三页相加 **+ 已隐藏** = 全部 —— 业主口径：不许因为隐藏而对不上。断言原地跟着改（不是删掉）。
   check(/已通过与已打回各自另开一页/.test(String(dom.byId.get('fCounts')?.textContent || '')),
     '并且点明它们**另开一页**（人一眼知道去哪儿找）',
     (String(dom.byId.get('fCounts')?.textContent || '').match(/（[^）]*另开一页[^）]*）/) || [''])[0]);
-  check(/待审页\s*\d+\s*\+\s*已通过页\s*\d+\s*\+\s*已打回页\s*\d+\s*=\s*全部\s*7\s*条/.test(String(dom.byId.get('fCounts')?.textContent || '')),
-    '计数行里写着「三页相加 = 全部 N 条」（三处各有几条一眼可见）',
+  check(/待审页\s*\d+\s*\+\s*已通过页\s*\d+\s*\+\s*已打回页\s*\d+\s*\+\s*已隐藏\s*\d+\s*=\s*全部\s*7\s*条/.test(String(dom.byId.get('fCounts')?.textContent || '')),
+    '计数行里写着「三页相加 + 已隐藏 = 全部 N 条」（四处各有几条一眼可见）',
     (String(dom.byId.get('fCounts')?.textContent || '').match(/待审页[^）]*/) || [''])[0]);
   const rPending = setF('fState', 'pending');
   const expPending = subs.filter((s) => (s.decision?.decision || s.state || 'pending') === 'pending').length
@@ -469,10 +477,11 @@ try {
     check(String(vb.dom.byId.get('viewNow')?.textContent || '') === `当前：${v.label}`,
       `${v.label}那一页：「当前在哪一页」写得清清楚楚`,
       JSON.stringify(vb.dom.byId.get('viewNow')?.textContent));
-    // 「三页计数之和 = 磁盘总数」在**每一页**都成立（三个数由同一份 /list 算出来）。
-    check(rr.nMain + rr.nApproved + rr.nRejected === subs.length + comps.length,
-      `${v.label}那一页：三页计数之和仍等于磁盘总数`,
-      `${rr.nMain} + ${rr.nApproved} + ${rr.nRejected} = ${rr.nMain + rr.nApproved + rr.nRejected}（磁盘 ${subs.length + comps.length}）`);
+    // 「三页计数之和 + 已隐藏 = 磁盘总数」在**每一页**都成立（四个数由同一份 /list 算出来）。
+    // 【原地改语义】「不再显示」之后多了「已隐藏」这一个桶，断言跟着加上它（不是删掉）。
+    check(rr.nMain + rr.nApproved + rr.nRejected + rr.nHidden === subs.length + comps.length,
+      `${v.label}那一页：三页计数之和 + 已隐藏仍等于磁盘总数`,
+      `${rr.nMain} + ${rr.nApproved} + ${rr.nRejected} + ${rr.nHidden} = ${rr.nMain + rr.nApproved + rr.nRejected + rr.nHidden}（磁盘 ${subs.length + comps.length}）`);
     // 该页的内容：本页的记录都在自己那份列表里（不是靠筛选藏出来的）。
     const want = v.view === 'approved' ? approvedIds : rejectedIds;
     const got = items(vb.dom.byId.get(v.view === 'approved' ? 'alist' : 'rlist')).map((li) => li.meta && li.meta.id);
@@ -490,6 +499,162 @@ try {
     noTok.push(`${u}=${r.status}`);
   }
   check(noTok.every((x) => x.endsWith('=401')), '三个视图都要令牌（不带令牌 → 401，页面一个字都不发）', noTok.join(' · '));
+
+  // ---------------------------------------------------------------- ①d 「不再显示」勾选框
+  // 业主 2026-10-11：「有可能 mod 名字和兼容后的名字不一样，导致依旧存在两个 mod（一个在兼容，
+  // 一个在上传待定），所以给我一个勾选框，选后就不显示这个 mod 了」。
+  // 这一段的判据就是那句话本身，四条一条都不许松：
+  //   ① 每条记录一个勾选框（**列表行上**，**详情里也有一个**），文案写「不再显示（已由兼容包取代）」；
+  //   ② 勾上 ⇒ 这条从**三个视图**里都不显示；取消勾选 ⇒ **回来**（可逆）；
+  //   ③ 计数对得上：三页相加 **+ 已隐藏** = 全部；
+  //   ④ 另给一个「显示已隐藏」开关，勾上就能看见被隐藏的那些（便于取消勾选）。
+  // 走的是**真端点**（本文件起的是真服务），不是桩里假造的响应。
+  console.log('\n①d 「不再显示」勾选框：勾上 ⇒ 三视图都不见 · 取消 ⇒ 回来 · 计数对得上');
+  const hidePost = (body) => fetch(`${BASE}/api/${ADMIN_PATH}/hide`, {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': TOKEN },
+    body: JSON.stringify(body),
+  });
+  const withList = (data) => bootInline(html, {
+    fetchImpl: async (u2) => (String(u2).endsWith('/list')
+      ? { ok: true, status: 200, json: async () => data }
+      : { ok: true, status: 200, json: async () => ({}) }),
+  });
+  const rowsOf = (d) => [...items(d.dom.byId.get('list')), ...items(d.dom.byId.get('alist')), ...items(d.dom.byId.get('rlist'))];
+  // 公网面的**基准字节**（勾之前先冻住）：后面拿它证明「隐藏不是下架」。
+  const modsPubBefore = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
+  const modsPageBefore = await (await fetch(`${BASE}/mods`)).text();
+  // ① 勾选框就在列表行上，文案与位置都对
+  const rows0 = rowsOf({ dom });
+  const boxes0 = rows0.map((li) => find(li, (n) => n.tagName === 'input' && n.type === 'checkbox')[0] || null);
+  check(boxes0.length > 0 && boxes0.every(Boolean) && boxes0.length === rows0.length,
+    `列表**每一行**都有一个勾选框（${boxes0.length} 行 / ${boxes0.filter(Boolean).length} 个）`,
+    `行数 ${rows0.length}`);
+  check(rows0.every((li) => /不再显示（已由兼容包取代）/.test(textOf(li).join(' '))),
+    '文案写的是「不再显示（已由兼容包取代）」（一眼看懂是「不再显示这条」，不是删除）');
+  check(boxes0.every((b) => b.checked === false), '初始一个都没勾上（谁也不许被悄悄藏起来）');
+  check(/id="fHidden"/.test(html) && /显示已隐藏/.test(html),
+    '筛选栏里有「显示已隐藏」这个开关（勾上就能看见被隐藏的，便于取消勾选）');
+  check(/id="nHidden"/.test(html) && /已隐藏/.test(html), '导航上多一格「已隐藏」（三页相加 + 这一格 = 全部）');
+  // ② 勾上：一次一个 id 的真请求
+  const hideId = 'cccc2222dddd';                       // 普通投稿乙（待审，画在 #list 上）
+  const hideRes = await hidePost({ id: hideId, hidden: true });
+  const hideJson = await hideRes.json();
+  check(hideRes.status === 200 && hideJson.changed === true && hideJson.hidden === true,
+    '勾上「不再显示」：POST /hide 一次只带这一个 id，写盘成功',
+    `HTTP ${hideRes.status} · changed=${hideJson.changed}`);
+  const listHid = await (await adm(`/api/${ADMIN_PATH}/list`)).json();
+  check(listHid.submissions.find((s) => s.id === hideId)?.hidden === true,
+    '标志位落在**记录自己的 meta.json** 上，/list 原样带出 hidden:true');
+  // ③ 三个视图里都不显示它（用**新的 /list** 重开一个桩 = 维护者刷新页面那一路）
+  const hid = withList(listHid);
+  check(!hid.threw, '隐藏之后那份 /list 喂同一个桩也不抛错', hid.threw ? `${hid.threw.name}: ${hid.threw.message}` : '');
+  await sleep(60);
+  const hidAll = rowsOf(hid);
+  const hidRow = hidAll.find((li) => li.meta && li.meta.id === hideId);
+  check(hidAll.length === listHid.submissions.length, '记录一条都没丢（还是把全部记录都画出来了）',
+    `画了 ${hidAll.length} 条 = /list ${listHid.submissions.length} 条`);
+  check(!!hidRow && hidRow.style.display === 'none',
+    '勾上之后：**三个视图里都不显示它**（那一行还在 DOM 里，只是不显示）',
+    hidRow ? `display=${JSON.stringify(hidRow.style.display)}` : '（没画出来）');
+  check(!hidAll.filter((li) => li.style.display !== 'none').some((li) => li.meta && li.meta.id === hideId),
+    '可见的那些里一个都没有它（换到哪一页都一样）');
+  // ④ 计数：三页相加 + 已隐藏 = 全部
+  const rh = hid.sandbox.readFilter();
+  check(rh.nMain + rh.nApproved + rh.nRejected + rh.nHidden === listHid.submissions.length && rh.nHidden === 1,
+    '计数对得上：三页相加 + 已隐藏 = 全部',
+    `${rh.nMain} + ${rh.nApproved} + ${rh.nRejected} + ${rh.nHidden} = ${rh.nMain + rh.nApproved + rh.nRejected + rh.nHidden}（全部 ${listHid.submissions.length}）`);
+  check(rh.nState === listHid.submissions.length,
+    '按状态再数一遍也对得上（待审 + 已通过 + 已打回 + 已被取代 + 已隐藏 = 全部）',
+    `${rh.np} + ${rh.na} + ${rh.nr} + ${rh.ns} + ${rh.nh} = ${rh.nState}`);
+  check(/待审页\s*\d+\s*\+\s*已通过页\s*\d+\s*\+\s*已打回页\s*\d+\s*\+\s*已隐藏\s*1\s*=\s*全部\s*7\s*条/.test(String(hid.dom.byId.get('fCounts')?.textContent || '')),
+    '计数行原话就是「三页相加 + 已隐藏 = 全部 N 条」',
+    (String(hid.dom.byId.get('fCounts')?.textContent || '').match(/待审页[^）]*/) || [''])[0]);
+  check(String(hid.dom.byId.get('nHidden')?.textContent) === '1', '导航那一格「已隐藏」显示 1',
+    String(hid.dom.byId.get('nHidden')?.textContent));
+  // ⑤ 「显示已隐藏」开关：勾上就看得见（便于取消勾选）
+  hid.dom.byId.get('fHidden').checked = true;
+  const rShow = hid.sandbox.readFilter();
+  check(hidRow && hidRow.style.display !== 'none' && rShow.visibleHidden === 1,
+    '勾上「显示已隐藏」→ 被隐藏的那条又看得见（就是给你取消勾选用的）',
+    `display=${JSON.stringify(hidRow && hidRow.style.display)} · 可见的已隐藏 ${rShow.visibleHidden} 条`);
+  check(rShow.nHidden === 1 && rShow.nMain + rShow.nApproved + rShow.nRejected + rShow.nHidden === 7,
+    '开关只影响显示，不改那四个计数桶（恒等式照样成立）',
+    `${rShow.nMain} + ${rShow.nApproved} + ${rShow.nRejected} + ${rShow.nHidden} = 7`);
+  // ⑥ 取消勾选 ⇒ 回来（**可逆**）
+  const unRes = await hidePost({ id: hideId, hidden: false });
+  const listBack2 = await (await adm(`/api/${ADMIN_PATH}/list`)).json();
+  check(unRes.status === 200 && listBack2.submissions.find((s) => s.id === hideId)?.hidden === false,
+    '取消勾选：写回 hidden:false（不是把键删掉，是显式的 false）');
+  const back = withList(listBack2);
+  await sleep(60);
+  const backAll = rowsOf(back);
+  const rBack = back.sandbox.readFilter();
+  check(backAll.filter((li) => li.style.display !== 'none').length === backAll.length
+    && backAll.length === 7 && rBack.nHidden === 0,
+    '取消勾选之后：三个视图里又都看得见它了（**可逆**，不是一勾就扔）',
+    `可见 ${backAll.filter((li) => li.style.display !== 'none').length} / 共 ${backAll.length} · 已隐藏 ${rBack.nHidden}`);
+  // ⑦ 行上那个勾选框真的只发一个 id（报文形状）
+  const posts = [];
+  const rc = bootInline(html, {
+    fetchImpl: async (url, opt) => {
+      const u = String(url);
+      posts.push({ u, method: (opt && opt.method) || 'GET', body: opt && opt.body });
+      if (u.endsWith('/list')) return { ok: true, status: 200, json: async () => listBack2 };
+      if (u.endsWith('/hide')) return { ok: true, status: 200, json: async () => ({ ok: true, changed: true, hidden: true }) };
+      return { ok: true, status: 200, json: async () => ({}) };
+    },
+  });
+  await sleep(60);
+  const rcRow = items(rc.dom.byId.get('list'))[0];
+  const rcBox = find(rcRow, (n) => n.tagName === 'input' && n.type === 'checkbox')[0];
+  rcBox.checked = true;
+  await rcBox.onchange();
+  await sleep(40);
+  const hideCalls = posts.filter((p) => p.u.endsWith('/hide'));
+  const sent = hideCalls.length === 1 ? JSON.parse(hideCalls[0].body) : null;
+  check(hideCalls.length === 1 && hideCalls[0].method === 'POST' && sent
+    && typeof sent.id === 'string' && sent.hidden === true && Object.keys(sent).length === 2,
+    '勾一下**只发一个 id**、只发一次请求（报文就是 { id, hidden } 两个键 —— 绝不是一批）',
+    hideCalls.length ? `${hideCalls[0].method} ${sent ? hideCalls[0].body : ''}` : '（没发请求）');
+  check(/已隐藏/.test(html) === true, '页面上确实有「已隐藏」这一档（不是部署前的旧文件）');
+  // ⑧ 详情里也有一个勾选框（业主口径「两者都给更好」）
+  const d3Target = listBack2.submissions.find((s) => s.id === hideId);
+  const d3 = bootInline(html, {
+    fetchImpl: async (url) => {
+      const u = String(url);
+      if (u.endsWith('/list')) return { ok: true, status: 200, json: async () => listBack2 };
+      if (u.includes('/detail/')) return {
+        ok: true, status: 200,
+        json: async () => ({
+          meta: { ...d3Target, hidden: true, hiddenBy: 'admin', hiddenAt: '2026-10-11T00:00:09.000Z' },
+          entries: [], topLevel: {}, variant: 'mod', viewSha256: null,
+          download: `/api/file/${hideId}`, archiveDownload: null, packJsonOrig: null,
+        }),
+      };
+      return { ok: true, status: 200, json: async () => ({}) };
+    },
+  });
+  await sleep(60);
+  await d3.sandbox.detail(hideId);
+  await sleep(20);
+  const dBox = d3.dom.byId.get('detail');
+  const dCb = find(dBox, (n) => n.tagName === 'input' && n.type === 'checkbox')[0];
+  check(!!dCb && dCb.checked === true,
+    '详情里也有同一个勾选框，且如实反映它已经被勾上',
+    dCb ? `checked=${dCb.checked}` : '（详情里没有勾选框）');
+  check(/不再显示（已由兼容包取代）/.test(textOf(dBox).join(' ')), '详情里那句文案与列表行上一致');
+  check(/公网 \/mods 与 \/api\/mods 不动/.test(textOf(dBox).join(' ')),
+    '详情里写明「公开面不动」（免得把这个勾选框当成下架手段）',
+    (textOf(dBox).join(' ').match(/.{0,12}公网 \/mods.{0,26}/) || [''])[0]);
+  // ⑨ 隐藏不改公开面：这几条是「隐藏 ≠ 下架」的凭据 —— 拿**勾之前**的公网字节做基准比对。
+  const modsPubAfter = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
+  const modsPageAfter = await (await fetch(`${BASE}/mods`)).text();
+  check(modsPubAfter === modsPubBefore,
+    '隐藏期间**公网 /api/mods 一个字节都没变**（隐藏不是下架）',
+    `${modsPubBefore.slice(0, 70)}… → 一致 ${modsPubAfter === modsPubBefore}`);
+  check(!modsPubAfter.includes('"hidden"'),
+    '公开数据里**根本不暴露** hidden 这一栏（公开面不知道有这回事）');
+  check(modsPageAfter === modsPageBefore, '公网 /mods 那一页的字节也一个字都没变');
 
   // ---------------------------------------------------------------- ② 兼容包表单
   console.log('\n② 「上传我改好的兼容包并发布」表单：构造出来是干净的（没有预填名字）');
@@ -673,5 +838,6 @@ try {
 
 console.log('');
 if (failures) { console.log(`✖ ${failures} 项没通过`); process.exit(1); }
-console.log('✔ 审核台页面：脚本跑到底 · 待审 / 已通过 / 已打回三页各归各位（三页相加 = 全部）· '
+console.log('✔ 审核台页面：脚本跑到底 · 待审 / 已通过 / 已打回三页各归各位（三页相加 + 已隐藏 = 全部）· '
+  + '每条记录一个「不再显示」勾选框（勾上三视图都不见、取消就回来，一次一个 id）· '
   + '兼容者空 = 未填 · 全站没有 Mo233 兜底 · /mods 多一行「由投稿 … 改写来」且备注是新文案');

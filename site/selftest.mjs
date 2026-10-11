@@ -248,6 +248,106 @@ try {
   const r6 = await submit(big, { name: '太大的包' });
   check(r6.status === 413, '超过 MAX_MB 被拒（413）', r6.body?.error);
 
+  // ---------------------------------------------------------------- ⑰ 「不再显示」勾选框
+  // 业主 2026-10-11：「有可能 mod 名字和兼容后的名字不一样，导致依旧存在两个 mod（一个在兼容，
+  // 一个在上传待定），所以给我一个勾选框，选后就不显示这个 mod 了」。
+  // 落到端点上就四条不许松的边界（与 /compat/note 顶上那条铁律同源）：
+  //   ① **一次只认一个 id，绝不批量** —— 任何「一批」的形状一律 400；
+  //   ② **可逆** —— 取消勾选写回 hidden:false，记录又回来；
+  //   ③ **只动那一个标志位** —— mod.zip / decision.json 的 sha256 前后一致，判定不变；
+  //   ④ **公开面不动** —— /api/mods 与 /mods 一个字节都不变（隐藏 ≠ 下架，下架用「打回」）。
+  console.log('⑰ 「不再显示」勾选框的端点：一次一个 id · 幂等 · 可逆 · 只改标志位 · 公开面不动');
+  const hidePost = (body) => admin('/api/admin/hide', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+  });
+  const dirGood = join(dataDir, 'submissions', idGood);
+  const fMeta = join(dirGood, 'meta.json'), fDec = join(dirGood, 'decision.json'), fZip = join(dirGood, 'mod.zip');
+  const shaOf = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
+  const otherMeta = join(dataDir, 'flagged', idEvil, 'meta.json');
+  const zip0 = shaOf(fZip), dec0 = shaOf(fDec), meta0 = shaOf(fMeta), otherMeta0 = shaOf(otherMeta);
+  const pub0 = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
+  const modsPage0 = await (await fetch(`${BASE}/mods`)).text();
+  const dl0 = createHash('sha256').update(Buffer.from(await (await fetch(`${BASE}/api/file/${idGood}`)).arrayBuffer())).digest('hex');
+  const healthBefore = await (await fetch(`${BASE}/healthz`)).json();
+
+  const h1 = await hidePost({ id: idGood, hidden: true });
+  const h1b = await h1.json();
+  check(h1.status === 200 && h1b.changed === true && h1b.hidden === true,
+    '勾上：一次一个 id，写盘成功', `HTTP ${h1.status} · ${JSON.stringify({ changed: h1b.changed, hidden: h1b.hidden })}`);
+  const metaHid = JSON.parse(readFileSync(fMeta, 'utf8'));
+  check(metaHid.hidden === true && metaHid.hiddenBy === 'admin' && typeof metaHid.hiddenAt === 'string',
+    '标志位**落在记录自己的 meta.json 上**（hidden + hiddenBy + hiddenAt）',
+    `hidden=${metaHid.hidden} · hiddenBy=${metaHid.hiddenBy} · hiddenAt=${metaHid.hiddenAt}`);
+  const listHid = await (await admin('/api/admin/list')).json();
+  check(listHid.submissions.find((s) => s.id === idGood)?.hidden === true,
+    '/list 原样带出 hidden:true（页面据此不显示它）');
+  check(shaOf(fZip) === zip0 && shaOf(fDec) === dec0,
+    '**只改标志位**：mod.zip 与 decision.json 的 sha256 前后一字不变',
+    `mod.zip ${zip0.slice(0, 12)}→${shaOf(fZip).slice(0, 12)} · decision.json ${dec0.slice(0, 12)}→${shaOf(fDec).slice(0, 12)}`);
+  check(JSON.parse(readFileSync(fDec, 'utf8')).decision === 'approved',
+    'decision.json 的**判定**照旧是 approved（隐藏不改判定 —— 它只是审核页的显示开关）');
+  check(shaOf(fMeta) !== meta0, 'meta.json 确实动了（动的只有那个标志位）');
+  check(shaOf(otherMeta) === otherMeta0, '同一个请求**绝不顺带改别的记录**（只认这一个 id）');
+  const metaAfterHide = shaOf(fMeta);
+  const pub1 = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
+  const dl1 = createHash('sha256').update(Buffer.from(await (await fetch(`${BASE}/api/file/${idGood}`)).arrayBuffer())).digest('hex');
+  check(pub1 === pub0, '**公网 /api/mods 一个字节都没变**（隐藏期间它照旧在公开列表里）',
+    `条数 ${JSON.parse(pub0).mods.length}/${JSON.parse(pub0).flagged.length} 未变`);
+  check(!pub1.includes('"hidden"'), '公开数据里根本不暴露 hidden 这一栏（公开面不知道有这回事）');
+  check(dl1 === dl0 && dl1 === goodSha, '公开下载照旧可下、字节不变', dl1.slice(0, 16));
+
+  const h2 = await hidePost({ id: idGood, hidden: true });
+  const h2b = await h2.json();
+  check(h2.status === 200 && h2b.changed === false && shaOf(fMeta) === metaAfterHide,
+    '**幂等**：再勾一次 → changed:false，meta.json 一个字节都没动（没有第二笔留痕）',
+    `${JSON.stringify(h2b.changed)} · sha 未变 ${shaOf(fMeta) === metaAfterHide}`);
+
+  // 形状：**一次一个 id、绝不批量**（这些一律 400/404，磁盘上什么都不许改）
+  const shapeCases = [
+    [{ ids: [idGood], hidden: true }, 400, '「ids」数组（一批）'],
+    [{ id: [idGood], hidden: true }, 400, 'id 给了数组'],
+    [{ batch: [idGood], hidden: true }, 400, '「batch」键'],
+    [{ items: [{ id: idGood }], hidden: true }, 400, '「items」键'],
+    [{ list: [idGood], hidden: true }, 400, '「list」键'],
+    [{ id: idGood, ids: [idEvil], hidden: true }, 400, '夹带「ids」（哪怕 id 也在）'],
+    [{ id: idGood, hidden: 'true' }, 400, 'hidden 是字符串 "true"'],
+    [{ id: idGood, hidden: 1 }, 400, 'hidden 是数字 1'],
+    [{ id: idGood }, 400, '缺 hidden 字段'],
+    [{ id: '短', hidden: true }, 400, 'id 形状不对'],
+    [{ id: 'ffffffffffff', hidden: true }, 404, '不存在的 id → 404'],
+  ];
+  for (const [body, want, label] of shapeCases) {
+    const r = await hidePost(body);
+    const err = (await r.json().catch(() => ({}))).error || '';
+    check(r.status === want, `${label} → ${want}`, `HTTP ${r.status} · ${String(err).slice(0, 46)}`);
+  }
+  const notObj = await hidePost('["aaaaaaaaaaaa"]');
+  check(notObj.status === 400, '报文是数组（不是对象）→ 400', `HTTP ${notObj.status}`);
+  const noTokHide = await fetch(`${BASE}/api/admin/hide`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: idGood, hidden: true }),
+  });
+  check(noTokHide.status === 401, '不带令牌 → 401（勾选框也走那两道防线）', `HTTP ${noTokHide.status}`);
+  check(shaOf(fMeta) === metaAfterHide, '这一串坏形状**一条都没写盘**（校验先算不写）',
+    `sha 仍是勾上之后那一份 ${shaOf(fMeta) === metaAfterHide}`);
+
+  const h3 = await hidePost({ id: idGood, hidden: false });
+  const h3b = await h3.json();
+  check(h3.status === 200 && h3b.changed === true && h3b.hidden === false, '取消勾选：写回 hidden:false（**可逆**）');
+  const metaBack = JSON.parse(readFileSync(fMeta, 'utf8'));
+  check(metaBack.hidden === false, '标志位是**显式的 false**（不是把键删掉 —— 取消勾选也要看得见）', String(metaBack.hidden));
+  const listBack = await (await admin('/api/admin/list')).json();
+  check(listBack.submissions.find((s) => s.id === idGood)?.hidden === false, '取消之后 /list 给 false —— 它又显示出来了');
+  check((metaBack.revisions || []).length === 2,
+    '两笔留痕（勾上 + 取消），一笔不多一笔不少（幂等那次没留）', `revisions=${(metaBack.revisions || []).length}`);
+  check(shaOf(fZip) === zip0 && shaOf(fDec) === dec0, '这一来一回之后，mod.zip 与 decision.json 的 sha256 仍与最初一致');
+  const pub2 = JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json());
+  const modsPage1 = await (await fetch(`${BASE}/mods`)).text();
+  check(pub2 === pub0 && modsPage1 === modsPage0, '全程**公开面一个字都没变**（/api/mods 与 /mods 都是基准字节）');
+  const healthAfter = await (await fetch(`${BASE}/healthz`)).json();
+  check(healthAfter.submissions === healthBefore.submissions,
+    '**记录条数只增不减**：隐藏没有删掉任何记录', `${healthBefore.submissions} → ${healthAfter.submissions}`);
+
   if (packArg) {
     console.log('⑭ 额外：传一个真实包');
     const real = readFileSync(resolve(packArg));

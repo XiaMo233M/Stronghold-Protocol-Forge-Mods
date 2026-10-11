@@ -158,6 +158,24 @@ const isPublic = (id) => readJson(decisionPath(id))?.decision === 'approved';
 /** 这个投稿是不是「维护者侧兼容包」。 */
 const isCompat = (id) => dirOf(id)?.area === 'compat';
 
+/**
+ * 「不再显示」标志位（业主 2026-10-11）—— **落在记录自己的 `meta.json` 上**：
+ *   `hidden: true|false` ＋ `hiddenBy` ＋ `hiddenAt`。
+ *
+ * 为什么要有它（业主原话）：「因为有可能 mod 名字和兼容后的名字不一样，导致依旧存在两个 mod
+ * （一个在兼容，一个在上传待定），所以给我一个勾选框，选后就不显示这个 mod 了」。
+ * 自动配对走的是 `compatOf` + `markReplacedBy`，而**名字不一致时人未必配得上对** ——
+ * 于是同一份 mod 会在审核页上出现两次。这个标志位给维护者一个**人眼可判**的开关：
+ * 不依赖名字、不依赖自动配对，勾上就不显示、取消就回来。
+ *
+ * 边界（**定死**，见 `POST ${ADMIN_API}/hide` 那一段的完整说明）：
+ *   · 只影响**审核页的三个视图**显不显示这一条；
+ *   · **公网 `/api/mods` 与 `/mods` 一个字节都不动** —— 要下架请用「打回」（`decision=rejected`），
+ *     所以 `isPublic()`、公开列表、两个下载口**都不看**这个标志位（这里刻意不碰它们）；
+ *   · **可逆**：取消勾选写回 `hidden:false`，记录、文件、判定一个都不改。
+ */
+const isHidden = (m) => !!m && m.hidden === true;
+
 /** 包里的 pack.json（只读它一条，最多 1 MB；读不到/解析不了都返回 null）。 */
 async function packJsonFor(file) {
   const m = await readZipFile(file, ['pack.json']);
@@ -1263,6 +1281,107 @@ const server = createServer(async (req, res) => {
           untouched: 'mod.zip / pack-json.orig.json / decision.json 未动；name / author / compatAuthor / uploadedAt / size / kind / compatOf / sha256 原样。',
         });
       }
+
+      // ================================================================
+      // `POST ${ADMIN_API}/hide` —— 那条「不再显示」勾选框（业主 2026-10-11）。
+      //
+      // 报文：`{ "id": "<编号>", "hidden": true|false }`
+      //   · `hidden: true`  ⇒ 这条从**审核页的三个视图**里都不再显示；
+      //   · `hidden: false` ⇒ 重新显示（**必须可逆** —— 业主口径里写死的一条）。
+      //
+      // 为什么需要它（业主原话）：「有可能 mod 名字和兼容后的名字不一样，导致依旧存在两个 mod
+      // （一个在兼容，一个在上传待定），所以给我一个勾选框，选后就不显示这个 mod 了」。
+      // 自动配对靠 `compatOf` / `markReplacedBy`，名字不一致时人可能根本不会去配对 ——
+      // 这个开关完全不依赖名字，也不依赖自动配对。
+      //
+      // ⚠️ 铁律（与 `/compat/decide`、`/compat/link`、`/compat/note` 顶上那条同源）：
+      //   本端点**只认一个明确指定的 id**，**绝不批量**。
+      //   报文里出现任何「一批」的形状（`ids` / `batch` / `items` / `list`，或 `id` 给了数组）
+      //   一律 400 拒掉 —— 永远不要写「把筛出来的一批循环喂进来」的脚本。
+      //   要藏 N 条就发 N 次，每条单独核对（批准的教训见文件头那条纪律）。
+      //
+      // 只碰这一处：`meta.json` 的 `hidden` / `hiddenBy` / `hiddenAt`（外加一条 `revisions` 追加留痕）。
+      //   `mod.zip` / `orig.zip` / `pack-json.orig.json` / `decision.json` **一个字节都不动**
+      //   —— 隐藏**不改判定**（`decision.json` 照旧是这条记录的状态）；
+      //   `name` / `author` / `compatAuthor` / `compatOf` / `sha256` / `uploadedAt` / `size` / `flags` 一律原样。
+      //
+      // 形状校验**先算不写**（任何一道不过就直接返回，磁盘上什么都不改）：
+      //   ① 报文是一个**普通对象**（不是数组、不是字面量）；
+      //   ② 没有「一批」的形状：`ids` / `batch` / `items` / `list` 一个都不许出现；
+      //   ③ `id` 是**字符串**且合 `ID_RE`（数组 / 对象直接拒）；
+      //   ④ `hidden` 是**布尔值**（不接受 'true' / 1 / null —— 免得两个客户端对同一个值有两种理解）；
+      //   ⑤ 这条记录在三个区里找得到（`pathsOf`），且 `meta.json` 读出来是个普通对象。
+      // 幂等：标志位**已经是目标值**时直接回 `changed:false`，**不写盘、不加 revisions**
+      //   —— 重复发同一个请求不会留下第二笔留痕。
+      //
+      // ⚠️ 公开面：这个端点**只改 meta.json 这一栏**。`/api/mods` 与 `/mods` 从不读它，
+      //   `/api/file/*` 也不读它 —— 「隐藏」是审核页的显示开关，不是下架。（要下架用「打回」。）
+      // ================================================================
+      if (req.method === 'POST' && p === `${ADMIN_API}/hide`) {
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        // ① 必须是一个普通对象
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        // ② 只认一个 id：任何「一批」的形状直接拒
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，绝不批量（多了这些键：${batchKeys.join(' / ')}）。要藏 N 条就发 N 次，每条单独核对。`,
+          });
+        }
+        // ③ id 是字符串且形状对
+        if (typeof inObj.id !== 'string' || !ID_RE.test(inObj.id.trim())) {
+          return sendJson(res, 400, { error: 'id 形状不对（必须是字符串：6–32 位小写字母/数字）' });
+        }
+        const id = inObj.id.trim();
+        // ④ hidden 是布尔值
+        if (typeof inObj.hidden !== 'boolean') {
+          return sendJson(res, 400, { error: 'hidden 形状不对（必须是布尔值 true / false，不接受字符串、数字或 null）' });
+        }
+        const want = inObj.hidden;
+        // ⑤ 记录在不在、meta.json 读得出来吗
+        const HP = pathsOf(id);
+        if (!HP) return sendJson(res, 404, { error: '没有这条记录' });
+        const hMeta = readJson(HP.meta);
+        if (!hMeta || typeof hMeta !== 'object' || Array.isArray(hMeta)) {
+          return sendJson(res, 404, { error: '这条记录的 meta.json 读不出来（形状不对），不动它' });
+        }
+        // 五道全过了，才开始算要写什么。幂等在前：标志位已经是这个值，就什么都不写。
+        const nowHidden = hMeta.hidden === true;
+        if (nowHidden === want) {
+          return sendJson(res, 200, {
+            ok: true, id, hidden: want, changed: false, at: nowIso(),
+            area: HP.area, state: readJson(HP.decision)?.decision || 'pending',
+            note: '标志位已经是这个值，没有写盘（幂等）；重复发同一个请求不会留下第二笔改动记录。',
+          });
+        }
+        const hAt = nowIso();
+        const hHist = Array.isArray(hMeta.revisions) ? hMeta.revisions : [];
+        // 只动标志位那三栏（外加 revisions 留痕），其余字段靠展开原样带过去。
+        writeJson(HP.meta, {
+          ...hMeta,
+          hidden: want,
+          hiddenBy: 'admin',
+          hiddenAt: hAt,
+          revisions: [...hHist, {
+            at: hAt, by: 'admin',
+            changed: { hidden: nowHidden },
+            to: { hidden: want },
+            why: want
+              ? '审核页「不再显示」勾上：这条从审核页三个视图里都不再显示（公网 /api/mods 与 /mods 不动，要下架请用打回）'
+              : '审核页「不再显示」取消勾选：这条重新显示（可逆）',
+          }],
+        });
+        return sendJson(res, 200, {
+          ok: true, id, hidden: want, changed: true, at: hAt,
+          area: HP.area, state: readJson(HP.decision)?.decision || 'pending',
+          untouched: 'mod.zip / orig.zip / pack-json.orig.json / decision.json 未动（判定不变）；'
+            + 'name / author / compatAuthor / compatAuthorSource / compatOf / sha256 / uploadedAt / size / kind 原样。',
+        });
+      }
     }
 
     return sendJson(res, 404, { error: '没有这个地址' });
@@ -1294,6 +1413,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  兼容包   ${ADMIN_API}/compat-submit?publish=1（投稿详情页那一个上传按钮：上传即发布，双署名）`);
   console.log(`  补关联   ${ADMIN_API}/compat/link（给已上线的兼容包补 compatOf；一次只认一个 id，见端点注释）`);
   console.log(`  改备注   ${ADMIN_API}/compat/note（只改 note + compatNote 两栏文案；一次只认一个 id，见端点注释）`);
+  console.log(`  不再显示 ${ADMIN_API}/hide（勾选框：hidden:true/false，可逆；只影响审核页三视图，公开面不动；一次只认一个 id、绝不批量）`);
   console.log(`  人工确认 ${ADMIN_API}/compat-submit?publish=1&confirmBlockers=1&confirmReason=…（逐条确认真素材路径，不是放宽档位；留痕到决定记录）`);
   console.log(`  数据目录 ${DATA_DIR}`);
   console.log(`  上传上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB`);
