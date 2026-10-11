@@ -344,25 +344,28 @@ check(vis() === all.length - liveHidden,
 const keyHits = (rows, k) => rows.filter((s) => String(s.id || '').toLowerCase().includes(k)
   || String(s.name || '').toLowerCase().includes(k));
 const visibleInDom = () => all.filter((li) => li.style.display !== 'none');
+// 优先挑一条**整名只命中它自己**的可见记录 —— 关键词取它的名字，正是人真的会敲的那一档。
+// 整名都不唯一的记录挑不出「名字型关键词」，退到「名字里只有它命中的一段」，再退到编号。
 const firstVisible = listJson.submissions.find((s) => s.hidden !== true);
 let kw = null, kwRow = null, kwN = 0;
 if (firstVisible) {
-  // 先拿**整名**：它通常只命中这一条 ⇒ 关键词直接就是记录自己的名字（最好读的一档）。
-  kw = String(firstVisible.name || '').trim() || String(firstVisible.id);
+  const named = listJson.submissions.find((s) => s.hidden !== true && String(s.name || '').trim()
+    && keyHits(listJson.submissions, String(s.name).trim().toLowerCase()).length === 1);
+  const pick = named || firstVisible;
+  kwRow = pick;
+  kw = String(pick.name || '').trim() || String(pick.id);
   if (keyHits(listJson.submissions, kw.toLowerCase()).length !== 1) {
-    // 整名也撞了：再往名字里找一段**只有它命中**的片段；实在没有就退回编号。
-    const nm = String(firstVisible.name || '');
+    const nm = String(pick.name || '');
     let found = null;
     for (let len = Math.min(12, nm.length); len >= 2 && !found; len--) {
       for (let i = 0; i + len <= nm.length; i++) {
         const cand = nm.slice(i, i + len);
         const hitsAll = keyHits(listJson.submissions, cand.toLowerCase());
-        if (hitsAll.length === 1 && hitsAll[0].id === firstVisible.id) { found = cand; break; }
+        if (hitsAll.length === 1 && hitsAll[0].id === pick.id) { found = cand; break; }
       }
     }
-    kw = found || String(firstVisible.id);
+    kw = found || String(pick.id);
   }
-  kwRow = firstVisible;
   kwN = keyHits(listJson.submissions, kw.toLowerCase()).filter((s) => s.hidden !== true).length;
 }
 if (!kw) {
