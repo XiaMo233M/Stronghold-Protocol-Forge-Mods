@@ -415,9 +415,20 @@ if (!hidSample1) {
   const hidHitN = keyHits(listJson.submissions, hidName.toLowerCase()).filter((s) => s.hidden !== true).length;
   dom.byId.get('fKey').value = hidName;
   const rHid = sandbox.readFilter();
-  check(hidHitN === 0 && vis() === 0,
-    `已隐藏的那条（${hidSample1.id}）默认筛不出来 —— 原来那条断言写成 0 条的真身，**不是 bug**`,
-    `数据里可见命中 ${hidHitN} 条 · 页面可见 ${vis()} 条`);
+  // 【2026-10-12 修「过时断言」· 数据漂移、不是产品 bug】
+  // 原判据是「这个关键词的可见命中数 == 0」—— 它暗含一个假设：**这条已隐藏记录的名字在线上是唯一的**。
+  // 线上已经不再是：`e7b3b3e1751f`（普通投稿，已隐藏）与 `a84e3a916517`（兼容改写版，可见）
+  // **同名**「代号审查（名字策略链）」—— 那正是兼容包与原件同名的那一类，是两个**不同的记录**。
+  // 一条可见的同名记录**不是**「隐藏失效」，拿它当红是把无关的事判成了故障。
+  // 改成直接断言真正在盯的那件事（**不放松，反而更硬**）：
+  //   · 这条已隐藏记录**自己**不在可见那一批里；
+  //   · 而且这次筛选里**一条已隐藏记录都没漏出来**（`visibleHidden === 0`）——
+  //     这比「关键词 0 命中」更贴近口径：隐藏记录在任何关键词下都不该可见。
+  const visIdsHid = visibleInDom().map((li) => li.meta && li.meta.id);
+  check(rHid.visibleHidden === 0 && !visIdsHid.includes(hidSample1.id),
+    `已隐藏的那条（${hidSample1.id}「${hidName}」）默认筛不出来：它自己不在可见那批里，且可见的已隐藏记录 0 条`
+    + (hidHitN ? `（线上另有 ${hidHitN} 条**同名**的可见记录，那是另一个记录 —— 同名不算隐藏失效）` : ''),
+    `数据里同名可见命中 ${hidHitN} 条 · 页面可见 ${vis()} 条 · 其中已隐藏 ${rHid.visibleHidden} 条`);
   dom.byId.get('fKey').value = '';
 }
 // 清空筛选 ⇒ 恢复默认（不管上面哪条路走过，这里都必跑）
@@ -678,6 +689,51 @@ for (const nm of ['ave-mujica 1.1.0', 'makoto-yuki 1.0.1']) {
     modsJson.mods.some((m) => m.name === nm) ? '接口里有 · 页面渲染里也有' : '接口里就没有');
 }
 check(modsJson.mods.length >= 5, `线上公开主列表至少 5 条（本轮 3 → 5）`, `mods=${modsJson.mods.length} · flagged=${modsJson.flagged.length}`);
+
+// ---------------------------------------------------------------- 线上 /mods：普通投稿的「原作者」
+// 【2026-10-11 补】普通投稿的 `author` 记录里**没有**这一栏，站点是**读的时候**从包内
+// `pack.json` 现读的（推导，不回写记录；`authorSource:'pack.json'`，与兼容包预填同一个口径）。
+// 这一段喂的还是**线上 /mods 实际发出的那段字节** + **线上真实的 /api/mods 响应**，
+// 断言全部**从线上数据现推**，不写死任何一条记录的名字或作者 —— 数据变了它照样该绿。
+// 三条边界：
+//   ① 普通投稿有作者 ⇒ 署名框画出来、写的就是那个名字，且**没有**「兼容改写者」那一栏、
+//      没有「兼容改写版」徽标、没有「由投稿 … 改写来」那一行（普通投稿没有兼容这回事）；
+//   ② 普通投稿没作者（author=null）⇒ 连「原作者」这个标签都不画（现行为不变）；
+//   ③ 同一页上的兼容包**照旧三样齐全**（原作者 + 兼容改写者 + compatOf 有值时的「由投稿 … 改写来」）。
+const cardById = (m) => find(modsList, (n) => /panel/.test(String(n.className || ''))
+  && textOf(n).join(' ').includes(`编号 ${m.id}`))[0] || null;
+const cardText = (m) => { const c = cardById(m); return c ? textOf(c).join(' ') : ''; };
+const plainPub = modsJson.mods.filter((m) => m.kind !== 'compat');
+const plainWithAuthor = plainPub.filter((m) => typeof m.author === 'string' && m.author.trim() !== '');
+const plainNoAuthor = plainPub.filter((m) => m.author == null);
+console.log(`  · 公网普通投稿 ${plainPub.length} 条：带原作者 ${plainWithAuthor.length} 条 / 无作者 ${plainNoAuthor.length} 条`);
+check(plainWithAuthor.length > 0,
+  '线上至少有一条**普通投稿**带着原作者（有值才谈得上渲染对不对）',
+  plainWithAuthor.map((m) => `${m.id}:${m.author}`).join(' ') || '（一条都没有）');
+check(plainPub.every((m) => m.author == null || m.authorSource === 'pack.json'),
+  '普通投稿的作者只有一个来源：包内 `pack.json`（不造第二套口径）',
+  plainPub.map((m) => `${m.id}:${JSON.stringify(m.authorSource)}`).join(' '));
+for (const m of plainWithAuthor) {
+  const t = cardText(m);
+  check(!!t && /原作者/.test(t) && t.includes(m.author),
+    `公网 /mods 上普通投稿 ${m.id} 的署名框**画出来了**，写的是「原作者 ${m.author}」`,
+    t ? t.replace(/\s+/g, ' ').slice(0, 96) : '（没找到这张卡）');
+  check(!!t && !/兼容改写者/.test(t),
+    `并且**没有**「兼容改写者」那一栏（${m.id}：普通投稿没有兼容这回事）`);
+  check(!!t && !/兼容改写版|兼容版/.test(t) && !/由投稿/.test(t),
+    `也没有「兼容改写版」徽标、没有「由投稿 … 改写来」那一行（${m.id}）`);
+}
+for (const m of plainNoAuthor) {
+  check(!/原作者/.test(cardText(m)),
+    `包内没写作者的普通投稿 ${m.id}：署名框**整块不画**（连「原作者」这个标签都没有）`);
+}
+const compatOnPage = modsJson.mods.filter((m) => m.kind === 'compat');
+const compatSigOk = compatOnPage.filter((m) => m.author || m.compatAuthor !== null);
+check(compatSigOk.length > 0 && compatSigOk.every((m) => {
+  const t = cardText(m);
+  return /原作者/.test(t) && /兼容改写者/.test(t) && (!m.compatOf || t.includes(`由投稿 ${m.compatOf} 改写来`));
+}), `同一页上的兼容包**照旧三样齐全**（原作者 + 兼容改写者 + 有 compatOf 就有「由投稿 … 改写来」，共 ${compatOnPage.length} 条）`,
+  compatSigOk.map((m) => { const t = cardText(m); return `${m.id}:${/原作者/.test(t) ? 'A' : '-'}${/兼容改写者/.test(t) ? 'C' : '-'}${!m.compatOf || t.includes(`由投稿 ${m.compatOf} 改写来`) ? 'L' : '-'}`; }).join(' '));
 
 // ================================================================
 // ④ **写依赖**断言 —— 只在副本实例上跑（SP_LIVE_COPY=1）
