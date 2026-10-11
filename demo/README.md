@@ -28,7 +28,10 @@
 - **要写新包**：读引擎侧的包格式规则（`docs/WORKSHOP.md`、`docs/MOD-SURFACE.md`），
   再读 [`../SKILL.md`](../SKILL.md) 的流程。要看**当前格式**的可抄片段，用
   [`../docs-copy-examples/`](../docs-copy-examples/README.md)，**不要**回头抄这里的旧包。
-- **要进 `packs/`**：走 [`../packs/README.md`](../packs/README.md) 的四条收录条件。
+  > **`notices`（公告 / 鸣谢）的形状看哪里？** 看 [`../docs-copy-examples/notices/`](../docs-copy-examples/notices/pack.notices.json)。
+  > 本目录里 `plugin-pack/notice/credits.json` 是**退役先例**：形状与那三份片段相同，
+  > 但内容是**真人姓名与真 URL** —— **结构可以参考，内容不要照抄**。
+- **要进 `packs/`**：走 [`../packs/README.md`](../packs/README.md) 的五条收录条件。
 - **站上也不提供**：审核站（[`../site/`](../site/README.md)）上对应这三份的记录已**逐个打回**，
   公开列表里看不到、下载口返回 403；记录本身保留，便于追溯。
 

@@ -12,7 +12,7 @@
 
 - 你要把一份**社区 mod**（就地改引擎源码的那种）改写成工坊包，收进本仓库
 - 你要新写一个 mod，并希望它在**引擎升级后仍然能装**
-- 你要判断「这份 mod 到底能不能做成包」（有些改动没有接口，见 §7）
+- 你要判断「这份 mod 到底能不能做成包」（有些改动没有接口，见 §15）
 
 ## 2. 这个仓库是什么
 
@@ -26,7 +26,7 @@
 
 一份包一份目录，`pack.json` 是它的唯一入口。**目标是把 `incoming/` 里的东西变成 `packs/` 里的东西。**
 
-**不是**：不是游戏本体、不是引擎源码、**不含任何游戏素材**（§6）。
+**不是**：不是游戏本体、不是引擎源码、**不含任何游戏素材**（§14）。
 包由玩家（或整合包）拷进引擎的工坊目录后才生效。本仓库只负责**存放、署名与兼容性校验**。
 
 ## 3. 包形状的三条硬规则（踩过坑，先看这三条）
@@ -35,11 +35,12 @@
 |---|---|---|---|
 | ① | 装载器**只认** `<工坊根>/<包 id>/pack.json` | 外层再套一层目录 ⇒ 读不到 `pack.json` | `server/workshop.js:94-110` |
 | ② | **目录名必须等于 `pack.json.id`** | `PACK_ID_MISMATCH`，整包跳过 | `shared/workshop.js:1443-1447` |
-| ③ | **zip 的顶层目录 = 包 id**（包内文件就在这一层） | 解压后多一层 ⇒ 落到规则 ① 的坑里 | 同上 + `README.md` §「怎么装一个包」 |
+| ③ | **zip 的顶层目录 = 包 id**（包内文件全在这一层里，不再多套一层） | 解压后多一层 ⇒ 落到规则 ① 的坑里 | 同上 + `README.md` §「怎么装一个包」 |
 
 规则 ③ 是本轮真踩过的：把 `packs/<包 id>/` **整个目录**压进 zip，解压出来就是
-`<工坊根>/<包 id>/<包 id>/pack.json`。**正确的 zip 里，`pack.json` 的路径是 `<包 id>/pack.json`，
-深度为 2**（顶层目录名 + 文件名），不是 3。
+`<工坊根>/<包 id>/<包 id>/pack.json`。**判据只有一条：zip 里 `pack.json` 的路径必须是
+`<包 id>/pack.json`** —— 顶层目录名 = 包 id，文件名跟在它后面，也就是「深度为 2」。
+这三句话说的是同一件事，任取一句检查都一样。
 
 > 一个包一个 zip，条目名一律正斜杠（`/`）。同一份目录压两次得到两个哈希，别混。
 
@@ -58,6 +59,19 @@
 会被 `META_NEEDS_COMBAT` / `BATTLE_NEEDS_COMBAT` / `MODULES_NEED_COMBAT` 直接拒
 （`shared/workshop.js:1914-1929`）。
 
+**`combat: true` 的告知义务（判据）**：mod 是**房主建房间时自己选**装不装的
+（业主 2026-10-11 口径：「标注好会影响游戏结果就行了，做到了告知义务」）⇒ **不另设闸门**，
+只要**标注清楚**就算尽到义务。所以：
+
+| 看到什么 | 判定 |
+|---|---|
+| `pack.json` 写了 `combat: true`，包的说明（`PROVENANCE.md` / 包内 `notice`）也讲明「会影响对局结果」 | ✅ 已尽告知义务 |
+| 能改结果却**不写** `combat: true` | ❌ 装载器直接拒（上面三个拒绝码）；**不标 = 静默改结果**，这才是问题 |
+| 写了 `combat: true`，但包里包外都不提这件事 | ❌ 属于漏告知，补上说明再交 |
+
+**站上目前不显示这一栏**（站点代码里没有 `combat` 字样；能贴自由文本的只有「兼容说明」那一栏）——
+那一格由维护者填，见 [AGENTS.md](AGENTS.md) §5.1。
+
 **② `pack.json`** —— 字段全集（引擎 `shared/workshop.js:111-128` 的 `PACK_FIELDS`，一个不多一个不少）：
 
 ```
@@ -68,7 +82,8 @@ forms, fx, notices, playtest, assets, client, server, routes
 
 **③ `api` 与 `game` 是两回事** ——
 
-- **`api`：模组 API 版本区间，引擎会强制比对。** 当前 `MOD_API_VERSION = 1`，所以写 `">=1 <2"` 或 `"1.x"`。
+- **`api`：模组 API 版本区间，引擎会强制比对。** 当前 `MOD_API_VERSION = 1`。
+  合法写法（**列举，不是唯一写法**）：`">=1 <2"`、`"1.x"`、`"1"`、`"^1"`、`"~1"`、`"*"`、`"1 || 2"`。
   引擎抬到 2 时，写 `1.x` 的包会被**明确拒掉**并说明理由（`MOD_API_INCOMPATIBLE`，
   `shared/workshop.js:1903-1905`）—— 这正是你要的保护：宁可拒绝，不要带着错的行为跑起来。
 - **`game`：上游游戏版本区间**。引擎目前**只校验它是不是合法区间，不比对**
@@ -78,7 +93,7 @@ forms, fx, notices, playtest, assets, client, server, routes
 **④ 身份哈希** —— 每个包按内容算一个哈希。改了包里的**任何字节**，哈希就变。它的用途是让玩家一眼看出
 「这个包还是不是我上次装的那个」。**不要为了改哈希而改哈希**，也不要手写哈希进文件。
 
-## 5. 三个沉默的坑（本轮真踩到，全部要点名）
+## 5. 四个沉默的坑（本轮真踩到，全部要点名）
 
 ### 5.1 未知顶层键 ⇒ **整包拒绝**（不是忽略）
 
@@ -109,11 +124,12 @@ forms, fx, notices, playtest, assets, client, server, routes
 
 **两个要注意的次序 / 语义细节**（实测过，容易误判）：
 
-- **类型闸门排在 `EMPTY_PACK` 之后**。一个 `content: []`、也没有别的贡献项的包，
-  先报的是 `EMPTY_PACK` —— 也就是那条 `api` 类型错误**会被掩住**。
-  所以看到 `EMPTY_PACK` 时，把 `content` 补上再跑一次，才知道 `api` 的类型对不对。
-- **这不是错的**：`isVersionRange` 接受 `">=1 <2"` / `"1.x"` / `"1"`（精确版本）等形式。
-  错的是**类型**（数字 / 布尔 → `BAD_API_TYPE`），不是「没写两个点」。
+- **次序：类型闸门排在 `EMPTY_PACK` 之后**。判据：一个 `content: []`、也没有别的贡献项的包，
+  报的是 `EMPTY_PACK`，**看不到** `BAD_API_TYPE`。
+  所以看到 `EMPTY_PACK` 时，先按 §5.3 补上贡献项再跑一次，才知道 `api` 的类型对不对。
+- **合法写法是一批，不是一个**：`isVersionRange` 接受 `">=1 <2"` / `"1.x"` / `"1"`（精确版本）/
+  `"^1"` / `"~1"` / `"*"` / `"1 || 2"` 等；上面代码块里的 `">=1 <2"` 只是**其中一个例子**，不是唯一写法。
+  错的是**类型**（数字 / 布尔 ⇒ `BAD_API_TYPE`），不是「没写两个点」。
 
 （历史教训：一份包把 `api` 写成数字，编辑器里它存在、磁盘上它也在，却始终进不了游戏。
 现在的代码会给一条带 `BAD_API_TYPE` 的明文拒绝，不再需要人猜 —— 前提是那份包没有先被
@@ -135,14 +151,32 @@ forms, fx, notices, playtest, assets, client, server, routes
 
 `content` 只接受固定名单（`shared/workshop.js:28-30`）：
 `chess, units, items, enemies, stages, waves, tokens, bosses, factions, garrisons, bands, bonds, effects, choices`。
-名单以外的值被过滤掉。**`support` 与 `playtest` 不是贡献项**：只写 `support` 而 `content: []` 的包会被
+名单以外的值被过滤掉。
+
+**「`content` 不能为空」是错的读法。** 判据是这条：
+
+| 看到什么 | 判定 |
+|---|---|
+| `content: ["chess"]` | ✅ 包有贡献项 |
+| `content: []`，但另有贡献项（`voices` / `operators` / `bondIcons` / `itemIcons` / `art` / `skins` / `i18n` / `notices` / `forms` / `fx` / `assets` / `client` / `server` / `routes`） | ✅ 合法（`content` 空着不算错） |
+| `content: []`，且没有别的贡献项（只写 `support` / `playtest` 也算没有） | ❌ `EMPTY_PACK` |
+
+**`support` 与 `playtest` 不是贡献项**：只写 `support` 而 `content: []` 的包会被
 `EMPTY_PACK` 拒，理由里点名这一句（`shared/workshop.js:1847-1862`；引擎
 `docs/WORKSHOP.md:665-666`、`:1897-1898` 也这么说）。
+
+### 5.4 未声明的通道会被点名
+
+`client.panels[].messages` 里声明过通道才能收发（§9.1）。一个**永远不响的订阅**是这一层最不愿留下的东西，
+所以未声明的通道是**点名**而不是静默。
 
 ## 6. 公告 / 鸣谢走 `notices`（只认两个字段）
 
 `notices` 只认 `announcement` / `credits`，**各指向一个包内相对 `.json` 路径**（不是内联文本）
 （`shared/workshop.js:1051-1073`）。两条都遵守同一条纪律：**清单里没写这个键，哈希逐字节不变**。
+
+**「追加」的判据**：`notices` 是**追加**语义 —— 两个包的公告不会互相覆盖，引擎自带的公告也不会被包顶掉
+（`shared/workshop.js:1047-1048`）。所以它不是「合并顺序由包决定」，而是「**谁都不顶掉谁**」。
 
 ```jsonc
 // pack.json 里
@@ -173,7 +207,9 @@ forms, fx, notices, playtest, assets, client, server, routes
 **可抄的最小完整例子**：[`docs-copy-examples/notices/pack.notices.json`](docs-copy-examples/notices/pack.notices.json)、
 [`notice/announcement.json`](docs-copy-examples/notices/notice/announcement.json)、
 [`notice/credits.json`](docs-copy-examples/notices/notice/credits.json)（三份照抄即可）。
-本轮之前的先例是 `demo/plugin-pack/notice/credits.json`，但 `demo/` 已退役、**不要照抄那一份**。
+**形状看哪里只有一个答案：`docs-copy-examples/notices/`。**
+本轮之前的先例是 `demo/plugin-pack/notice/credits.json` —— 它的**形状与上面三份相同**，
+但 `demo/` 已退役、里面是**真人姓名与真 URL**：**结构可以照抄，内容不要照抄**。
 
 ## 7. 落成包格式（最常用的一屏）
 
@@ -198,7 +234,7 @@ packs/<包 id>/
 @sim/constants.js  @sim/dir.js  @sim/targeting.js  @battle/index.js
 ```
 
-想用白名单以外的东西 = **这个 mod 做不成包**（§7），不要试图用相对路径绕过去：装载器会拒。
+想用白名单以外的东西 = **这个 mod 做不成包**（§15），不要试图用相对路径绕过去：装载器会拒。
 
 **界面槽位**（`client.panels` 的 `slot`，共 9 个；`screen.game.shopCard` 是**可重复**的，
 会往每一张商店卡上挂一个，模块靠 `ctx.hostKey` 分辨自己在哪一个）：
@@ -233,7 +269,9 @@ screen.loadout.detail
 
 ## 9. 面板 ctx：一个面板能拿到什么
 
-面板模块的 `mount(ctx)` 拿到的 `ctx` 是**冻结对象**，键就是下面这些（`public/js/ui/extensions.js:798-805`）：
+面板模块的 `mount(ctx)` 拿到的 `ctx` 是**冻结对象**，键就是下面这些（`public/js/ui/extensions.js:798-805`）。
+**判据是「数键」**：以 `:798-805` 那个 `return Object.freeze({…})` 里实际列出的键为准（当前 12 个），
+不要拿文件头 `:32-33` 的旧注释当依据 —— 那份注释只列了 9 个、还没跟上后加的三格。
 
 | 键 | 是什么 |
 |---|---|
@@ -246,8 +284,8 @@ screen.loadout.detail
 | `hostKey` | **可重复宿主**里分辨「我是哪一份」（商店卡那个键就是棋子 id），不可重复宿主为 `null` |
 | `log` | `info` / `warn` / `error`，自动带 `[mod <包 id>]` 前缀 |
 | `session` | 见 §9.3 |
-| `net` | 见 §8.1 / §9.2 |
-| `data` | 只读数据口（§7 那一条） |
+| `net` | 见 §9.1 / §9.2 |
+| `data` | 只读数据口（§8 那一条） |
 | `me` | 只读会话态：`playerId` / `name` / `room`（房间**展示面**快照：`code` / `mode` / `difficulty` / `inMatch` / `mySeat` / `spectating` / `mods`），另有 `snapshot()` 一次取全 |
 
 **边界就是「没传什么」**：**没有** store 句柄、没有 match / battle 对象、没有 `battleRunner`、没有 audio。
@@ -312,11 +350,6 @@ ctx.session.setPref('hardOff', true);              // 返回 true / false
 
 `session` 的另一半是 `setPreload({ required, ready })` —— 入场闸门，**唯一**一格 store 写。
 
-### 9.4 未声明的通道会被点名
-
-`client.panels[].messages` 里声明过通道才能收发（§9.1）。一个**永远不响的订阅**是这一层最不愿留下的东西，
-所以未声明的通道是**点名**而不是静默。
-
 ## 10. 署名与许可纪律（不可省）
 
 **每个包必带 `PROVENANCE.md`**（放在包根，与 `pack.json` 同级），写清**六项**：
@@ -330,10 +363,15 @@ ctx.session.setPref('hardOff', true);              // 返回 true / false
 | 5 | 改了什么 | 逐条：原做法 → 我们的做法 → 为什么 |
 | 6 | 自带素材来源 | 逐条；没有就写「无」 |
 
-**包内文本一字不改**：原作者自带的 `README` / `NOTICE` / `CREDITS` / `LICENSE`，
-以及包自带的元数据（`pack.json` 的 `name` / `version` / `author` / `license` / `api` …）
-**一律保持原样**（要保留原件许可时改名为 `NOTICE-原件-*` 一起随包）。
-**与我们的新实现不符时，写在我们自己的 `PROVENANCE.md` 里**，格式照这个来：
+**包内文本一字不改** —— 但「哪份文件归谁」只有一种读法：
+
+| 文件 | 归谁写 | 规矩 |
+|---|---|---|
+| 原作者自带的 `README` / `NOTICE` / `CREDITS` / `LICENSE`，以及包自带元数据（`pack.json` 的 `name` / `version` / `author` / `license` / `api` …） | 原作者 | **一个字节都不改**。要同时保留原件许可时，把那份原件许可**改名**为 `NOTICE-原件-*` 随包 —— 改名不算改内容 |
+| `PROVENANCE.md`（包根，与 `pack.json` 同级） | 兼容改写者（我们） | **必带**，写上面那六项。**它与「原件未署名就写『原件未署名』」那条是配合关系，不是二选一** |
+| 「我们的新实现与原件文本不符」这件事 | 兼容改写者（我们） | **只写进 `PROVENANCE.md`**，不动上面那一栏任何文件。判据：`PROVENANCE.md` 里能看到「哪一处不符 + 保持原样未改」，而原件文本里找不到任何被我们改过的痕迹 |
+
+格式照这个来：
 
 > `pack.json.name` 已与实现不符（**保持原样未改**）：它写的是「无条件关动画」，
 > 本版改成用户开关、默认走引擎通道。
@@ -347,11 +385,12 @@ ctx.session.setPref('hardOff', true);              // 返回 true / false
 ## 11. 工作流（本轮实际怎么做的）
 
 ```
-① 重打成 zip 根形状      包内文件直接放在 zip 顶层；顶层目录名 = 包 id（§3 规则 ③）
+⓪ 先判有没有功能        装上会改变某项游戏内行为吗？不能 ⇒ 别投成包（§15.1）
+① 重打成 zip 根形状      包内文件放进**一个顶层目录**里、目录名 = 包 id（§3 规则 ③）
 ② 修包契约              pack.json 只留 PACK_FIELDS 的键；id = 目录名；content 声明到位（§5）
 ③ 该用我们的实现就换    逐条过 §8 的替代表，别自己重造引擎已有的通道
 ④ 干净 workshop 根装载   一包一根、单独装载、要 errors=0（把原始输出贴进交付说明）
-⑤ 一包一 zip             顶层目录 = 包 id；条目名正斜杠
+⑤ 一包一 zip             顶层目录 = 包 id（zip 里 pack.json 的路径 = `<包 id>/pack.json`）；条目名正斜杠
 ⑥ 补 PROVENANCE.md       六项（§10）
 ⑦ 记字节与 sha256        zip 的字节数与哈希记在交付清单里，不写进包内文本
 ```
@@ -360,7 +399,7 @@ ctx.session.setPref('hardOff', true);              // 返回 true / false
 **要 `errors=0`**，并把**原始输出**留着。理由：混装时一个包被拒是分不清「谁的问题」的。
 
 **多 mod 时：一个 mod 一个子 agent 并行。** 这是业主明确口径 —— 包之间不共享状态，
-唯一要共享的是「引擎通道怎么用」这条知识（本文 §7）。
+唯一要共享的是「引擎通道怎么用」这条知识（本文 §8）。
 
 ## 12. 验证（做完必跑）
 
@@ -431,11 +470,31 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 **做不了的部分要如实写进包的说明**（`fanpack-kazdel-rhodes` 的
 `README-改写说明.md` / `NOTICE-来源说明.md` 是这个体例：原件哪些部分没有接口、为什么、影响了什么）。
 
+### 15.1 没有功能的，**不要投成包**
+
+**判据**：一个包要能被收录，装上之后必须**改变某项游戏内行为**（数据 / 界面 / 服务端任一层）。
+**只放 JSON 资料 + 说明面板、自述 `documentation-only` / 只读参考的包不予上架**
+（业主 2026-10-11 口径：「documentation-only 不放，有功能我们再放」）。
+
+| 看到什么 | 判定 |
+|---|---|
+| 包里有真实数据 / 界面 / 服务端行为 | ✅ 投 |
+| 只有 `README` / 说明面板 / 参考表，装了没有任何行为改变 | ❌ **别投** —— 站上不上架，等它带上真实功能再投 |
+
+**做不成功能的东西去哪儿**（不要硬塞成「参考包」）：
+
+- 属于**引擎能力**的（新接口、结算顺序、`server/sim/` 内部）⇒ 去引擎仓库提（本仓库只索引，改不了它）；
+- 属于**发行说明 / 资料**的 ⇒ 随发行工件或 `PROVENANCE.md` 走，别做成包；
+- 拿不准的 ⇒ 写进「待裁决」，别先投上去。
+
+**为什么这条重要**：下载者按下「安装」时的预期是「装了会有效果」。一个装上不启用任何功能的包，
+消耗的是这份预期 —— 用户会先去查「我是不是装错了」。
+
 ## 16. 引擎侧的权威文档（本仓库只做索引）
 
 - `docs/WORKSHOP.md` —— 工坊包格式的完整规则（`pack.json` 每个字段、层、覆盖、语音、准入）
 - `docs/MOD-SURFACE.md` —— 模组能碰到的**全部表面**（钩子、槽位、包裹组件、服务端成员）
-- `docs/design/mod-layer.md` —— 为什么是现在这个边界（§28），含 **§28.24 / §28.25**（§9.2）
+- `docs/design/mod-layer.md` —— 为什么是现在这个边界（§28），含 **§28.24 / §28.25**（§9.2 引的就是这两节）
 - `AGENTS.md`（引擎仓库自己的）—— 引擎仓库的贡献规则
 
 ## 17. 本文引用位置的依据表
@@ -443,6 +502,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | 本文说的 | 依据（引擎仓库，只读核过） |
 |---|---|
 | 只认 `<根>/<包 id>/pack.json`；只读声明过的 content 文件 | `server/workshop.js:94-110`、`:120-137` |
+| zip 形状：包内文件在同名顶层目录下；装载目录名由 `pack.json.id` 推导 | `tools/workshop-pack.mjs:13`（归档布局）、`:191-199`（顶层前缀）、`:252-255`（装到 `<root>/<pack.json.id>/`） |
 | `PACK_FIELDS` 闭集 | `shared/workshop.js:111-128` |
 | 未知顶层键整包拒 | `shared/workshop.js:131`（拒绝码）、`:1435-1442`（判据） |
 | `id` 必须等于目录名 | `shared/workshop.js:1443-1447` |
@@ -457,3 +517,21 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | 关动画的引擎通道 | `public/css/theme.css:387-393`、`public/js/ui/device.js:106-107` |
 | 资源分发内建 | `public/js/resources/{bundle,verify,host,worker,service,common}.js` |
 | URL 前缀 | `shared/workshop.js:147`、`:156` |
+
+## 18. 术语约定（同一个概念全文只用一个词）
+
+读这两份文档时，看到下表左列的写法，一律按右列理解 —— **不做同义词联想**：
+
+| 只用这一个词 | 指什么 | 不要再读成 |
+|---|---|---|
+| **包 id**（永远带「包」字） | `pack.json` 的 `id`，也就是包目录的名字 | 「包名」`name`（那是给人看的显示名） |
+| **`name`** | `pack.json.name`，包的显示名 | 包 id |
+| **工坊包** | 本仓库存放、玩家拷进引擎工坊目录的那种包 | mod 原件（就地改引擎源码的那种，在 `incoming/`） |
+| **原件** | `incoming/` 里那份还没做兼容的 mod | 包 |
+| **`content` 空 / `content: []`** | 明确指 `pack.json.content` 这个数组是空的 | 「这个包什么都没带」（那是 `EMPTY_PACK`，判据见 §5.3） |
+| **`packs/` 是空的** | 本仓库的 `packs/` 目录里只有 README，没有任何包目录 | 「站上没有兼容包」（站上已发布的是**另一份清单**） |
+| **隐藏**（文案「不再显示」） | 审核页的显示开关，可逆 | 下架（那叫**打回**） |
+
+同一份文档里，**包 id 与 `name` 是两件事**：前者只能用 `[A-Za-z0-9_-]`、命名目录与 URL；
+后者是任意字符串、只上屏。
+
