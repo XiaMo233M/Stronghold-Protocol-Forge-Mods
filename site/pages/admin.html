@@ -32,9 +32,20 @@
     font-size: 13.5px; color: inherit; opacity: .78;
   }
   .viewtab.on { opacity: 1; border-color: var(--mint-500, #4ed8af); font-weight: 600; }
-  /* 「已隐藏」那一格：**不是链接、不可点**（它不是一个视图，只是计数格 —— 视图白名单仍然只有三个） */
-  .viewtab--count { opacity: .7; cursor: default; border-style: dashed; }
+  /* 「已隐藏」那一格：**不是一个视图**（视图白名单仍然只有三个 main / approved / rejected，
+     那三条是真实地址；这一格绝不进白名单，也绝不变成第四个 view），
+     但它**必须可点**——业主 2026-10-11 实测：「已隐藏设置都再也看不见了，上面的跳转按钮有问题」。
+     点它就＝勾上「显示已隐藏」并把那一块滚进视野（幂等开；取消请点筛选栏那个勾选框）。 */
+  .viewtab--count { opacity: .7; border-style: dashed; }
+  button.viewtab { font: inherit; cursor: pointer; background: none; }
+  button.viewtab:hover, button.viewtab:focus-visible { opacity: 1; border-color: var(--mint-500, #4ed8af); }
+  /* 处于「正在看已隐藏」时：这一格与筛选栏那个勾选框同时点亮，一眼看出当前在哪一块。 */
+  .viewtab--count.on { opacity: 1; border-style: solid; border-color: var(--mint-500, #4ed8af); font-weight: 600; }
+  /* 跳过去之后，把那一条真的滚进视野 —— 不是只切了状态。 */
+  .item.focus-hit { border-color: var(--mint-500, #4ed8af); }
   .viewtab__n { font-size: 12px; opacity: .8; }
+  /* 「已隐藏」那一格上的小字「看」：告诉维护者这一格是**能点的**，不是死的计数。 */
+  .viewtab__go { font-size: 11.5px; opacity: .75; border-left: 1px solid currentColor; padding-left: 6px; }
   .viewnote { font-size: 12.5px; margin-left: 4px; }
   .viewhead { margin: 0 0 12px; font-size: 13.5px; }
 </style>
@@ -54,14 +65,16 @@
      每个地址都照旧先过管理口那两道防线（ADMIN_IPS + 令牌）；公网 `/` 与公开面一点没碰。
      当前在哪一页由服务端注入的 `VIEW` 决定（白名单校验过），导航上高亮当前那一页。 -->
 <nav class="views" id="views" aria-label="审核视图">
-  <a id="vMain" class="viewtab" href="?view=main">待审<span class="viewtab__n" id="nMain">0</span></a>
-  <a id="vApproved" class="viewtab" href="?view=approved">已通过<span class="viewtab__n" id="nApproved">0</span></a>
-  <a id="vRejected" class="viewtab" href="?view=rejected">已打回<span class="viewtab__n" id="nRejected">0</span></a>
-  <!-- 「已隐藏」**不是第四个视图**（白名单里仍然只有 main / approved / rejected，坏 view 照旧 404）——
-       它是一个计数格：三页相加 + 这一格 = 全部。业主口径：不许因为隐藏而对不上。 -->
-  <span id="nHiddenBox" class="viewtab viewtab--count" title="勾了「不再显示」的记录数 · 三页相加 + 已隐藏 = 全部">已隐藏<span class="viewtab__n" id="nHidden">0</span></span>
-  <span id="viewNote" class="dim viewnote"></span>
-</nav>
+  <a id="vMain" class="viewtab" href="?view=main" data-jump="main">待审<span class="viewtab__n" id="nMain">0</span></a>
+  <a id="vApproved" class="viewtab" href="?view=approved" data-jump="approved">已通过<span class="viewtab__n" id="nApproved">0</span></a>
+  <a id="vRejected" class="viewtab" href="?view=rejected" data-jump="rejected">已打回<span class="viewtab__n" id="nRejected">0</span></a>
+  <!-- 「已隐藏」**不是第四个视图** —— 白名单里仍然只有 main / approved / rejected，坏 view 照旧 404。
+       但它是一个**真按钮**（不是装饰用的计数格）：点它 = 勾上筛选栏的「显示已隐藏」+ 滚到那一条，
+       否则业主勾掉的那几条就真的找不回来了。业主 2026-10-11 实测：「上面的跳转按钮有问题」。
+       做成 <button type=button>：鼠标点、Tab 聚焦后回车，两条路都通。 -->
+  <button type="button" id="nHiddenBox" class="viewtab viewtab--count" data-jump="hidden"
+          aria-controls="fHidden" title="点这一格＝勾上「显示已隐藏」并把隐藏的记录滚进视野（取消请点筛选栏那个勾选框）">已隐藏<span class="viewtab__n" id="nHidden">0</span><span class="viewtab__go">看</span></button>
+  <span id="viewNote" class="dim viewnote"></span></nav>
 <!-- 「当前在哪一页」写死一行字，一眼可见（导航上那一格同时高亮）。 -->
 <p class="viewhead" id="viewHead"><b id="viewNow">当前：待审</b> <span class="dim" id="viewNowSub"></span></p>
 
@@ -266,28 +279,45 @@ const viewOf = (s) => {
   return 'main';                                  // pending / superseded / 其它未知状态都归主列表
 };
 const VIEW_PANELS = { main: 'ppanel', approved: 'apanel', rejected: 'rpanel' };
-/** 只显示当前这一页的面板；导航高亮当前那一页（`aria-current` + `on` 那一格）。 */
-function showView() {
+/** 当前**画面上**正在看的那一块。
+ *  正常情况下 `VIEW_UI === VIEW`（服务端按 `?view=` 白名单注入的那一页）。
+ *  只有一条路会把它改成 'main'：「点顶部『已隐藏』那一格」—— 因为已隐藏的记录
+ *  只画在待审那一块（superseded / flagged 都归 main），站在已通过/已打回页时
+ *  必须切回待审才看得见。VIEW 本身是常量，脚本**不改**它（`?view=` 那条路一个字没动）。 */
+let VIEW_UI = VIEW;
+/**
+ * 把「当前在哪一块」整体画一遍：该显示哪块面板、导航高亮谁、那行字写什么。
+ * 它是 `VIEW_UI` 的**唯一**渲染出口 —— showView()（首屏）与 showHiddenRecords()（切到待审）
+ * 都走这里，所以面板 / 高亮 / 文案三者永远同步，不会再出现「左边写着已打回、右边显示待审」。
+ */
+function paintView() {
+  const lay = layoutOf(VIEW_UI);
   for (const [v, id] of Object.entries(VIEW_PANELS)) {
     const n = $(id);
-    if (n) n.style.display = v === VIEW ? '' : 'none';
+    if (n) n.style.display = id === lay.panel ? '' : 'none';
   }
   for (const [v, id] of [['main', 'vMain'], ['approved', 'vApproved'], ['rejected', 'vRejected']]) {
     const a = $(id);
     if (!a) continue;
-    a.className = 'viewtab' + (v === VIEW ? ' on' : '');
-    if (typeof a.setAttribute === 'function') a.setAttribute('aria-current', v === VIEW ? 'page' : 'false');
+    a.className = 'viewtab' + (v === VIEW_UI ? ' on' : '');
+    if (typeof a.setAttribute === 'function') a.setAttribute('aria-current', v === VIEW_UI ? 'page' : 'false');
   }
   const now = $('viewNow');
-  if (now) now.textContent = `当前：${VIEW_TITLE[VIEW]}`;
+  if (now) now.textContent = `当前：${lay.title}`;
   const sub = $('viewNowSub');
-  if (sub) {
-    sub.textContent = VIEW === 'main'
-      ? '（待审 + 已被兼容包取代）· 已通过与已打回各自另开一页'
-      : (VIEW === 'approved' ? '（已上线的记录单独一页）' : '（被退回的记录单独一页）');
-  }
-  return VIEW;
+  if (sub) sub.textContent = lay.sub;
+  // 「当前在哪一块」还有第二层：正在看已隐藏。这一层由 syncNavState 一起写。
+  // 用 typeof 守卫：paintView() 在最外层先跑，而 syncNavState 是函数声明（已提升）——
+  // 真出意外也不许让这里抛错把后面的绑定点全带下去（上一回 TDZ 事故就是这么全线哑的）。
+  if (typeof syncNavState === 'function') syncNavState();
+  return VIEW_UI;
 }
+/** 首屏：按服务端注入的 VIEW 摆好「当前在哪一块」。 */
+function showView() {
+  VIEW_UI = VIEW;
+  return paintView();
+}
+
 const areaOf = (s) => {
   if (s.kind === 'compat' || s.area === 'compat') return 'compat';
   if (s.area === 'flagged') return 'flagged';
@@ -338,10 +368,13 @@ function paintCounts(all, vis) {
   const nView = nMain + nApproved + nRejected + nh;        // 三页相加 + 已隐藏，恒等于 all.length
   const nState = np + na + nr + ns + nh;                   // 按状态再数一遍，同样恒等于 all.length
   // 本页共几条：默认不含已隐藏；勾上「显示已隐藏」就把它这一页里藏着的那些加回来（才有「可见 / 共」可比）。
-  const hiddenInView = all.filter((s) => isHidden(s) && viewOf(s) === VIEW).length;
-  const nPage = (VIEW === 'approved' ? nApproved : (VIEW === 'rejected' ? nRejected : nMain))
+  // ⚠️ 这三处一律用 **VIEW_UI**（当前画面上那一块），不是 VIEW（服务端注入的那一页）：
+  //    点顶部「已隐藏」那条路会把画面切回待审，而 VIEW 仍是 'rejected' —— 用 VIEW 会算出
+  //    「本页（待审）可见 0 / 1」这种三个数都对不上屏幕的话（标题已经按 VIEW_UI 写了）。
+  const hiddenInView = all.filter((s) => isHidden(s) && viewOf(s) === VIEW_UI).length;
+  const nPage = (VIEW_UI === 'approved' ? nApproved : (VIEW_UI === 'rejected' ? nRejected : nMain))
     + (filter.showHidden ? hiddenInView : 0);
-  const visView = vis.filter((s) => viewOf(s) === VIEW).length;
+  const visView = vis.filter((s) => viewOf(s) === VIEW_UI).length;
   $('fCounts').textContent = `${nOn ? '筛选后可见' : '全部'} ${vis.length} 条（共 ${all.length} 条）`
     + ` · 投稿 ${n(vis, (s) => areaOf(s) === 'submissions')}`
     + ` / flagged ${n(vis, (s) => areaOf(s) === 'flagged')}`
@@ -355,7 +388,7 @@ function paintCounts(all, vis) {
     + `；待审 ${np} + 已通过 ${na} + 已打回 ${nr} + 已被取代 ${ns} + 已隐藏 ${nh} = 全部 ${nState} 条`
     + `；已通过与已打回各自另开一页）`
     + ` · 有 blocker ${n(all, hasBlocker)}`
-    + ` · 本页（${VIEW_TITLE[VIEW]}）可见 ${visView} / ${nPage} 条`
+    + ` · 本页（${layoutOf(VIEW_UI).title}）可见 ${visView} / ${nPage} 条`
     + (filter.showHidden ? `（含已隐藏 ${hiddenInView}，勾着「显示已隐藏」）` : '');
   // 每页面板标题上的条数（换页也在标题上看得见三处各有多少；这三栏不含已隐藏）。
   if ($('pCount')) $('pCount').textContent = String(nMain);
@@ -367,7 +400,7 @@ function paintCounts(all, vis) {
   if ($('nRejected')) $('nRejected').textContent = String(nRejected);
   if ($('nHidden')) $('nHidden').textContent = String(nh);
   const note = $('viewNote');
-  if (note) note.textContent = `三页相加 + 已隐藏 = 全部 ${all.length} 条 · 本页 ${VIEW_TITLE[VIEW]}`;
+  if (note) note.textContent = `三页相加 + 已隐藏 = 全部 ${all.length} 条 · 本页 ${layoutOf(VIEW_UI).title}`;
   return { np, na, nr, ns, nh, nMain, nApproved, nRejected, nView, nState, visView, nPage, hiddenInView };
 }
 
@@ -424,7 +457,13 @@ function readFilter() {
     // 「显示已隐藏」默认**不勾**（＝按业主口径，勾了「不再显示」的记录三个视图都不显示）。
     showHidden: !!($('fHidden') && $('fHidden').checked),
   };
-  return applyFilters();
+  const c = applyFilters();
+  // ⚠️ syncNavState 必须在 applyFilters **之后**调，而且它自己**绝不回调 readFilter**：
+  //    两者互调会无限递归（筛选一次 → 同步一次导航 → 又筛一次…）。
+  //    ⚠️ 它的返回值**不许**顶掉 applyFilters 的那一份 —— readFilter 的返回形状是既有测试
+  //    （selftest*.mjs 读 `.visibleHidden` / `.view`）在用的契约，先存起来再返回。
+  if (typeof syncNavState === 'function') syncNavState();
+  return c;
 }
 // 测试桩里没有 addEventListener —— 上面 applyFilters / readFilter 都挂在全局，
 // 桩直接调它们；浏览器里则由下面这几个 change/input 事件驱动。
@@ -511,8 +550,174 @@ async function setHidden(s, want, cb) {
     return false;
   } finally {
     if (cb) cb.__busy = false;
+    // 勾选框是「一次一个 id」的：改完之后列表重画了（reloadList），当前这一页
+    // 「显示已隐藏」还开着的话，把下一条也送进视野 —— 连着放回好几条时不用来回找。
+    if (filter.showHidden && typeof focusFirstHidden === 'function') focusFirstHidden();
   }
 }
+
+// ================================================================
+// 「看已隐藏」那一个跳转按钮（业主 2026-10-11 实测报的 bug）。
+//
+// 业主原话：「是我自己在界面上勾掉的，而且**已隐藏设置都再也看不见了，上面的跳转按钮有问题**」。
+// 真因（诊断里贴了原始证据）：顶部导航里「已隐藏」那一格在 markup 里是一个
+// `<span id="nHiddenBox">`，class 是 `.viewtab--count`（CSS 写着 `cursor: default`），
+// 脚本里**从来没有给它挂过任何 onclick / href** ——
+// 于是「隐藏」这条路只有一条入口，就是筛选栏里那个勾选框；业主点了顶部那一格，什么反应都没有。
+// 命中已隐藏记录的 3 条（superseded）只画在**待审页**的面板里，另外两条是 flagged，也在待审页——
+// 所以站在「已通过 / 已打回」那两页时，连勾选框都救不了他：那一块根本不在当前视图里。
+//
+// 这里补的就是这一条路，三条不变式：
+//   · **幂等开**：点这一格＝勾上筛选栏那个勾选框（已勾上也还是「看着它」，不做「再点就关」——
+//     业主是来**找回**记录的，第二次点击把他刚要看的又藏起来，正是这个 bug 的翻版）；
+//   · **真的滚过去**：切完状态把第一条真的滚进视野并高亮（不是只把状态切了）；
+//   · **不做第四个视图**：`?view=` 白名单仍然是 main / approved / rejected，
+//     这一格既不进白名单也不改 URL（已隐藏记录只画在待审页，所以必要时把面板切回待审）。
+// ================================================================
+/** 把筛选栏那个勾选框和顶部「已隐藏」那一格的点亮状态对齐到 `filter.showHidden`。
+ *  这是**纯显示层**的同步：不筛、不改 filter、不请求。返回值只是给调试看的；
+ *  调用方（readFilter）必须返回 applyFilters 的那一份，别被这里顶掉。 */
+function syncNavState() {
+  const chip = $('nHiddenBox');
+  const on = !!filter.showHidden;
+  if (chip) {
+    chip.className = 'viewtab viewtab--count' + (on ? ' on' : '');
+    // 不设 aria-pressed=false：Safari 会把「aria-pressed=false」的按钮读成可按下的方块，
+    // 而这一格并不是「开/关」扳手，是「带我去看」——只在需要时给 pressed 状态，其余删掉。
+    if (typeof chip.setAttribute === 'function') {
+      if (on) chip.setAttribute('aria-pressed', 'true');
+      // 没有 removeAttribute 的桩（旧测试桩）就退化成写 'false'，不为一个无障碍属性把桩弄红。
+      else if (typeof chip.removeAttribute === 'function') chip.removeAttribute('aria-pressed');
+      else chip.setAttribute('aria-pressed', 'false');
+    }
+  }
+  if (filter.showHidden && $('fCounts')) {
+    // 计数行**不在这里重算** —— 重算要走 applyFilters → paintCounts，而 paintCounts 是
+    //   「谁改了筛选谁就调一次」的出口；在这里回手调一次 readFilter() 会
+    //   paintCounts → syncNavState → readFilter → applyFilters → paintCounts 无限递归。
+    //   所以计数行由调用方（readFilter / showHiddenRecords）保证已经算过。
+  }
+  return { showHidden: on, view: VIEW };
+}
+/**
+ * 把当前这一页里第一条可见的已隐藏记录滚进视野并高亮。
+ * **没有记录时不猜也不报错**：不在只剩「还没载入」占位行的时候去滚。
+ *
+ * ⚠️ 这里要的是**列表本身**（`#list` / `#alist` / `#rlist`），不是**面板**（`#ppanel`…）：
+ *    面板里只装着一个 `<ul>`，它的 `children` 就是那一个 ul —— 拿面板当行集合，
+ *    循环只会看到「一个没有 meta 的 ul」，于是永远 return null、一跳也不滚。
+ *    （这正是「跳转按钮有问题」的第二种形态：状态切了、画面没动。）
+ */
+const LIST_OF_VIEW = { main: 'list', approved: 'alist', rejected: 'rlist' };
+function layoutOf(v) {
+  return {
+    panel: VIEW_PANELS[v] || 'ppanel',
+    list: LIST_OF_VIEW[v] || 'list',
+    tab: v === 'main' ? 'vMain' : (v === 'approved' ? 'vApproved' : 'vRejected'),
+    title: VIEW_TITLE[v] || v,
+    sub: v === 'main'
+      ? '（待审 + 已被兼容包取代）· 已通过与已打回各自另开一页'
+      : (v === 'approved' ? '（已上线的记录单独一页）' : '（被退回的记录单独一页）'),
+  };
+}
+/**
+ * 把当前这一页里第一条可见的已隐藏记录滚进视野并高亮。
+ * **没有记录时不猜也不报错**：不在只剩「还没载入」占位行的时候去滚。
+ *
+ * ⚠️ 这里要的是**列表本身**（`#list` / `#alist` / `#rlist`），不是**面板**（`#ppanel`…）：
+ *    面板里只装着一个 `<ul>`，它的 `children` 就是那一个 ul —— 拿面板当行集合，
+ *    循环只会看到「一个没有 meta 的 ul」，于是永远 return null、一跳也不滚。
+ *    （这正是「跳转按钮有问题」的第二种形态：状态切了、画面没动。）
+ */
+function focusFirstHidden() {
+  const ul = $(layoutOf(VIEW_UI).list) || $('list');
+  const rows = (ul && ul.children) || [];
+  let hit = null;
+  for (const li of rows) {
+    if (!li || !li.meta || !isHidden(li.meta)) continue;
+    if (li.style.display === 'none') continue;      // 被筛掉的不算「看得见」
+    hit = li; break;
+  }
+  if (!hit) return null;
+  if (typeof hit.scrollIntoView === 'function') hit.scrollIntoView({ block: 'center' });
+  if (typeof hit.focus === 'function') hit.focus();
+  hit.classList && hit.classList.add && hit.classList.add('focus-hit');
+  return hit;
+}
+/** 顶部「已隐藏」那一格被点：开「显示已隐藏」→ 必要时切回待审 → 滚到那条。 */
+function showHiddenRecords() {
+  const cb = $('fHidden');
+  if (cb) cb.checked = true;
+  filter = {
+    ...FILTER_DEFAULT,
+    area: ($('fArea') && $('fArea').value) || '',
+    state: ($('fState') && $('fState').value) || '',
+    blocker: ($('fBlocker') && $('fBlocker').value) || '',
+    key: (($('fKey') && $('fKey').value) || '').trim(),
+    showHidden: true,
+  };
+  // 已隐藏的记录全都画在**待审页**那一块（superseded / flagged 都归 main）；
+  // 站在已通过 / 已打回两页时，那一块是 display:none —— 直接按 id 跳过去是白跳：
+  // 所以先把面板切回待审，跳转才真的落在看得见的那一块上。
+  //
+  // ⚠️ 这里必须把**导航高亮 / 那一行「当前：…」也一起改掉**（用 VIEW_UI，不是 VIEW）：
+  //    VIEW 是服务端注入的那一页（`?view=` 白名单决定的），脚本改不了也不该改；
+  //    而这个入口**真的把画面切到待审那一块**了 —— 只切面板不改高亮，就会出现
+  //    「左边写着已打回、右边显示待审」这种自相矛盾（正是这次要修的「当前在哪一块看不清」）。
+  if (VIEW_UI !== 'main') {
+    // ⚠️ **故意不跳地址**（不做 `location.assign('?view=main')`）。
+    //    真跳＝整页重载：新页面按 `?view=main` 重发，而「显示已隐藏」这一位是**行内状态**
+    //    （`fHidden` 的勾 + `filter.showHidden`），markup 初态是「不勾」——
+    //    刚一进来就重载，等于把刚打开的开关又关掉，业主还是看不见那 5 条。
+    //    （这就是「跳转按钮有问题」的第三种形态：跳是跳了，跳完东西没了。）
+    //    改成**就地切**：VIEW_UI 一改，paintView() 把面板 / 导航高亮 / 「当前：…」一次改齐，
+    //    再算一遍筛选与计数。画面是自洽的，只是地址栏还留着 `?view=rejected` ——
+    //    这一页本来就没有「地址随切页变」的语义（切页走的是真链接，见上面三条 `?view=`）。
+    VIEW_UI = 'main';
+    paintView();
+  }
+  const c = applyFilters();
+  syncNavState();
+  focusFirstHidden();
+  return c;
+}
+/** 手动重读筛选栏控件（测试桩里没有 addEventListener，change 事件到不了）。 */
+function reReadFilter() { return readFilter(); }
+
+// ---- 顶部导航的**事件委托**（治本：一处挂上，四条路都通；脚本别处抛错也不至于全哑）----
+// 为什么不是一个个 onclick：
+//   · 委托挂在**已经存在的 `#views`** 上，只有一次绑定，少一处就少一个漏挂的机会；
+//   · 里面整体包一层 try/catch —— 哪怕某个分支出错，也只影响那一次点击，**不会**让
+//     后面所有 `.onclick = ...` 一起失效（上一回 TDZ 事故就是这个后果：接口全好、页面全死）。
+// `?view=` 那三条仍是**真链接**（href 照旧，右键新标签、无脚本都还能用），
+// 这里只在「左键单击、没按修饰键」时接过来，顺手把「当前在哪一块」点清楚。
+const SHOW_HIDDEN_TITLE = '看已隐藏（点它＝勾上「显示已隐藏」并把那条滚进视野）';
+for (const [v, id] of [['main', 'vMain'], ['approved', 'vApproved'], ['rejected', 'vRejected']]) {
+  const a = $(id);
+  if (a && typeof a.setAttribute === 'function') a.setAttribute('aria-label', `跳到${VIEW_TITLE[v] || v}那一页`);
+}
+if ($('nHiddenBox') && typeof $('nHiddenBox').setAttribute === 'function') {
+  $('nHiddenBox').setAttribute('aria-label', SHOW_HIDDEN_TITLE);
+}
+if ($('views') && typeof $('views').addEventListener === 'function') {
+  $('views').addEventListener('click', (ev) => {
+    try {
+      const t = ev && ev.target;
+      if (!t || typeof t.closest !== 'function') return;
+      const el2 = t.closest('[data-jump]');
+      if (!el2) return;
+      const jump = el2.getAttribute('data-jump');
+      if (jump === 'hidden') { if (ev.preventDefault) ev.preventDefault(); showHiddenRecords(); return; }
+      // 三条视图链接：默认行为就是导航（服务端按白名单发那一页），只在「本页左键单击」时
+      // 顺手把「当前在哪一块」与「已隐藏」那一格的状态先点清楚，视觉上不出现中间态。
+      syncNavState();
+    } catch (e) {
+      // 一次点击出错不许污染别的绑定点：写进控制台就好，界面照旧。
+      if (typeof console !== 'undefined' && console.warn) console.warn('导航点击处理出错：', e && e.message);
+    }
+  });
+}
+
 /** 重新拉一次 `/list` 并重画（勾选框生效后走这一条，手动「载入列表」也走它）。 */
 async function reloadList() {
   const r = await api('/list');
