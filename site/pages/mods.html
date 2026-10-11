@@ -4,65 +4,99 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>已上线的 mod · 卫戍协议 Forge 工坊包</title>
-<style>
-  :root { color-scheme: light dark; --fg:#1b1f1d; --dim:#5c6b64; --line:#d5ddd8; --accent:#0f8f6f; --bg:#f7faf8; --card:#fff; }
-  @media (prefers-color-scheme: dark) { :root { --fg:#e6ece9; --dim:#9aa8a1; --line:#2c3632; --accent:#4ed8af; --bg:#111614; --card:#171d1a; } }
-  * { box-sizing: border-box; }
-  body { margin:0 auto; max-width:820px; padding:24px 18px 64px; background:var(--bg); color:var(--fg);
-         font:15px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
-  h1 { font-size:22px; margin:0 0 4px; }
-  .sub { color:var(--dim); margin:0 0 20px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:0 0 12px; }
-  .card h2 { font-size:17px; margin:0 0 6px; }
-  .note { white-space:pre-wrap; color:var(--dim); font-size:14px; margin:8px 0; }
-  .meta { font-size:13px; color:var(--dim); }
-  a.dl { display:inline-block; margin-top:10px; padding:9px 16px; border-radius:8px; background:var(--accent);
-         color:#04140f; font-weight:700; text-decoration:none; }
-  code { background:rgba(127,127,127,.14); padding:1px 5px; border-radius:4px; }
-  .empty { color:var(--dim); }
-  .warnbox { border:1px solid var(--warn); border-left-width:4px; border-radius:10px; padding:12px 14px; margin:0 0 14px; }
-  .warnbox h3 { margin:0 0 4px; font-size:15px; color:var(--warn); }
-  .card.flagged { border-left:4px solid var(--warn); }
-  .badge.warn { color:var(--warn); border:1px solid var(--warn); font-size:11px; font-weight:700; padding:1px 7px; border-radius:99px; }
-  h2.sec { font-size:16px; margin:26px 0 10px; }
-</style>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' fill='%230c0f0e'/%3E%3Cpath fill='%234ed8af' d='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v7l2 2v2H5v-2l2-2v-7L5 8z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="__CSS__">
 </head>
 <body>
+
+<header class="topbar">
+  <a class="brand" href="/">工坊包 <b>·</b> 上传站 <span class="sub2">SP MODSITE</span></a>
+  <nav class="navlinks">
+    <a href="/">上传</a>
+    <a href="/mods" class="on">已上线</a>
+  </nav>
+</header>
+
 <h1>已上线的 mod</h1>
 <p class="sub">这一页只列<b>已通过审核</b>的包。想投稿请去 <a href="/">上传页</a>。
   规则见 <a href="https://github.com/XiaMo233M/Stronghold-Protocol-Forge-Mods/blob/main/SKILL.md">SKILL.md</a>。</p>
-<div id="list"><p class="empty">正在载入…</p></div>
+<div id="list"><p class="dim">正在载入…</p></div>
 
 <script>
 const list = document.getElementById('list');
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 
 function card(m, flagged) {
-  const c = el('div', 'card' + (flagged ? ' flagged' : ''));
-  const head = el('div');
-  head.append(el('h2', null, m.name));
-  if (flagged) { const b = el('span', 'badge warn', '含疑似官方素材'); head.append(b); }
-  c.append(head);
-  c.append(el('div', 'meta', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
-  if (m.note) c.append(el('div', 'note', m.note));
-  const a = el('a', 'dl', '下载 zip');
-  a.href = m.download;
-  c.append(a);
-  if (m.homepage) {
-    const s = el('div', 'meta');
-    s.append(document.createTextNode('原件来源：'));
-    const h = el('a', null, m.homepage);
-    h.href = m.homepage; h.rel = 'noopener noreferrer nofollow';
-    s.append(h);
-    c.append(s);
+  const c = el('div', 'panel' + (flagged ? ' brackets' : ''));
+  if (flagged) c.style.borderLeft = '4px solid var(--gold)';
+  const body = el('div', 'panel__body');
+  const head = el('div', 'flex');
+  const h = el('h2'); h.style.margin = '0'; h.textContent = m.name;
+  head.append(h);
+  // 兼容改写版：这是「谁由谁改来」的那个改写版，原件只留档、不在这里发。
+  if (m.kind === 'compat') head.append(el('span', 'badge ok', flagged ? '兼容版 · 含疑似素材' : '兼容改写版'));
+  if (flagged) head.append(el('span', 'badge warn', '含疑似官方素材'));
+  body.append(head);
+  body.append(el('div', 'kv dim', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
+
+  // 两个署名**分开两栏**显示，谁也不覆盖谁：
+  // 原作者来自包自带的 pack.json；兼容者是站点侧记的（包里的元数据一个字节没动）。
+  // 两栏都带标签，免得只看到一个名字被误当成作者。
+  // 兼容改写版**一定要显示兼容者这一栏**，哪怕它是空的 —— 空就写「未填」。
+  // 把这一栏藏掉，会让人误以为这就是原件自己发的包。
+  const isCompat = m.kind === 'compat';
+  if (m.author || isCompat) {
+    const box = el('div', 'sigbox');
+    const sig = el('div', 'sig');
+    sig.append(el('span', 'sigk', '原作者'));
+    sig.append(el('span', 'sigv', m.author || '（未记）'));
+    sig.append(el('span', 'sigk', '兼容改写者'));
+    sig.append(el('span', 'sigv', m.compatAuthor ? m.compatAuthor : (isCompat ? '（未填）' : '（未记）')));
+    box.append(sig);
+    if (isCompat) {
+      box.append(el('div', 'sighint', '原作说明与署名原样保留自包内的 pack.json；'
+        + '兼容改写是另一个人做的，记在站点侧，没有改动包里的元数据。'));
+      if (!m.compatAuthor) {
+        box.append(el('div', 'sighint', '「兼容改写者」这一栏**未填** —— 如实显示，站点没有代填任何名字。'));
+      }
+    }
+    body.append(box);
   }
+  // 再补一行「这条是从哪条投稿改写来的」（业主 2026-10-11 批准加这一行）。
+  // 它说的是**记录之间的沿革**，不是人 —— 与上面那两栏署名是两回事：
+  // 原作者 / 兼容改写者说的是「谁做的」，这一行说的是「这条记录由哪条记录改来」。
+  // 所以文案里点明「不是原作者署名」，免得被误读成第三个署名。
+  // `compatOf` 有值才画；为空（早先手工批准上线的那几条兼容包就是空的）**整行不画** ——
+  // 不留「未知」「空」之类的占位：不画就是如实说「没有这条链」。
+  if (m.compatOf) {
+    const line = el('div', 'kv dim compatof', '由投稿 ' + m.compatOf + ' 改写来（记录沿革，不是原作者署名）');
+    line.id = 'compatof-' + m.id;
+    body.append(line);
+  }
+  if (m.compatNote) body.append(el('div', 'note', '兼容说明：' + m.compatNote));
+  if (m.note) body.append(el('div', 'note', m.note));
+
+  const a = el('a', 'btn btn--primary', m.kind === 'compat' ? '下载兼容改写版 zip' : '下载 zip');
+  a.href = m.download;
+  a.style.marginTop = '10px';
+  body.append(a);
+  if (m.homepage) {
+    const s = el('div', 'kv dim');
+    s.style.marginTop = '8px';
+    s.append(document.createTextNode('原件来源：'));
+    const hh = el('a', null, m.homepage);
+    hh.href = m.homepage; hh.rel = 'noopener noreferrer nofollow';
+    s.append(hh);
+    body.append(s);
+  }
+  c.append(body);
   return c;
 }
 
 fetch('/api/mods').then((r) => r.json()).then(({ mods, flagged }) => {
   list.textContent = '';
   if (!mods.length && !flagged.length) {
-    list.append(el('p', 'empty', '还没有通过审核的包。'));
+    list.append(el('p', 'dim', '还没有通过审核的包。'));
     return;
   }
   if (mods.length) {
@@ -73,13 +107,14 @@ fetch('/api/mods').then((r) => r.json()).then(({ mods, flagged }) => {
     const box = el('div', 'warnbox');
     box.append(el('h3', null, `含疑似官方素材的 mod（${flagged.length}）`));
     box.append(el('div', null, '这些包在自动检查里命中了「像官方解包素材」的特征（Spine 模型、官方立绘/语音路径等），' +
-      '维护者已人工看过并放行。**它们不是干净的工坊包**：里面的素材版权与可用范围请自行判断，' +
+      '维护者已人工看过并放行。它们不是干净的工坊包：里面的素材版权与可用范围请自行判断，' +
       '也请勿据此再分发素材本身。仓库正式收录的 packs/ 不含这类素材。'));
     list.append(box);
     for (const m of flagged) {
       const c = card(m, true);
       if (m.suspectedReasons && m.suspectedReasons.length) {
-        c.append(el('div', 'meta', '命中的特征：' + m.suspectedReasons.join('、')));
+        const b = c.querySelector('.panel__body');
+        b.append(el('div', 'kv dim', '命中的特征：' + m.suspectedReasons.join('、')));
       }
       list.append(c);
     }

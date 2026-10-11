@@ -310,6 +310,19 @@ try {
     check(altPage.status === 200 && altHtml.includes(`/api/${ALT}`) && !altHtml.includes('__ADMIN_API__'),
       `新的 /${ALT} 能打开，且页面里注入的 API 前缀是对的、占位符已替换`,
       `HTTP ${altPage.status} · 含前缀 ${altHtml.includes(`/api/${ALT}`)} · 残留占位符 ${altHtml.includes('__ADMIN_API__')}`);
+    // 皮肤：自带样式表由服务自己发（不引 CDN、不引外部字体）。
+    const css = await fetch(`${B2}/theme.css`);
+    const cssText = await css.text();
+    check(css.status === 200 && /text\/css/.test(css.headers.get('content-type') || ''),
+      'GET /theme.css 由服务自己发出（零依赖，不外链）', `${css.status} · ${css.headers.get('content-type')}`);
+    check(!/https?:\/\//.test(cssText.replace(/\/\*[\s\S]*?\*\//g, '')),
+      '样式表里没有任何 http(s) 外链（离线/内网也能用，不拉 CDN 与外部字体）');
+    check(altHtml.includes('/theme.css') && !altHtml.includes('__CSS__'),
+      '页面挂上了同源样式表，且 __CSS__ 占位符已替换');
+    const pub2 = await (await fetch(`${B2}/`)).text();
+    const pubMods2 = await (await fetch(`${B2}/mods`)).text();
+    check(pub2.includes('/theme.css') && pubMods2.includes('/theme.css'),
+      '上传页与公开列表页也挂上了同一份样式表（三页一个皮肤）');
   } finally {
     child2.kill();
   }

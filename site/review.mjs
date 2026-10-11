@@ -26,17 +26,28 @@ const HUGE_FILE = 10 * 1024 * 1024;          // 单个文件 10 MB
 const MANY_AUDIO = 500;                      // 大量音频
 const IMPERSONATE = /(官方|official|网易|鹰角|hypergryph|yostar|正版)/i;
 
+/**
+ * 名称类文本的检查（mod 名 / 原作者 / 兼容者 / 上线显示名都走它）。
+ * `label` 只是把「谁不合格」写进文本里，判定逻辑与三档完全一样 —— 复用一份规则，不另立一套。
+ */
+export function reviewLabel({ label = '名称', value, prefix = 'NAME', required = true } = {}) {
+  const out = [];
+  const s = typeof value === 'string' ? value.trim() : '';
+  if (!s) {
+    if (required) out.push(F('blocker', `${prefix}_EMPTY`, `${label}为空`));
+    return out;
+  }
+  if (s.length > 60) out.push(F('warn', `${prefix}_LONG`, `${label}长 ${s.length} 字，超过 60 字（列表里会显示不下）`));
+  if (/[\u0000-\u001f\u007f]/.test(s)) out.push(F('blocker', `${prefix}_CONTROL`, `${label}里有控制字符`));
+  if (/[<>]/.test(s)) out.push(F('warn', `${prefix}_ANGLE`, `${label}里有尖括号（显示时会转义，但最好去掉）`));
+  if (IMPERSONATE.test(s)) out.push(F('warn', `${prefix}_IMPERSONATE`, `${label}含「官方 / official / 鹰角 / Yostar」这类词 —— 容易让人误以为是官方出品`));
+  if (/^(.)\1+$/.test(s) && s.length > 3) out.push(F('warn', `${prefix}_NOISE`, `${label}是同一个字符重复`));
+  return out;
+}
+
 /** 名称检查（上传时填的 mod 名）。 */
 export function reviewName(name) {
-  const out = [];
-  const s = typeof name === 'string' ? name.trim() : '';
-  if (!s) out.push(F('blocker', 'NAME_EMPTY', '名称为空'));
-  if (s.length > 60) out.push(F('warn', 'NAME_LONG', `名称长 ${s.length} 字，超过 60 字（列表里会显示不下）`));
-  if (/[\u0000-\u001f\u007f]/.test(s)) out.push(F('blocker', 'NAME_CONTROL', '名称里有控制字符'));
-  if (/[<>]/.test(s)) out.push(F('warn', 'NAME_ANGLE', '名称里有尖括号（显示时会转义，但最好去掉）'));
-  if (IMPERSONATE.test(s)) out.push(F('warn', 'NAME_IMPERSONATE', '名称含「官方 / official / 鹰角 / Yostar」这类词 —— 容易让人误以为是官方出品'));
-  if (/^(.)\1+$/.test(s) && s.length > 3) out.push(F('warn', 'NAME_NOISE', '名称是同一个字符重复'));
-  return out;
+  return reviewLabel({ label: '名称', value: name });
 }
 
 /** 内容检查（zip 的中央目录条目）。 */

@@ -31,6 +31,163 @@
 
 ---
 
+## 维护者侧：兼容包上传与发布
+
+组员把**未兼容的原件**投到公网上传页（`/`）；维护者把它兼容改写好之后，**从审核页把改写版发出去**。
+这条路不是给组员的，它整套挂在管理 API 下，和 `/api/submit` 不是一回事 —— `ADMIN_IPS` 白名单与令牌两道防线照旧先过。
+
+### 怎么用（照着做）
+
+1. `ssh -L 8787:127.0.0.1:8787 <user>@<服务器>`，浏览器开 `http://127.0.0.1:8787/<ADMIN_PATH>`，登录（用户名 `admin`，密码 = `ADMIN_TOKEN`）。
+2. 在**投稿列表**里点一条投稿看详情。入口就在**那条投稿的详情视图、下载按钮那一行**：
+   点那个**独立的上传按钮**「上传并发布兼容包…」，表单**内联展开**在详情下方（不跳页、也不跳到同页另一个区 ——
+   详情里的编号、原件名、包内结构与三档结果就在眼前，「由哪个待审原件改写来」还会**预填成当前这一条的编号**）。填：
+
+   | 栏位 | 必填 | 说明 |
+   |---|---|---|
+   | zip 文件 | 要 | **已经兼容改写完的成品包**。包内文件放 zip 根，且必须有能解析的 `pack.json`；否则拒收（400） |
+   | 上线显示名 | 要 | 列表里显示的名字（按当前那条预填成「某包（兼容版）」） |
+   | **原作者** | 要 | **留空会从包里的 `pack.json` 的 `author` 自动预填**，可核对后改写。包里没有、人也不填 → 400 拒收 |
+   | **兼容者** | **字段必填，值可以为空** | 做兼容改写的那个人。**不预填、不兜底**：留空就如实存空并显示「未填」；报文里**缺这一栏**才拒收（400，点名「缺少兼容者字段」）。存下来用 `compatAuthorSource` 标明是 `form`（手填）还是 `empty`（未填）——**没有兜底这一档**。`Mo233` 只可能是维护者自己敲进去的字面值 |
+   | 由哪个待审原件改写来 | 建议 | 填那个待审投稿的编号（默认已预填当前这条）。填了就把原件的 sha256 与来源一并记下，并把原件**拷贝一份**进本条留档 |
+   | 原件来源链接 | 选填 | **可以为空**（业主口径 2026-10-11：「第三方来源也能为空，因为大部分备注里都有了」）。留空就如实留白，**不再 409**；追溯靠上面那条「由哪条待审原件改写来」+ 留档原件的 sha256 |
+   | 改了什么 | 选填 | 兼容说明，会显示在审核详情与公开列表上 |
+
+3. 点表单底部的「上传并发布」。**这一下就是一步到位**：上传 + 通过 + 发布
+   （请求带 `publish=1`，打的是 `POST /api/<ADMIN_PATH>/compat-submit`）。
+   它和普通投稿走**同一套三档检查**（`blocker` / `warn` / `info`，见 `review.mjs`）。
+4. **发布成功后原投稿按 B 口径处置**：状态置 `superseded`（不是 pending，也不是 rejected）、
+   `replacedBy` 指向刚发布的那个兼容包编号、**移出待审队列**；但它的 `meta.json` 与 `mod.zip`
+   **一个字节都不动**，`decision.json` 只加不删 —— 记录保留、可追溯。
+   兼容包是**另起的一条记录**（新编号），在**同一个列表**里（管理界面里不再有独立的「兼容包」区）。
+5. 审核页的列表按状态分开摆：主列表放非 `rejected` 的记录（含已被取代的）；
+   被退回的记录在**下方独立的「已打回」一块**里（默认折叠，不占主列表）。
+   「已被取代」的照旧留在主列表（业主口径：保留可见）。
+
+### 已经上线、但当时 `compatOf` 还空着的兼容包：补链
+
+早先手工逐个批准上线的兼容包，`compatOf` 可能是空的，它们对应的原投稿就还挂在待审队列里
+——与上面那套逻辑不一致。补链走**同一套实现**，一次只认**一个**明确指定的 id：
+
+```bash
+curl -sX POST http://127.0.0.1:8787/api/<ADMIN_PATH>/compat/link \
+  -H "x-admin-token: <ADMIN_TOKEN>" -H 'content-type: application/json' \
+  -d '{"compatId":"<兼容包编号>","originId":"<原投稿编号>"}'
+```
+
+它做两件事，都只是**补记**：给兼容包补上 `compatOf`（其余字段一个不动，改动只进 `revisions`）；
+调用**同一个** `markReplacedBy` 把原投稿标 `superseded` + `replacedBy`（原投稿两个文件一字不动）。
+幂等：同一条重复调返回 `alreadyLinked: true`，不再产生第二笔改动。
+⚠️ **绝不要写「把筛出来的一批 id 循环喂进来」的脚本** —— 一次请求只处理一条，这样每次改动都能单独核对。
+
+### 四条硬要求落在哪
+
+| 硬要求 | 怎么保证的 |
+|---|---|
+| 上传者是**维护者**，不是给组员的公网入口 | 端点 `POST /api/<ADMIN_PATH>/compat-submit`，与 `/api/submit` 分开；整体先过 `adminAllowed()` + `isAdmin()`（`ADMIN_IPS` + 令牌/Basic） |
+| **原作者 + 兼容者两个署名，分开显示、互不覆盖** | 站点侧 `meta.json` 里 `author` 与 `compatAuthor` **各占一栏**；审核页与 `/mods` 两处都渲染成两栏；兼容者不写进包的 `pack.json` |
+| **保持原注释不变** | 站点**从不改写 zip**。上传时把 `pack.json` 快照存成 `pack-json.orig.json`，通过前再逐键比对一次；不一致就 409，并把**哪一栏被改了**摆出来 |
+| **通过的是新的兼容改写版，原件留档不发布** | 公开下载永远走 `mod.zip`（改写版）；被改写的原件拷成 `orig.zip`，`?variant=orig` **只有维护者能下**（无论通没通过） |
+
+### 数据长什么样
+
+兼容包存在 `DATA_DIR/compat/<编号>/`（普通投稿在 `submissions/`、疑似素材在 `flagged/`，三者分开）：
+
+```
+compat/<编号>/mod.zip                ← 要发布的**改写版**（通过后公开可下）
+compat/<编号>/orig.zip               ← 被改写的**原件**：留档，不发布（只有维护者能下）
+compat/<编号>/pack-json.orig.json    ← 改写版里 pack.json 的**原件快照**（原注释一字未变的凭据）
+compat/<编号>/meta.json              ← 两个署名 + 来源 + 两个哈希 + 三档检查结果
+compat/<编号>/decision.json          ← 审核决定（写清发布了哪个变体、原件哈希）
+```
+
+> **数据目录根下不许有散文件。** 上传中途会先落一个 `<编号>.part`（读完 zip 才知道该进哪个区），
+> 它在**任何**路径上都会被清掉：成功时 `rename` 成正式的 `mod.zip`，失败时由请求处理器的
+> `finally` 兜底删掉（被拒的 400、抛异常都算）。所以 `DATA_DIR` 根下**只该有
+> `submissions/`、`flagged/`、`compat/` 三个目录** —— 多出 `.part` 就是有失败路径漏了清理，
+> `selftest-compat.mjs` 的 ③b/⑥ 会直接把它测红。
+
+`meta.json` 里与署名/留痕有关的键：
+
+```jsonc
+{
+  "kind": "compat",
+  "author": "社区作者甲",            // 原作者
+  "authorSource": "pack.json",       // 预填来的还是维护者填的
+  "packAuthor": "社区作者甲",         // 包里那一栏原样（留痕）
+  "compatAuthor": "维护者乙",         // 兼容者 —— **只在这里**，不进包。空字符串 = 未填（合法值）
+  "compatAuthorSource": "form",      // form = 维护者手填的；empty = 未填。**没有「兜底」这一档**
+  "compatOf": "a21e4770010f",        // 由哪个待审原件改写来
+  "origin": { "id": "a21e4770010f", "sha256": "…", "verified": true,
+              "archived": true, "archivedFile": "orig.zip", "sourceUrl": "…" },
+  "sha256": "…",                     // 改写版的哈希（通过时要核这个）
+  "revisions": [ { "to": { "compatAuthor": "维护者乙" }, "why": "decide 时补全" } ]
+}
+```
+
+- 公开列表 `/api/mods` 里，兼容包多出 `kind/author/compatAuthor/compatAuthorSource/compatOf/compatNote`
+  与 `archiveDownload` 几个字段（普通投稿没有，前端按缺省处理）。
+  公网 `/mods` 页把两栏都显示出来、**各自带标签**（「原作者」与「兼容改写者」），并附一句
+  「原作说明与署名原样保留自包内的 pack.json；兼容改写是另一个人做的」—— 免得只看到一个名字被误当成作者。
+- 「兼容者」**不会**出现在包的 `pack.json` 里 —— 那会抬包契约（包只认引擎 `shared/workshop.js` 的 `PACK_FIELDS`）。
+- 想清掉一条兼容包：删掉 `compat/<编号>/` 即可。
+
+### 自测
+
+```bash
+node site/selftest-compat.mjs     # 兼容包整条链 + 反例（临时数据目录，不碰你的数据，不联网）
+node site/selftest-admin.mjs      # 审核台/公网列表**页面**跑不跑得起来（见下）
+node site/selftest.mjs            # 原来那条公网投稿链（没被改）
+```
+
+`selftest-admin.mjs` 专治一类「接口全好、页面却是死的」故障：审核台是一整个内联 `<script>`，
+它只要在**顶层抛一次错**，后面所有 `onclick` 与自动载入就全都不执行 —— 页面不报错也不崩，
+就是永远停在 HTML 里那句「还没载入。」。所以它把**服务器实际发出来的 HTML**里的脚本，
+配上真实的 list 响应，塞进最小 DOM 桩里跑一遍，断言：脚本跑到底、列表按磁盘条数画出来、
+兼容者空值显示「未填」、全站没有 `Mo233` 兜底。
+（2026-10-11 真踩过一次：`const` 写在它被使用之后 → TDZ。）
+
+它同时盯着第二个列表分区：`rejected` 的记录**不在主列表 `#list` 里**、**在独立的「已打回」块 `#rlist` 里**，
+两个列表的条数之和等于磁盘上的全部记录（分区不筛掉、也不丢记录），
+「状态=已打回」把它筛出来时主列表一条都不显示，而 `superseded` 的照旧留在主列表、计数里单独算一档。
+
+---
+
+## 视觉基线（界面取自哪里）
+
+界面样式**来自业主给的样例站** `https://arknights.jiangjiangze.icu/` —— 从它的
+`css/theme.css` 与 `css/components.css` 里**逐条抄下实际值**，不是凭印象配的：
+
+| 取到的值 | 从哪拿的 |
+|---|---|
+| `--bg-0:#0c0f0e` `--bg-1:#141816` `--bg-2:#1e2421` `--bg-3:#252c29` `--bg-4:#2d3632` | `theme.css` 的 `:root`（surfaces 一组） |
+| `--line:#2f3a35` `--line-2:#3e4b45` `--line-3:#58675f` | 同上 |
+| `--mint-500:#4ed8af` `--mint-400:#59f4ca` `--mint-700:#2a9e7f` `--mint-800:#145443` `--mint-glow:#17f9b7`，以及 `--mint-a10/a20/a35` | 同上（accent 一组，注释写着「official hex values where research marks [DATA]」） |
+| `--gold:#ffc600` `--amber:#f6a329` `--red-premium:#ff5454` `--red:#e73118` `--ice:#9fd4ff` | 同上 |
+| `--text-hi:#f2f2f2` `--text-md:#c3cbc7` `--text-lo:#8a948f` `--text-dim:#5d6863` `--text-on-mint:#06110d` | 同上 |
+| `.panel`：细横条纹理 + `linear-gradient(180deg,rgba(30,36,33,.94),rgba(18,22,20,.94))` + 1px `--line` + `box-shadow 0 .12rem .3rem rgba(0,0,0,.35)` | `components.css` 的 `.panel` |
+| `.panel__head` 内边距 `.16rem .22rem .12rem`、`.panel__body` 内边距 `.22rem` | 同上 |
+| `.brackets::after`：四角 L 形，`--bk-l:.14rem`、`--bk-w:2px` | `components.css` 的 `.brackets::after` |
+| `.btn`：高 `.5rem`、`padding 0 .26rem`、`font-size .18rem`、`font-weight 700`、`letter-spacing .06em`、`--btn-bg:#1a201d`、hover `--btn-bd-hover:--mint-700` + `box-shadow 0 0 .18rem rgba(78,216,175,.25)` | `components.css` 的 `.btn` |
+| `.btn--primary`：`--btn-bg:--mint-500`、`--btn-fg:--text-on-mint`、右边 `repeating-linear-gradient(-55deg,…)` 斜纹条 | 同上 |
+| `.btn--danger`：`--btn-bg:#a3241a`、`--btn-bd:#c83a2c` | 同上 |
+| `.field__box`：高 `.56rem`、`background rgba(5,7,6,.78)`、focus 时边框 `--mint-700` + 蓝色… 薄荷色辉光 | 同上 |
+| `.badge` 之类的胶囊尺寸（`border-radius:99px`、`font-size:11px`） | 三张表里 `border-radius` 的全部出现次数：`var(--radius-sm,6px)`×5、`50%`×4、`999px`×2、`9px`/`3px`/`2px`/`99px` 各 1 —— 所以圆角整体很小，本实现取 4px |
+
+**字体怎么处理的**：样例站自己托管 `Bender` 与 `Novecento Wide` 两个 woff2（`fonts/fonts.css` 里三个 `@font-face`）。
+本站**不外链、不下载、不打包任何字体文件**（离线/内网也要能用），改用系统字体栈还原那个味道：
+
+- 正文中文：`system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", …`
+- 标签/按钮/标题（对应样例的窄体大写观感）：`"Bahnschrift", "DIN Alternate", "Arial Narrow", "Segoe UI", "Microsoft YaHei", sans-serif`
+  —— 用系统里现成的窄体，配 `letter-spacing` 与（必要时）`text-transform: uppercase` 出那种「战术标签」的样子。
+- 等宽（路径/哈希）：`"Cascadia Mono", ui-monospace, Consolas, …`
+
+样式表是 `site/pages/theme.css`，由服务自己 `GET /theme.css` 发出去（`text/css`，带一小时缓存），
+页面里的 `__CSS__` 占位符在 `renderPage()` 里换成同源链接。**没有引入任何前端构建、CDN、npm 依赖**，
+自测里有一条断言专门盯着「样式表里不许出现 `http(s)://`」。
+
+---
+
 ## 跑起来
 
 ```bash
@@ -205,9 +362,44 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 - 全在 `DATA_DIR`：
   - `submissions/<编号>/{mod.zip, meta.json, decision.json}` —— 普通投稿
   - `flagged/<编号>/{mod.zip, meta.json, decision.json}` —— **疑似素材**的投稿
+  - `compat/<编号>/{mod.zip, orig.zip, pack-json.orig.json, meta.json, decision.json}` —— 维护者侧的**兼容包**（`mod.zip` 是要发布的改写版，`orig.zip` 是留档不发布的原件）
 - **备份就备份这一个目录**；没有数据库
 - 想清掉一条投稿：删掉对应目录即可（公开列表会立刻少一条）
 - 想**一次清掉所有疑似素材**：`rm -rf <DATA_DIR>/flagged`（它们本来就是为了便于整体处理才分开存的）
+
+## 更新服务器上这一个服务
+
+代码只有三个 `.mjs` 加一个 `pages/`。更新时**先备份、再换文件、再重启**，全程只碰 `/opt/sp-modsite` 与 `sp-modsite.service`：
+
+```bash
+# ① 备份 + 记下旧版哈希（可回滚的硬条件）
+TS=$(date +%Y%m%d-%H%M%S)
+cp -a /opt/sp-modsite /opt/sp-modsite.bak-$TS
+sha256sum /opt/sp-modsite/{server.mjs,review.mjs,zip.mjs} | tee /opt/sp-modsite.bak-$TS.sha256
+```
+
+```powershell
+# ② 本机（Windows）传上去。--exclude runtime 免得动服务器上自装的 Node
+scp site\server.mjs site\review.mjs site\zip.mjs sp:/opt/sp-modsite/
+scp site\pages\*.html site\pages\theme.css sp:/opt/sp-modsite/pages/
+```
+
+```bash
+# ③ 重启并实测
+systemctl restart sp-modsite
+systemctl is-active sp-modsite
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:25570/healthz
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:25570/
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:25570/mods
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:25570/theme.css
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:25570/review-2228      # 401 = 登录框在，正常
+
+# ④ 回滚（一条）
+cp -a /opt/sp-modsite.bak-<时间戳>/. /opt/sp-modsite/ && systemctl restart sp-modsite
+```
+
+> `/var/lib/sp-modsite`（数据）**不在**这套步骤里 —— 更新代码不碰数据；回滚也不会回退数据。
+> 服务器上的 `sync.service`、gunicorn、nginx 等都不属于本服务，别动。
 
 ## 边界（它**不**做什么）
 

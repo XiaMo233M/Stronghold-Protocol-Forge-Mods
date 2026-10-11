@@ -10,7 +10,8 @@
 //
 // 三个根的含义不同，判定标准也不同：
 //   packs/     兼容**已完成**的包。这里的包必须全部装上 —— 它是闸门。
-//   demo/      格式示例（给人照抄的样板）。也必须全部装上 —— 它同样是闸门。
+//   demo/      **已过时的样板**（不再对外提供、不要照抄；见 demo/README.md）。文件仍在，
+//              所以照旧过一遍装载器，仍是闸门 —— 这里管的是「文件还装得上」，不是「可下载」。
 //   incoming/  组员上传的**未完成兼容**的包。这里被拒是**正常现象**，只报不拦（见 incoming/README.md）。
 import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -21,7 +22,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** 每个根：`gate` 为真表示「这里的包必须全部装上」，否则只报告。 */
 const ROOTS = [
   { name: 'packs', label: '兼容完成的包', gate: true },
-  { name: 'demo', label: '格式示例', gate: true },
+  { name: 'demo', label: '已过时的样板（不对外提供）', gate: true },
   { name: 'incoming', label: '组员上传、尚未完成兼容', gate: false },
 ];
 

@@ -11,7 +11,7 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）在本仓库的入口。
 | 目录 | 放什么 | 判定 |
 |---|---|---|
 | `packs/` | 兼容已完成、验过的包 | **闸门**：必须全部装上 |
-| `demo/` | 格式示例（三份真实包） | **闸门**：必须全部装上 |
+| `demo/` | **已过时的样板**（三份旧包，**不再对外提供、不要照抄**） | 退役：见 [`demo/README.md`](demo/README.md) |
 | `incoming/` | 组员上传、**尚未完成兼容**的 mod 原件 | 只报告，**不拦** |
 
 本仓库**不含游戏本体、不含引擎源码、不含任何游戏素材**。
@@ -55,3 +55,4 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --root pa
 
 `packs/` 与 `demo/` 里的包必须全部 `✓`、没有任何 `✗`（退出码 0）；
 `incoming/` 只报告、不参与退出码。改了包之后**一定要重跑**。
+（`demo/` 已**不再对外提供**，见 [`demo/README.md`](demo/README.md)；工具判定未因此改动。）

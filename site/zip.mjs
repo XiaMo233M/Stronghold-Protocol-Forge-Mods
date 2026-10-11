@@ -7,7 +7,11 @@
 // 可能是 GNU tar，那就会静默失败；而这个实现到哪都一样。
 //
 // 按偏移量读，不把整个包读进内存（上传上限 100 MB，读进内存也能活，但没必要）。
+//
+// 另有 `readZipFile()`：**取单一条目的内容**（用来读包里的 pack.json，好把原作者预填出来）。
+// 它仍然只用 node 内置：展开用内置 zlib 的 inflateRaw。仍然不落地、不执行包里的东西。
 import { open, stat } from 'node:fs/promises';
+import { inflateRawSync } from 'node:zlib';
 
 const EOCD_SIG = 0x06054b50;
 const CD_SIG = 0x02014b50;
@@ -71,7 +75,9 @@ export async function readZipEntries(file) {
       const rawName = cd.subarray(p + 46, p + 46 + nameLen);
       // 位 11 = UTF-8 文件名；没设的按 CP437，但中文包基本都会设，没设的就按 latin1 兜着
       const name = (flags & 0x800) !== 0 ? rawName.toString('utf8') : rawName.toString('latin1');
-      out.push({ name, compSize, uncompSize, crc32, method, dir: name.endsWith('/') });
+      // localOffset 是「读单个条目内容」要用的（记录头 42 字节处），所以顺手留下。
+      out.push({ name, compSize, uncompSize, crc32, method, dir: name.endsWith('/'),
+        flags, localOffset: cd.readUInt32LE(p + 42) });
       p += 46 + nameLen + extraLen + commentLen;
     }
     return out;
@@ -84,4 +90,47 @@ export async function readZipEntries(file) {
 export function looksLikeZip(head) {
   if (head.length < 4) return false;
   return head[0] === 0x50 && head[1] === 0x4b && (head[2] === 0x03 || head[2] === 0x05) && (head[3] === 0x04 || head[3] === 0x06);
+}
+
+/**
+ * 把 zip 读成一个 Map<条目名, Buffer>，**只留下你想要的那几条**（默认一条都不要）。
+ *
+ * 为什么要它：兼容包那条路要读包里的 `pack.json`，才好在页面上**把原作者预填出来**，
+ * 并在通过时核对「原 description 一字未变」。所以确实需要内容，不能只读中央目录。
+ *
+ * 规矩（和这个文件其它的部分一致）：
+ *   · 只用 node 内置 —— store 直接取，deflate 用内置 zlib 的 inflateRaw；**不 shell 调 unzip**；
+ *   · **不落盘**：解出来的东西只在内存里过一遍就扔，包本身仍然只存不解压；
+ *   · 只要 `want` 点名的那几条；不点名的连解都不解（省内存，也少碰不该碰的东西）。
+ */
+export async function readZipFile(file, want = []) {
+  const wanted = new Set(want.map((s) => String(s)));
+  const names = await readZipEntries(file);
+  const byName = new Map();
+  for (const e of names) if (!e.dir && wanted.has(e.name)) byName.set(e.name, e);
+  const outMap = new Map();
+  if (!byName.size) return outMap;
+
+  const fh = await open(file, 'r');
+  try {
+    const { size } = await stat(file);
+    for (const [name, e] of byName) {
+      if (e.flags & 0x1) throw new Error(`${name} 是加密条目，读不了`);
+      if (e.localOffset + 30 > size) throw new Error(`${name} 的本地头越界（zip 可能损坏）`);
+      const lh = Buffer.alloc(30);
+      await fh.read(lh, 0, 30, e.localOffset);
+      if (lh.readUInt32LE(0) !== 0x04034b50) throw new Error(`${name} 的本地文件头签名不对（zip 可能损坏）`);
+      const nLen = lh.readUInt16LE(26);
+      const xLen = lh.readUInt16LE(28);
+      const start = e.localOffset + 30 + nLen + xLen;
+      const raw = Buffer.alloc(e.compSize);
+      if (e.compSize) await fh.read(raw, 0, e.compSize, start);
+      if (e.method === 0) outMap.set(name, raw);
+      else if (e.method === 8) outMap.set(name, inflateRawSync(raw));
+      else throw new Error(`${name} 的压缩方式 ${e.method} 不是 store/deflate，读不了`);
+    }
+    return outMap;
+  } finally {
+    await fh.close();
+  }
 }
