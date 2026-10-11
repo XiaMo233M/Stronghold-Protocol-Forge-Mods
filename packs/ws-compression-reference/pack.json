@@ -1,0 +1,33 @@
+{
+  "id": "ws-compression-reference",
+  "name": "WS 压缩参考（协商参数 / 档位 / 实测）",
+  "version": "1.0.0",
+  "author": "Stronghold-Protocol（本包作者；对应仓库 jingjiangze/stronghold-ws-compression）",
+  "license": "MIT",
+  "description": "把「卫戍协议 WebSocket 链路层」的**可核对事实**做成包能表达的那一部分：一份只读的 /data/ws-compression.json（三档语义、期望的协商串、实测倍数与人均带宽），外加一个 root.guide 面板把它画出来，并告诉玩家怎么自己核对手上这台服务器的协商结果。**它不启用压缩** —— 传输层压缩是 WebSocketServer 的启动选项，工坊包的接口碰不到（见 NOTICE-来源说明.md「做不了的部分」）。",
+  "game": "0.2.x",
+  "api": ">=1 <2",
+  "layer": "C",
+  "combat": false,
+  "content": [],
+  "client": {
+    "panels": [
+      {
+        "id": "ws-compression",
+        "slot": "root.guide",
+        "module": "ui/wsCompression.js",
+        "styles": [
+          "css/ws-compression.css"
+        ],
+        "order": 70
+      }
+    ]
+  },
+  "routes": [
+    {
+      "path": "/data/ws-compression.json",
+      "file": "ws-compression.json",
+      "cache": "no-cache"
+    }
+  ]
+}
