@@ -809,6 +809,70 @@ try {
     '空值时署名两栏照旧都在（不是把整块都省了）',
     (noOfText.match(/.{0,26}原作者丙.{0,26}/) || [''])[0]);
 
+  // 【2026-10-11 补：普通投稿也要照包内 pack.json 读原作者】渲染层的三条边界。
+  // 背景：`/api/mods` 现在对**普通投稿**也从包内 `pack.json` 现读 `author`（带 `authorSource:'pack.json'`），
+  // 记录一个字节不改。这一页据此把署名框画出来 —— 但**只能画「原作者」这一栏**：
+  // 普通投稿没有「兼容」这回事，画一行「兼容改写者：（未记）」就是编了一件事出来。
+  // 喂进去的还是**服务器实际发出的那份 HTML**（`modsHtml`），只换数据。
+  const cardsIn = async (modsArr) => {
+    const b = bootInline(modsHtml, {
+      fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ mods: modsArr, flagged: [] }) }),
+    });
+    if (b.threw) return { threw: b.threw };
+    await sleep(30);
+    const list = b.dom.byId.get('list');
+    return {
+      text: textOf(list).join(' '),
+      sigs: find(list, (n) => String(n.className || '').split(/\s+/).includes('sig')),
+      sigks: find(list, (n) => String(n.className || '').split(/\s+/).includes('sigk')),
+    };
+  };
+  const normalAuthor = await cardsIn([{ id: '0ead812ea6b0', kind: 'submission', name: '连接与服务器状态',
+    author: 'jingjiangze', authorSource: 'pack.json', compatAuthor: null, compatAuthorSource: null, compatOf: null,
+    compatNote: null, note: null, suspected: false, size: 11965, uploadedAt: '2026-10-11T15:32:43.726Z',
+    download: '/api/file/0ead812ea6b0' }]);
+  check(!normalAuthor.threw, '普通投稿（包内有作者）喂进同一个 DOM 桩不抛错',
+    normalAuthor.threw ? `${normalAuthor.threw.name}: ${normalAuthor.threw.message}` : '');
+  check(/原作者/.test(normalAuthor.text) && /jingjiangze/.test(normalAuthor.text),
+    '普通投稿的署名框**画出来了**，写的是「原作者 jingjiangze」',
+    (normalAuthor.text.match(/.{0,20}jingjiangze.{0,10}/) || [''])[0]);
+  check(!/兼容改写者/.test(normalAuthor.text),
+    '但**没有**「兼容改写者」那一栏（普通投稿没有兼容这回事，也就没有「（未记）」这种占位）');
+  check(!/兼容改写版/.test(normalAuthor.text) && !/兼容版/.test(normalAuthor.text),
+    '也没有「兼容改写版」徽标', (normalAuthor.text.match(/.{0,10}兼容.{0,10}/) || [''])[0]);
+  check(!/由投稿/.test(normalAuthor.text) && !/改写来/.test(normalAuthor.text),
+    '也没有「由投稿 … 改写来」那一行');
+  check(normalAuthor.sigs.length === 1, '署名块只有一个',
+    `sig 节点 ${normalAuthor.sigs.length} 个`);
+  check(normalAuthor.sigks.length === 1, '署名块里只有「原作者」**一个**标签（兼容者那一栏整栏不画）',
+    `sigk 标签 ${normalAuthor.sigks.length} 个：` + normalAuthor.sigks.map((n) => n.textContent).join('/'));
+
+  // 反面：包内**没写** author ⇒ `/api/mods` 给 null ⇒ 照旧**整块不画**（现行为不变）。
+  const normalNoAuthor = await cardsIn([{ id: 'aaaa1111bbbb', kind: 'submission', name: '没写作者的普通投稿',
+    author: null, authorSource: null, compatAuthor: null, compatOf: null, compatNote: null, note: null,
+    suspected: false, size: 1024, uploadedAt: '2026-10-11T00:00:00.000Z', download: '/api/file/aaaa1111bbbb' }]);
+  check(!normalNoAuthor.threw, '普通投稿（包内没写作者）喂进同一个 DOM 桩不抛错',
+    normalNoAuthor.threw ? `${normalNoAuthor.threw.name}: ${normalNoAuthor.threw.message}` : '');
+  check(!/原作者/.test(normalNoAuthor.text), '包内没写 author ⇒ 署名框**整块不画**（连「原作者」这个标签都不出现）');
+  check(normalNoAuthor.sigs.length === 0, '一个 sig 节点都没画', `sig 节点 ${normalNoAuthor.sigs.length} 个`);
+
+  // 正面反面都验完，再验**兼容包没被这次改动碰过** —— 三样照旧齐全（就拿线上那条的形状喂）。
+  const compatCard = await cardsIn([{ id: 'a84e3a916517', kind: 'compat', name: '兼容改写版（自测夹具）',
+    author: 'jingjiangze', authorSource: 'pack.json', compatAuthor: 'Mo233', compatAuthorSource: 'form',
+    compatOf: 'e7b3b3e1751f', compatNote: null, note: null, suspected: false, size: 63524,
+    uploadedAt: '2026-10-11T13:25:44.272Z', download: '/api/file/a84e3a916517' }]);
+  check(!compatCard.threw, '兼容包那条喂进同一个 DOM 桩不抛错',
+    compatCard.threw ? `${compatCard.threw.name}: ${compatCard.threw.message}` : '');
+  check(/原作者/.test(compatCard.text) && /jingjiangze/.test(compatCard.text)
+    && /兼容改写者/.test(compatCard.text) && /Mo233/.test(compatCard.text)
+    && /由投稿 e7b3b3e1751f 改写来/.test(compatCard.text) && /兼容改写版/.test(compatCard.text),
+    'compat 记录**照旧三样齐全**：原作者 + 兼容改写者 + 「由投稿 … 改写来」（外加「兼容改写版」徽标）',
+    compatCard.text.replace(/\s+/g, ' ').slice(0, 120) + '…');
+  check(compatCard.sigks.length === 2
+    && compatCard.sigks[0].textContent === '原作者' && compatCard.sigks[1].textContent === '兼容改写者',
+    '兼容包那一栏仍是**两行署名**（原作者 + 兼容改写者），没有被普通投稿那条改动挤成一栏',
+    compatCard.sigks.map((n) => n.textContent).join(' / '));
+
   // 【2026-10-11 业主裁令 (a)：渲染层去重】两栏（`compatNote` / `note`）逐字相同 ⇒ **只画一次**。
   // 背景：站点的**存储层**在发布兼容包时把同一段文案同时写进两栏 —— 那是**有意为之**，
   // 谁都不许动（`/compat/note` 的注释里写着为什么）。所以重复不在数据里，在**渲染**里：

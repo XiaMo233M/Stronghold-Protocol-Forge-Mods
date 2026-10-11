@@ -7,7 +7,7 @@
 // 这样连「故意夹带游戏素材的包」这种用例也能造出来。
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -217,6 +217,14 @@ try {
   const mods = await (await fetch(`${BASE}/api/mods`)).json();
   check(mods.mods.length === 1 && mods.mods[0].id === idGood, '公开列表「正常」那一组里有它，且只有它');
   check(mods.mods[0].name === '自测包（上线名）', '上线显示名用的是决定时填的那个', mods.mods[0].name);
+  // 【2026-10-11 补：普通投稿也要照包内 pack.json 读原作者】
+  // 普通投稿的记录里**没有** author 这一栏（`/api/submit` 写的 meta 就没有它），
+  // 所以站点在上公网列表时**现读包内的 pack.json** —— 推导，绝不回写记录。
+  // 上面那个包里 pack.json 写着 author: 'selftest'，所以这一条必须带上它，并标出来源。
+  check(mods.mods[0].author === 'selftest',
+    '普通投稿的「原作者」来自**包内 pack.json**（不再恒为 null）', JSON.stringify(mods.mods[0].author));
+  check(mods.mods[0].authorSource === 'pack.json',
+    '并且标出来源是包内那一栏（与兼容包预填时同一个口径，不造第二套）', String(mods.mods[0].authorSource));
   check(mods.flagged.length === 1 && mods.flagged[0].id === idEvil, '疑似素材单独一组，没混进正常那一组');
   check(mods.flagged[0].suspected === true && (mods.flagged[0].suspectedReasons || []).length > 0,
     '公开数据里带着疑似标记与命中的原因', JSON.stringify(mods.flagged[0].suspectedReasons));
@@ -347,6 +355,53 @@ try {
   const healthAfter = await (await fetch(`${BASE}/healthz`)).json();
   check(healthAfter.submissions === healthBefore.submissions,
     '**记录条数只增不减**：隐藏没有删掉任何记录', `${healthBefore.submissions} → ${healthAfter.submissions}`);
+
+  // ---------------------------------------------------------------- ⑱ 普通投稿的作者：现读包内 pack.json，读不到就 null
+  // 三条边界一次验完：
+  //   ① 包内**没有** author ⇒ 公网这一栏是 null（**不代填、不编名字**），来源也是 null；
+  //   ② 包内**有** author ⇒ 读得出来（⑨ 已经验过一条，这里顺手再验一次同一次响应里的那条）；
+  //   ③ **绝不回写记录** —— 读一次 `/api/mods` 前后，整个数据目录里每个文件的 sha256 逐字节相同。
+  console.log('⑱ 普通投稿的作者：读包内 pack.json · 没有就是 null · 读它一次不动任何记录');
+  const noAuthor = makeZip([
+    { name: 'pack.json', data: JSON.stringify({ id: 'selftest-noauthor', name: '没有作者栏的包', version: '1.0.0', license: 'CC0-1.0', description: '自测', api: '>=1 <2', game: '0.2.x' }, null, 2) },
+    { name: 'bonds.json', data: '{}' },
+  ]);
+  const r8 = await submit(noAuthor, { name: '没有作者栏的包（自测）' });
+  check(r8.status === 201 && r8.body?.id, '包内没写 author 的包照样能上传', `id=${r8.body?.id}`);
+  const idNoAuthor = r8.body.id;
+  const approve2 = await admin('/api/admin/decide', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id: idNoAuthor, decision: 'approved' }),
+  });
+  check(approve2.status === 200, '它也能通过（站点**不会**为它编一个作者出来）');
+  // 递归列出数据目录里的每个文件（相对路径，'/' 分隔）——记录是 <区>/<编号>/<文件> 三层，
+  // 只扫一层会扫到「0 个文件」，那种断言等于没断。
+  const listFiles = (dir = dataDir, prefix = '') => readdirSync(dir, { withFileTypes: true })
+    .flatMap((e) => (e.isDirectory() ? listFiles(join(dir, e.name), `${prefix}${e.name}/`) : [`${prefix}${e.name}`])).sort();
+  const snapAll = () => listFiles().map((rel) => `${rel} ${shaOf(join(dataDir, rel))}`);
+  const filesBefore = snapAll();
+  check(filesBefore.length >= 10, '先钉住清单本身不是空的（否则下面那次比对等于没比）',
+    `${filesBefore.length} 个文件：${listFiles().slice(0, 3).join('、')}…`);
+  const mods2 = await (await fetch(`${BASE}/api/mods`)).json();
+  const mods3 = await (await fetch(`${BASE}/api/mods`)).json();     // 第二遍走缓存，结果必须一模一样
+  const filesAfter = snapAll();
+  check(JSON.stringify(mods2) === JSON.stringify(mods3),
+    '同一个响应连读两遍逐字节相同（缓存只省事，不改结果）');
+  check(JSON.stringify(filesBefore) === JSON.stringify(filesAfter),
+    '**读公网列表一次，记录一个字节都没动**（全目录 sha256 清单前后相同 —— 这是推导，不是补数据）',
+    `${filesBefore.length} 个文件逐条比对`);
+  check(listFiles().every((rel) => rel.includes('/')),
+    'DATA_DIR 根下依旧没有散文件', listFiles().filter((rel) => !rel.includes('/')).join('、') || '（0 个）');
+  const pubNoAuthor = mods2.mods.find((m) => m.id === idNoAuthor);
+  check(!!pubNoAuthor, '包内没写作者的那条也上了公网列表');
+  check(pubNoAuthor?.author === null, '包内**没有** author ⇒ 公网这一栏就是 null（不代填、不编名字）',
+    JSON.stringify(pubNoAuthor?.author));
+  check(pubNoAuthor?.authorSource === null, '来源也是 null（没有名字就没有来源）',
+    JSON.stringify(pubNoAuthor?.authorSource));
+  const pubGood = mods2.mods.find((m) => m.id === idGood);
+  check(pubGood?.author === 'selftest' && pubGood?.authorSource === 'pack.json',
+    '同一份响应里，包内写了 author 的那条照旧读得出来',
+    `${JSON.stringify(pubGood?.author)} / ${JSON.stringify(pubGood?.authorSource)}`);
 
   if (packArg) {
     console.log('⑭ 额外：传一个真实包');

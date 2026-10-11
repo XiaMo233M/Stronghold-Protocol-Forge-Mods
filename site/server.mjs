@@ -185,6 +185,66 @@ async function packJsonFor(file) {
 }
 
 /**
+ * 一条记录的**原作者**从哪来 —— 公网 `/api/mods` 那两个署名栏用的就是它。
+ *
+ * **只推导，绝不回写**（业主 2026-10-11 口径）：这里一个字节都不写进
+ * `meta.json` / `decision.json` / `mod.zip`，读完即走。
+ *
+ *   · **兼容包**（`kind === 'compat'`）：记录里本来就有这两栏 —— 发布时预填自包内 `pack.json`，
+ *     或维护者手填（`authorSource: 'maintainer'`）。**原样透出，一个字不动**。
+ *   · **普通投稿**：记录里**没有** `author` 这一栏（`/api/submit` 写的 meta 就没有它，
+ *     历史记录里也没有），所以去**包内的 `pack.json`** 读 `author` —— 那是这份包自己声明的原作者。
+ *     读到了就标 `authorSource: 'pack.json'`：**与兼容包预填时同一个来源名**，不造第二套口径。
+ *     包内没写 / 读不出来 / 解析不了 ⇒ `author: null`：**不代填、不编名字**，
+ *     公网那一页照旧不画署名框（现行为不变）。
+ *
+ * **缓存**（为什么必须有、放在哪、什么时候失效）：
+ *   · 为什么：`/api/mods` 每个请求都要给每条记录这两个栏位。没有缓存，就是**每个请求解一遍 zip**；
+ *   · 放在哪：进程内存里的一个 Map（`id -> { key, value }`）——**不落盘**。
+ *     落盘就等于「往记录目录写东西」，那是本任务明文禁止的；
+ *   · 什么时候失效：缓存键是 `mod.zip` 的 `size:mtimeMs`。站点从不改写这个文件，
+ *     所以它一变（换了文件、重传、手改）键就对不上，下一次请求自然重读；
+ *     实例重启缓存清空；记录不存在/读不了就顺手把这一条丢掉。
+ *   · 有条数上限只是防止无界增长（记录数本来就在几十条这个量级）。
+ */
+const AUTHOR_CACHE = new Map();
+const AUTHOR_CACHE_MAX = 512;
+async function packAuthorOf(id) {
+  const file = blobPath(id);
+  if (!file) return null;
+  let key;
+  try {
+    const st = statSync(file);
+    key = `${st.size}:${st.mtimeMs}`;
+  } catch {
+    AUTHOR_CACHE.delete(id);            // 文件没了：缓存跟着走，别拿旧结果顶
+    return null;
+  }
+  const hit = AUTHOR_CACHE.get(id);
+  if (hit && hit.key === key) return hit.value;
+  let value = null;
+  try {
+    const pack = await packJsonFor(file);
+    const a = pack && typeof pack.author === 'string' ? pack.author.trim() : '';
+    if (a) value = { author: a, authorSource: 'pack.json' };
+  } catch {
+    value = null;                        // zip 坏了 / 条目加密 ⇒ 当作「读不到」，不是错误页
+  }
+  if (AUTHOR_CACHE.size >= AUTHOR_CACHE_MAX) AUTHOR_CACHE.delete(AUTHOR_CACHE.keys().next().value);
+  AUTHOR_CACHE.set(id, { key, value });
+  return value;
+}
+
+/** 公网列表里一条记录的两个署名栏（**只读记录，绝不写**；见 packAuthorOf）。 */
+async function signatureOf(s) {
+  if (s.kind === 'compat') return { author: s.author || null, authorSource: s.authorSource || null };
+  // 普通投稿：记录里万一已经有这一栏（历史记录或别的入口写进去的），**以记录为准** ——
+  // 推导只补「记录里没有」的那一格，绝不覆盖记录里已有的字。
+  if (s.author) return { author: s.author, authorSource: s.authorSource || null };
+  return (await packAuthorOf(s.id)) || { author: null, authorSource: null };
+}
+
+/**
  * 兼容包「可不可以发布」的那三道硬门。**只有一份实现**：
  *   · `POST ${ADMIN_API}/compat-submit?...&publish=1` —— 投稿详情页那个**独立的上传按钮**，
  *     一次动作 = 上传 + 通过 + 发布（业主口径的「点发布就发布兼容包」）；
@@ -499,14 +559,18 @@ const server = createServer(async (req, res) => {
 
     // ---- 公开：已上线的 mod（**疑似素材的单独一组**，前端要分开显示并标注）
     if (req.method === 'GET' && p === '/api/mods') {
-      const shape = (s) => ({
+      const shape = (s, sig) => ({
         id: s.id, name: s.name, note: s.note, uploadedAt: s.uploadedAt, size: s.size,
         homepage: s.homepage || null, suspected: s.suspected === true,
         suspectedReasons: s.suspectedReasons || [],
         // 兼容包：**两个署名分开给**，谁也不覆盖谁。公网列表那一页照这两栏分别显示。
-        // 没有这两栏的就是普通投稿（前端按缺省处理，不显示署名栏）。
+        // 普通投稿这两栏里通常只有原作者（没有「兼容者」这回事）——但**原作者照给**：
+        // 来源是包内的 pack.json，见 signatureOf（推导，不回写记录）。
         kind: s.kind || 'submission',
-        author: s.author || null,                 // 原作者（兼容包时来自原件/维护者核对）
+        // 原作者：兼容包取记录里那一栏（发布时预填自包内 pack.json，或维护者手填）；
+        // 普通投稿记录里从来没有这一栏 ⇒ 去**包内 pack.json** 读（同一个来源名 pack.json）。
+        author: sig.author,
+        authorSource: sig.authorSource,           // 'pack.json' / 'maintainer' / null（没有来源就没有名字）
         // 兼容者（**只存在站点侧记录里**，不进 pack.json）。空字符串 = 未填，是**合法值** ——
         // 所以这里**不能用 `|| null`**：那会把「未填」和「压根不是兼容包」混成同一个 null，
         // 公网那一页就没法如实把「未填」那一栏显示出来。
@@ -522,9 +586,13 @@ const server = createServer(async (req, res) => {
         archiveDownload: s.kind === 'compat' ? `/api/file/${s.id}?variant=orig` : null,
       });
       const approved = allSubs().filter((s) => s.state === 'approved');
+      // 逐条推署名来源（**只读**）。只有普通投稿真会去解一次 zip，而且结果有缓存
+      // （见 packAuthorOf）；兼容包走记录里那两栏，一次 zip 都不读。
+      // Promise.all 保序，所以列表顺序与 filter/map 时代完全一致。
+      const shaped = await Promise.all(approved.map(async (s) => ({ s, o: shape(s, await signatureOf(s)) })));
       return sendJson(res, 200, {
-        mods: approved.filter((s) => !s.suspected).map(shape),
-        flagged: approved.filter((s) => s.suspected).map(shape),
+        mods: shaped.filter((x) => !x.s.suspected).map((x) => x.o),
+        flagged: shaped.filter((x) => x.s.suspected).map((x) => x.o),
       });
     }
 

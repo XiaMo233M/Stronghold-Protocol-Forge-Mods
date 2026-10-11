@@ -40,18 +40,23 @@ function card(m, flagged) {
   body.append(el('div', 'kv dim', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
 
   // 两个署名**分开两栏**显示，谁也不覆盖谁：
-  // 原作者来自包自带的 pack.json；兼容者是站点侧记的（包里的元数据一个字节没动）。
+  // 原作者来自包自带的 pack.json（兼容包发布时预填、普通投稿由站点在读的时候现读，都不改记录）；
+  // 兼容者是站点侧记的（包里的元数据一个字节没动）。
   // 两栏都带标签，免得只看到一个名字被误当成作者。
   // 兼容改写版**一定要显示兼容者这一栏**，哪怕它是空的 —— 空就写「未填」。
   // 把这一栏藏掉，会让人误以为这就是原件自己发的包。
+  // 反过来，**普通投稿没有「兼容」这回事** —— 那一栏整栏不画：画一个「（未记）」会让人
+  // 以为有个兼容者没填，那不是事实。普通投稿只画「原作者」这一栏。
   const isCompat = m.kind === 'compat';
   if (m.author || isCompat) {
     const box = el('div', 'sigbox');
     const sig = el('div', 'sig');
     sig.append(el('span', 'sigk', '原作者'));
     sig.append(el('span', 'sigv', m.author || '（未记）'));
-    sig.append(el('span', 'sigk', '兼容改写者'));
-    sig.append(el('span', 'sigv', m.compatAuthor ? m.compatAuthor : (isCompat ? '（未填）' : '（未记）')));
+    if (isCompat) {
+      sig.append(el('span', 'sigk', '兼容改写者'));
+      sig.append(el('span', 'sigv', m.compatAuthor ? m.compatAuthor : '（未填）'));
+    }
     box.append(sig);
     if (isCompat) {
       box.append(el('div', 'sighint', '原作说明与署名原样保留自包内的 pack.json；'
