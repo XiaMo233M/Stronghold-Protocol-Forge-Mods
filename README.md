@@ -62,6 +62,9 @@ incoming/<mod>  ──►  读来源说明、判断哪些部分有接口  ──
    **一包一 zip**：不要把 `packs/<包 id>/` **整个目录**再压进去（那会变成 `<包 id>/<包 id>/pack.json`，
    装载器读不到 `pack.json`）。
 2. 把 zip **拖到**便携包根目录的 `安装工坊包.bat` 上（或 `安装工坊包.bat <包.zip>`）
+
+   > 上面这条是**本地安装 / 仓库收录**的形状。**要投到审核站（上传）时反过来**：站点只读 **zip 根**的
+   > `pack.json`，套了顶层目录即 400 —— 见 [`SKILL.md`](SKILL.md) §3 与 [`AGENTS.md`](AGENTS.md) §6 ⑧。
 3. 装好后包落在 `app/workshop/<包 id>/`，在游戏的工坊界面能看到它
 
 **目录名必须等于 `pack.json` 的 `id`**，否则装载器整包跳过（引擎会报 `PACK_ID_MISMATCH`）。
