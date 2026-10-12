@@ -1,0 +1,383 @@
+{
+  "id": "makoto-yuki",
+  "name": "结城理（Persona 3 Reload）",
+  "version": "1.0.1",
+  "author": "原件未署名（uncredited original）；本版修改者：Stronghold-Protocol（工坊包通道改写 + api 类型修正）",
+  "license": "NOASSERTION",
+  "description": "结城理（char_4217_makoto，Persona 3 Reload 联动）——工坊包改写：干员记录 + 自选池声明 + 外观素材 + 时装。原作是一份**覆盖式安装脚本**（install.mjs），本包只保留能用工坊通道表达的那部分；战斗 kit 与两处客户端渲染补丁无包通道，见包内 README.md。",
+  "gameVersion": ">=0.2.0",
+  "api": ">=1 <2",
+  "layer": "A",
+  "combat": true,
+  "content": [
+    "units",
+    "tokens"
+  ],
+  "operators": {
+    "char_4217_makoto": {
+      "bonds": [
+        "lateranoShip"
+      ],
+      "powers": [
+        "laterano"
+      ]
+    }
+  },
+  "art": {
+    "chars": {
+      "char_4217_makoto": {
+        "avatar": "char/avatar/char_4217_makoto.png",
+        "avatarE2": "char/avatar/char_4217_makoto_2.png",
+        "portrait": "char/portrait/char_4217_makoto_1.png",
+        "portraitE2": "char/portrait/char_4217_makoto_2.png",
+        "spine": {
+          "front": {
+            "skel": "spine/op/char_4217_makoto/front/char_4217_makoto.skel",
+            "atlas": "spine/op/char_4217_makoto/front/char_4217_makoto.atlas",
+            "textures": [
+              "spine/op/char_4217_makoto/front/char_4217_makoto.png"
+            ],
+            "anims": {
+              "idle": "Idle",
+              "deploy": "Start",
+              "attack": {
+                "begin": null,
+                "loop": "Attack_A",
+                "end": null,
+                "via": "attackAny"
+              },
+              "attackDown": null,
+              "skill": {
+                "begin": null,
+                "loop": "Doll_Skill_2_Loop",
+                "end": null,
+                "via": "attack",
+                "index": 0,
+                "idle": null
+              },
+              "die": null,
+              "move": null,
+              "stun": "Stun",
+              "skills": {
+                "0": {
+                  "begin": null,
+                  "loop": "Doll_Skill_1_Idle",
+                  "end": null,
+                  "via": "attack",
+                  "index": 0,
+                  "idle": null
+                },
+                "1": {
+                  "begin": null,
+                  "loop": "Doll_Skill_2_Loop",
+                  "end": null,
+                  "via": "attack",
+                  "index": 1,
+                  "idle": null
+                },
+                "2": {
+                  "begin": null,
+                  "loop": "Doll_Skill_3_P1_Idle",
+                  "end": null,
+                  "via": "attack",
+                  "index": 2,
+                  "idle": null
+                }
+              }
+            }
+          },
+          "back": {
+            "skel": "spine/op/char_4217_makoto/back/char_4217_makoto.skel",
+            "atlas": "spine/op/char_4217_makoto/back/char_4217_makoto.atlas",
+            "textures": [
+              "spine/op/char_4217_makoto/back/char_4217_makoto.png"
+            ],
+            "anims": {
+              "idle": "Idle",
+              "deploy": "Start",
+              "attack": {
+                "begin": null,
+                "loop": "Attack_A",
+                "end": null,
+                "via": "attackAny"
+              },
+              "attackDown": null,
+              "skill": {
+                "begin": null,
+                "loop": "Doll_Skill_2_Loop",
+                "end": null,
+                "via": "attack",
+                "index": 0,
+                "idle": null
+              },
+              "die": null,
+              "move": null,
+              "stun": null,
+              "skills": {
+                "0": {
+                  "begin": null,
+                  "loop": "Doll_Skill_1_Idle",
+                  "end": null,
+                  "via": "attack",
+                  "index": 0,
+                  "idle": null
+                },
+                "1": {
+                  "begin": null,
+                  "loop": "Doll_Skill_2_Loop",
+                  "end": null,
+                  "via": "attack",
+                  "index": 1,
+                  "idle": null
+                },
+                "2": {
+                  "begin": null,
+                  "loop": "Doll_Skill_3_P1_Idle",
+                  "end": null,
+                  "via": "attack",
+                  "index": 2,
+                  "idle": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tokens": {
+      "token_makoto_orpheus": {
+        "owner": "char_4217_makoto",
+        "avatar": "token/avatar/token_makoto_orpheus.png"
+      },
+      "token_makoto_thanatos": {
+        "owner": "char_4217_makoto",
+        "avatar": "token/avatar/token_makoto_thanatos.png"
+      }
+    },
+    "skills": {
+      "skchr_makoto_1": "skill/skchr_makoto_1.png",
+      "skchr_makoto_2": "skill/skchr_makoto_2.png",
+      "skchr_makoto_3": "skill/skchr_makoto_3.png"
+    },
+    "profSub": {
+      "dollkeeper": "prof/sub/dollkeeper.png"
+    }
+  },
+  "skins": [
+    {
+      "id": "makoto_p3r",
+      "charId": "char_4217_makoto",
+      "name": "Persona 3 Reload",
+      "series": "联动",
+      "art": {
+        "avatar": "char/skin/char_4217_makoto_p3r.png",
+        "avatarE2": "char/skin/char_4217_makoto_p3r_1.png",
+        "portrait": "char/skin_portrait_shop/char_4217_makoto_p3r_1.png",
+        "spine": {
+          "front": {
+            "skel": "spine/op/char_4217_makoto/char_4217_makoto_p3r_1/front/char_4217_makoto_p3r_1.skel",
+            "atlas": "spine/op/char_4217_makoto/char_4217_makoto_p3r_1/front/char_4217_makoto_p3r_1.atlas",
+            "textures": [
+              "spine/op/char_4217_makoto/char_4217_makoto_p3r_1/front/char_4217_makoto_p3r_1.png"
+            ],
+            "anims": {
+              "idle": "Idle",
+              "deploy": "Start",
+              "attack": {
+                "begin": null,
+                "loop": "Attack_A",
+                "end": null,
+                "via": "attackAny"
+              },
+              "attackDown": null,
+              "skill": {
+                "begin": null,
+                "loop": "Doll_Skill_2_Loop",
+                "end": null,
+                "via": "attack",
+                "index": 0,
+                "idle": null
+              },
+              "die": null,
+              "move": null,
+              "stun": "Stun",
+              "skills": {
+                "0": {
+                  "begin": null,
+                  "loop": "Doll_Skill_1_Idle",
+                  "end": null,
+                  "via": "attack",
+                  "index": 0,
+                  "idle": null
+                },
+                "1": {
+                  "begin": null,
+                  "loop": "Doll_Skill_2_Loop",
+                  "end": null,
+                  "via": "attack",
+                  "index": 1,
+                  "idle": null
+                },
+                "2": {
+                  "begin": null,
+                  "loop": "Doll_Skill_3_P1_Idle",
+                  "end": null,
+                  "via": "attack",
+                  "index": 2,
+                  "idle": null
+                }
+              }
+            }
+          },
+          "back": {
+            "skel": "spine/op/char_4217_makoto/char_4217_makoto_p3r_1/back/char_4217_makoto_p3r_1.skel",
+            "atlas": "spine/op/char_4217_makoto/char_4217_makoto_p3r_1/back/char_4217_makoto_p3r_1.atlas",
+            "textures": [
+              "spine/op/char_4217_makoto/char_4217_makoto_p3r_1/back/char_4217_makoto_p3r_1.png"
+            ],
+            "anims": {
+              "idle": "Idle",
+              "deploy": "Start",
+              "attack": {
+                "begin": null,
+                "loop": "Attack_A",
+                "end": null,
+                "via": "attackAny"
+              },
+              "attackDown": null,
+              "skill": {
+                "begin": null,
+                "loop": "Doll_Skill_2_Loop",
+                "end": null,
+                "via": "attack",
+                "index": 0,
+                "idle": null
+              },
+              "die": null,
+              "move": null,
+              "stun": null,
+              "skills": {
+                "0": {
+                  "begin": null,
+                  "loop": "Doll_Skill_1_Idle",
+                  "end": null,
+                  "via": "attack",
+                  "index": 0,
+                  "idle": null
+                },
+                "1": {
+                  "begin": null,
+                  "loop": "Doll_Skill_2_Loop",
+                  "end": null,
+                  "via": "attack",
+                  "index": 1,
+                  "idle": null
+                },
+                "2": {
+                  "begin": null,
+                  "loop": "Doll_Skill_3_P1_Idle",
+                  "end": null,
+                  "via": "attack",
+                  "index": 2,
+                  "idle": null
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "forms": {
+    "chars": {
+      "char_4217_makoto": {
+        "doll1": {
+          "change": "Doll_Skill_1_SwitchIn",
+          "leave": "Doll_Skill_1_SwitchOut",
+          "roles": {
+            "idle": "Doll_Skill_1_Idle",
+            "deploy": "Doll_Skill_1_Idle",
+            "die": "Doll_Skill_1_Die",
+            "move": {
+              "begin": null,
+              "loop": "Doll_Skill_1_Idle",
+              "end": null
+            },
+            "attack": {
+              "begin": null,
+              "loop": "Doll_Skill_1_Attack",
+              "end": null,
+              "via": "attackAny"
+            },
+            "skill": {
+              "begin": null,
+              "loop": "Doll_Skill_1_Attack",
+              "end": null,
+              "via": "attack"
+            }
+          }
+        },
+        "doll2": {
+          "change": "Doll_Skill_2_SwitchIn",
+          "leave": "Doll_Skill_2_SwitchOut",
+          "roles": {
+            "idle": "Doll_Skill_2_Loop",
+            "deploy": "Doll_Skill_2_Loop",
+            "die": "Doll_Skill_2_Die",
+            "move": {
+              "begin": null,
+              "loop": "Doll_Skill_2_Loop",
+              "end": null
+            },
+            "attack": null,
+            "skill": null
+          }
+        },
+        "doll3p1": {
+          "change": "Doll_Skill_3_P1_SwitchIn",
+          "leave": "Doll_Skill_3_P1_SwitchOut",
+          "end": "Doll_Skill_3_P1toP2_ChangeEnd",
+          "next": "doll3p2",
+          "roles": {
+            "idle": "Doll_Skill_3_P1_Idle",
+            "deploy": "Doll_Skill_3_P1_Idle",
+            "die": "Doll_Skill_3_P2_Die",
+            "move": {
+              "begin": null,
+              "loop": "Doll_Skill_3_P1_Idle",
+              "end": null
+            },
+            "attack": {
+              "begin": null,
+              "loop": "Doll_Skill_3_P1_Attack_A",
+              "end": null,
+              "via": "attackAny"
+            },
+            "skill": {
+              "begin": null,
+              "loop": "Doll_Skill_3_P1_Attack_A",
+              "end": null,
+              "via": "attack"
+            }
+          }
+        },
+        "doll3p2": {
+          "change": "Doll_Skill_3_P1toP2_ChangeEnd",
+          "leave": "Doll_Skill_3_P2_SwitchOut",
+          "roles": {
+            "idle": "Doll_Skill_3_P2_Loop",
+            "deploy": "Doll_Skill_3_P2_Loop",
+            "die": "Doll_Skill_3_P2_Die",
+            "move": {
+              "begin": null,
+              "loop": "Doll_Skill_3_P2_Loop",
+              "end": null
+            },
+            "attack": null,
+            "skill": null
+          }
+        }
+      }
+    }
+  }
+}
