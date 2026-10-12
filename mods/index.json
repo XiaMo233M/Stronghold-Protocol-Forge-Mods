@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-12T06:52:01.451Z",
+  "generatedAt": "2026-10-12T07:43:08.490Z",
   "source": {
     "stage": "E:\\destop\\harness_1\\_up\\modrepo-stage",
     "host": null,
@@ -16,6 +16,42 @@
   "note": "本索引是 mod 仓库的唯一真相；每条字段都实测（sha256 重算、装载调用引擎那一份）。`fileCount` 是 ZIP 条目数，不等于包内实际文件数（`.spresources` 容器内部另有若干文件）。",
   "mods": [
     {
+      "id": "ave-mujica",
+      "name": "颂乐人偶",
+      "version": "1.1.0",
+      "sha256": "6a09a3cb39a2f0caacaaa055fdc1216473c234ef554ff067020c59e8e36fc06c",
+      "packHash": "7ea8882a81438b701ca5caf123b60e420b344bb9b5345a01f42febd2f4b4a198",
+      "category": "functional",
+      "categoryWhy": "声明了 content / overrides",
+      "stationId": "5a05ef99d82e",
+      "path": "mods/ave-mujica/1.1.0/mod.zip",
+      "sizeBytes": 18777089,
+      "fileCount": 179,
+      "unpackedBytes": 18746613,
+      "assets": {
+        "assetFree": false,
+        "count": 167,
+        "bytes": 18600571,
+        "byKind": {
+          "audio": 70,
+          "spine": 36,
+          "image": 61
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：167 个文件 / 18600571 B（{\"audio\":70,\"spine\":36,\"image\":61}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "ave-mujica"
+        ],
+        "errors": [],
+        "layer": "B",
+        "combat": true
+      }
+    },
+    {
       "id": "boss-fixed-pool",
       "name": "领袖固定血量（0.1.x 口径）",
       "version": "1.0.0",
@@ -28,6 +64,16 @@
       "sizeBytes": 8382,
       "fileCount": 5,
       "unpackedBytes": 13580,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "boss-fixed-pool"
@@ -50,6 +96,16 @@
       "sizeBytes": 15627,
       "fileCount": 10,
       "unpackedBytes": 30294,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "capacity-panel"
@@ -72,6 +128,16 @@
       "sizeBytes": 10276,
       "fileCount": 6,
       "unpackedBytes": 16110,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "cdn-source"
@@ -94,12 +160,65 @@
       "sizeBytes": 33198,
       "fileCount": 6,
       "unpackedBytes": 32558,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "dmg-board"
         ],
         "errors": [],
         "layer": "C",
+        "combat": false
+      }
+    },
+    {
+      "id": "duel-assets",
+      "name": "争锋频道 · 素材容器（客户端导出 · 非商业）",
+      "version": "0.1.0",
+      "sha256": "7103a1ca56c8bd8c72a1f33ad41dc999c6939fde462a641436ff8c0741424928",
+      "packHash": "0c4c7b3f2833e4e8d5ac1ca2805696d9922e16d33eddc8149d8315d98704b7b5",
+      "category": "functional",
+      "categoryWhy": "声明了 assets",
+      "stationId": "05c6dd5c5844",
+      "path": "mods/duel-assets/0.1.0/mod.zip",
+      "sizeBytes": 25226848,
+      "fileCount": 4,
+      "unpackedBytes": 45310114,
+      "assets": {
+        "assetFree": false,
+        "count": 102,
+        "bytes": 6028468,
+        "byKind": {},
+        "containers": [
+          {
+            "name": "packs/duel-resources.spresources",
+            "ok": true,
+            "fileCount": 218,
+            "byKind": {
+              "audio": 21,
+              "image": 81
+            }
+          }
+        ]
+      },
+      "notes": [
+        "单条目超过引擎默认 zip 读取上限（32 MB）⇒ **引擎自带的包导入路径会拒收**（站点侧读取器无此上限，两条路结论不同）：packs/duel-resources.spresources 45278897 B",
+        "⚠️ **含素材**：102 个文件 / 6028468 B（{}；容器 packs/duel-resources.spresources 内部 102 个）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "duel-assets"
+        ],
+        "errors": [],
+        "layer": "A",
         "combat": false
       }
     },
@@ -116,6 +235,16 @@
       "sizeBytes": 7919,
       "fileCount": 5,
       "unpackedBytes": 12736,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "duel-copy"
@@ -138,6 +267,16 @@
       "sizeBytes": 19396,
       "fileCount": 10,
       "unpackedBytes": 205845,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "duel-data"
@@ -160,6 +299,16 @@
       "sizeBytes": 29564,
       "fileCount": 4,
       "unpackedBytes": 150468,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "duel-fighter"
@@ -182,6 +331,16 @@
       "sizeBytes": 7481,
       "fileCount": 5,
       "unpackedBytes": 13254,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "duel-mode"
@@ -204,6 +363,16 @@
       "sizeBytes": 7872,
       "fileCount": 5,
       "unpackedBytes": 12834,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "duel-panel"
@@ -211,6 +380,40 @@
         "errors": [],
         "layer": "C",
         "combat": false
+      }
+    },
+    {
+      "id": "fanpack-skillful-items",
+      "name": "灵巧盟约装备",
+      "version": "1.0.0",
+      "sha256": "70c903f3fa3336dfd0c9531b26ff4942de24330e31eb96bdf5a282f1663de24b",
+      "packHash": "6c894a9275268f3f7eee4448eb9a2346bcd76c86e379a64906baad77115558fc",
+      "category": "functional",
+      "categoryWhy": "声明了 content",
+      "stationId": "d708048043d2",
+      "path": "mods/fanpack-skillful-items/1.0.0/mod.zip",
+      "sizeBytes": 183304,
+      "fileCount": 5,
+      "unpackedBytes": 190524,
+      "assets": {
+        "assetFree": false,
+        "count": 1,
+        "bytes": 175087,
+        "byKind": {
+          "image": 1
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：1 个文件 / 175087 B（{\"image\":1}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "fanpack-skillful-items"
+        ],
+        "errors": [],
+        "layer": "C",
+        "combat": true
       }
     },
     {
@@ -226,12 +429,57 @@
       "sizeBytes": 12738,
       "fileCount": 8,
       "unpackedBytes": 23289,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "healthz-ext"
         ],
         "errors": [],
         "layer": "C",
+        "combat": false
+      }
+    },
+    {
+      "id": "makoto-yuki",
+      "name": "结城理（Persona 3 Reload）",
+      "version": "1.0.1",
+      "sha256": "3873c55cf62f8ea4f573be5a7d4d2ebc809a6b3e1ba0e0e1e76224d6f565fbe1",
+      "packHash": "3faefcf2e5a57e977ad7ca39b6ec0f116f9333deb446c71ca0e1712da1e5e6c5",
+      "category": "functional",
+      "categoryWhy": "声明了 content",
+      "stationId": "49e807b1b5b0",
+      "path": "mods/makoto-yuki/1.0.1/mod.zip",
+      "sizeBytes": 8666623,
+      "fileCount": 30,
+      "unpackedBytes": 8661403,
+      "assets": {
+        "assetFree": false,
+        "count": 25,
+        "bytes": 8584477,
+        "byKind": {
+          "image": 17,
+          "spine": 8
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：25 个文件 / 8584477 B（{\"image\":17,\"spine\":8}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "makoto-yuki"
+        ],
+        "errors": [],
+        "layer": "A",
         "combat": false
       }
     },
@@ -248,6 +496,16 @@
       "sizeBytes": 187587,
       "fileCount": 14,
       "unpackedBytes": 186081,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "mod-xie"
@@ -270,6 +528,16 @@
       "sizeBytes": 63524,
       "fileCount": 8,
       "unpackedBytes": 233182,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "name-guard"
@@ -292,6 +560,16 @@
       "sizeBytes": 11965,
       "fileCount": 5,
       "unpackedBytes": 24511,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "net-panel"
@@ -314,6 +592,16 @@
       "sizeBytes": 11348,
       "fileCount": 6,
       "unpackedBytes": 19176,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "notice-board"
@@ -336,12 +624,56 @@
       "sizeBytes": 32234,
       "fileCount": 5,
       "unpackedBytes": 31694,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "perf-lite"
         ],
         "errors": [],
         "layer": "C",
+        "combat": false
+      }
+    },
+    {
+      "id": "skin-catalogue",
+      "name": "时装目录（皮肤数据）",
+      "version": "1.0.0",
+      "sha256": "b13ebe2ee56ca36ff281011c888d163fdc5d33406f46c9c6ff722ff103de6970",
+      "packHash": "90ae041e5296f6a5b4598fdb3ef855ff2f8dff0c10dfac2211a6555ed0276552",
+      "category": "functional",
+      "categoryWhy": "声明了 content",
+      "stationId": "b14d1ec72576",
+      "path": "mods/skin-catalogue/1.0.0/mod.zip",
+      "sizeBytes": 6883192,
+      "fileCount": 10,
+      "unpackedBytes": 6881874,
+      "assets": {
+        "assetFree": false,
+        "count": 4,
+        "bytes": 6790298,
+        "byKind": {
+          "image": 4
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：4 个文件 / 6790298 B（{\"image\":4}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "skin-catalogue"
+        ],
+        "errors": [],
+        "layer": "A",
         "combat": false
       }
     },
@@ -358,6 +690,16 @@
       "sizeBytes": 61503,
       "fileCount": 6,
       "unpackedBytes": 60857,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "skin-picker"
@@ -380,6 +722,16 @@
       "sizeBytes": 24663,
       "fileCount": 5,
       "unpackedBytes": 24115,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "srv-notice"
@@ -402,6 +754,16 @@
       "sizeBytes": 24498,
       "fileCount": 6,
       "unpackedBytes": 59924,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "strawberry-ui"
@@ -424,6 +786,16 @@
       "sizeBytes": 4155,
       "fileCount": 2,
       "unpackedBytes": 3937,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "theme-night"
@@ -446,6 +818,16 @@
       "sizeBytes": 21774,
       "fileCount": 6,
       "unpackedBytes": 21088,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
       "engineLoad": {
         "packsLoaded": [
           "ws-compression-reference"
@@ -456,66 +838,5 @@
       }
     }
   ],
-  "rejected": [
-    {
-      "stationId": "05c6dd5c5844",
-      "packId": "duel-assets",
-      "name": "争锋频道 · 素材容器（客户端导出 · 非商业）",
-      "gates": [
-        {
-          "gate": "unzip",
-          "ok": false,
-          "why": "ZIP_ENTRY_TOO_LARGE：\"packs/duel-resources.spresources\" declares 45278897 bytes, over the 33554432 byte per-file cap"
-        }
-      ]
-    },
-    {
-      "stationId": "49e807b1b5b0",
-      "packId": "makoto-yuki",
-      "name": "结城理（Persona 3 Reload）",
-      "gates": [
-        {
-          "gate": "assets",
-          "ok": false,
-          "why": "命中 25 个素材文件 / 8584477 B（{\"image\":17,\"spine\":8}）"
-        }
-      ]
-    },
-    {
-      "stationId": "5a05ef99d82e",
-      "packId": "ave-mujica",
-      "name": "颂乐人偶",
-      "gates": [
-        {
-          "gate": "assets",
-          "ok": false,
-          "why": "命中 167 个素材文件 / 18600571 B（{\"audio\":70,\"spine\":36,\"image\":61}）"
-        }
-      ]
-    },
-    {
-      "stationId": "b14d1ec72576",
-      "packId": "skin-catalogue",
-      "name": "时装目录（皮肤数据）",
-      "gates": [
-        {
-          "gate": "assets",
-          "ok": false,
-          "why": "命中 4 个素材文件 / 6790298 B（{\"image\":4}）"
-        }
-      ]
-    },
-    {
-      "stationId": "d708048043d2",
-      "packId": "fanpack-skillful-items",
-      "name": "灵巧盟约装备",
-      "gates": [
-        {
-          "gate": "assets",
-          "ok": false,
-          "why": "命中 1 个素材文件 / 175087 B（{\"image\":1}）"
-        }
-      ]
-    }
-  ]
+  "rejected": []
 }

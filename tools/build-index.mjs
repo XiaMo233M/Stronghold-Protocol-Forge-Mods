@@ -12,17 +12,19 @@
 // 装成哪一层，全部由**引擎自己的装载器**决定 —— 所以这里一律调用引擎那一份（`loadWorkshop`），
 // 不在本仓库重写校验（AGENTS.md §3「不抄规则」）。索引里每个字段都**实测**得来，抄来的值一律核过。
 //
-// 五道硬闸门（不满足就不入库，**报出来等人判**，绝不自己挑）：
+// 四道硬闸门（不满足就不入库，**报出来等人判**，绝不自己挑）：
 //   1. 装得上       引擎装载器：`packsLoaded` 恰好 `[packId]` 且 `errors=0`
 //   2. 字节没走样   `mod.zip` 重算的 sha256 == manifest 里的值
 //   3. 不是说明包   `category !== 'documentation'`（业主口径：只收非说明文档）
-//   4. **不含游戏素材**  本仓库的**素材红线**（AGENTS.md §3 第 1 条 / §4 收录闸门第 4 条）：
-//                  不提交任何《明日方舟》游戏素材。按扩展名清点 zip 内与 `.spresources`
-//                  容器**内部**的图片 / 音频 / 字体 / Spine 图集 ⇒ 命中即**不入库**。
-//   5. 元数据齐     `pack.json` 能读出来、`id` 与包内目录名一致
+//   4. 元数据齐     `pack.json` 能读出来、`id` 与包内目录名一致
 //
-// ⚠️ 第 4 条为什么要连容器一起看：`.spresources` 是**不透明容器**，从 zip 层只看得到一个条目，
-// 里面可能装着 218 个官方素材文件 —— 只看 zip 条目名会**整批漏过**。所以这里解析容器头
+// **素材不再拦，改为如实标注**（业主 2026-10-12：「以后不用打回所有有敏感素材的 mod，
+// 如实上传并做到标注好含官方素材就行」）⇒ 工具按扩展名清点 zip 内**与 `.spresources`
+// 容器内部**的图片 / 音频 / 字体 / Spine，把结果写进 `index.json` 与 `PROVENANCE.md`，
+// 由下载者与审核者自己看见。挡不挡是业主的事，工具只负责**说出来**。
+//
+// ⚠️ 为什么要连容器一起看：`.spresources` 是**不透明容器**，从 zip 层只看得到一个条目，
+// 里面可能装着 218 个素材文件 —— 只看 zip 条目名会**整批漏过**。所以这里解析容器头
 // （`SPRES001` + uint32 小端 headerLen + 压缩 JSON 头，头里有 `manifest.files[]`）再清点一次。
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, statSync, copyFileSync } from 'node:fs';
 import { dirname, join, resolve, extname, relative, sep } from 'node:path';
@@ -133,7 +135,7 @@ const rejected = [];
 for (const m of modsIn) {
   const stationId = m.id;
   const zipPath = join(stage, 'mods', stationId, 'mod.zip');
-  const rec = { stationId, packId: m.packId ?? null, name: m.name ?? null, gates: [], ok: false };
+  const rec = { stationId, packId: m.packId ?? null, name: m.name ?? null, gates: [], notes: [], ok: false };
   if (!existsSync(zipPath)) { rec.gates.push({ gate: 'zip', ok: false, why: `缺 ${zipPath}` }); rejected.push(rec); continue; }
 
   const buf = readFileSync(zipPath);
@@ -143,13 +145,20 @@ for (const m of modsIn) {
   rec.gates.push({ gate: 'sha256', ok: shaOk, why: shaOk ? '与 manifest 一致' : `manifest=${m.sha256} 实测=${sha256}` });
   if (!shaOk) { rejected.push(rec); continue; }
 
-  // 解 zip（引擎那一份读取器：`{ok:true, entries:[{name,data}], skippedDirs}` 或 `{ok:false, error, detail}`）
+  // 解 zip（引擎那一份读取器）。
+  // ⚠️ 这里**放宽读取上限**（引擎默认 `ZIP_MAX_FILE_BYTES = 32 MB`）：那是引擎给**运行时导入**设的
+  // zip 炸弹防线，而本工具读的是**站上已经过审**的那一份，且只读不执行。放宽的后果要如实记下来 ——
+  // 单条目超过引擎默认上限的包，**引擎自带的包导入路径会拒收它**（编辑器「包管理」/
+  // `tools/workshop-pack.mjs import`），而站点侧读取器没有这个上限 ⇒ 两条路结论不同。这一条进 `notes`。
+  const READ_LIMITS = { maxEntries: 8192, maxTotalBytes: 512 * 1024 * 1024, maxFileBytes: 256 * 1024 * 1024 };
   let entries;
   try {
-    const read = engineZip.zipRead(buf);
+    const read = engineZip.zipRead(buf, READ_LIMITS);
     if (!read?.ok) { rec.gates.push({ gate: 'unzip', ok: false, why: `${read?.error ?? 'zipRead 失败'}：${read?.detail ?? ''}` }); rejected.push(rec); continue; }
     entries = read.entries;
   } catch (e) { rec.gates.push({ gate: 'unzip', ok: false, why: e.message }); rejected.push(rec); continue; }
+  const overEngineCap = entries.filter((e) => (e.data?.length ?? 0) > 32 * 1024 * 1024).map((e) => `${String(e.name).split('\\').join('/')} ${e.data.length} B`);
+  if (overEngineCap.length) rec.notes.push(`单条目超过引擎默认 zip 读取上限（32 MB）⇒ **引擎自带的包导入路径会拒收**（站点侧读取器无此上限，两条路结论不同）：${overEngineCap.join(' · ')}`);
 
   // 找 pack.json：zip 根优先，否则唯一顶层目录（引擎两种都收）
   const norm = (n) => n.split('\\').join('/').replace(/^\.\//, '');
@@ -187,14 +196,14 @@ for (const m of modsIn) {
   const innerCount = containers.reduce((a, c) => a + Object.values(c.byKind ?? {}).reduce((x, y) => x + y, 0), 0);
   const assetBytes = zipTally.bytes + innerBytes;
   const assetCount = Object.values(zipTally.byKind).reduce((a, b) => a + b, 0) + innerCount;
-  const assetOk = assetBytes === 0 && assetCount === 0;
-  rec.assets = { zip: zipTally, containers, assetCount, assetBytes };
-  rec.gates.push({
-    gate: 'assets',
-    ok: assetOk,
-    why: assetOk ? 'zip 内与容器内部都没有图片/音频/字体/Spine' :
-      `命中 ${assetCount} 个素材文件 / ${assetBytes} B（${JSON.stringify(zipTally.byKind)}${containers.filter((c) => c.ok).map((c) => ` + 容器 ${c.name} 内部 ${Object.values(c.byKind).reduce((a, b) => a + b, 0)} 个`).join('')}）`,
-  });
+  // ── 素材清点：**不再拦，改为如实标注**（业主 2026-10-12 口径：「以后不用打回所有有敏感素材的
+  //    mod，如实上传并做到标注好含官方素材就行」）。清点结果进索引与 PROVENANCE.md，
+  //    由下载者与审核者自己看见 —— 挡不挡是业主的事，工具只负责**说出来**。
+  const assetFree = assetBytes === 0 && assetCount === 0;
+  rec.assets = { assetFree, zip: zipTally, containers, assetCount, assetBytes };
+  rec.notes.push(assetFree
+    ? '素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。'
+    : `⚠️ **含素材**：${assetCount} 个文件 / ${assetBytes} B（${JSON.stringify(zipTally.byKind)}${containers.filter((c) => c.ok).map((c) => `；容器 ${c.name} 内部 ${Object.values(c.byKind).reduce((a, b) => a + b, 0)} 个`).join('')}）⇒ 须在页面上标注来源与授权。`);
 
   // category（实测）
   const cat = categoryOf(packJson, entries);
@@ -252,9 +261,17 @@ const index = {
     category: r.category, categoryWhy: r.categoryWhy,
     stationId: r.stationId, path: r.path,
     sizeBytes: r.sizeBytes, fileCount: r.fileCount, unpackedBytes: r.unpackedBytes,
+    assets: {
+      assetFree: r.assets.assetFree,
+      count: r.assets.assetCount,
+      bytes: r.assets.assetBytes,
+      byKind: r.assets.zip.byKind,
+      containers: r.assets.containers.map((c) => ({ name: c.name, ok: c.ok, fileCount: c.fileCount ?? null, byKind: c.byKind ?? null })),
+    },
+    notes: r.notes,
     engineLoad: r.load,
   })).sort((a, b) => a.id.localeCompare(b.id)),
-  rejected: rejected.map((r) => ({ stationId: r.stationId, packId: r.packId, name: r.name, gates: r.gates.filter((g) => !g.ok) })),
+  rejected: rejected.map((r) => ({ stationId: r.stationId, packId: r.packId, name: r.name, gates: r.gates.filter((g) => !g.ok), notes: r.notes })),
 };
 
 if (write) {
@@ -290,8 +307,17 @@ function provenanceOf(r) {
 | ⑤ 来源 | 站上记录 \`${r.stationId}\`${m.compatOf ? ` · 由原件 \`${m.compatOf}\` 改写` : ''}${m.source ? ` · ${m.source}` : ''} |
 | ⑥ 改了什么 | ${na(m.compatNote)} |
 
-- 本站/本仓库**不主张**包内任何第三方内容的权利；许可与署名以原件为准。
-- 收录闸门与素材红线见 [AGENTS.md](../AGENTS.md) §3 / §4。
+## 素材与授权（实测清点，业主 2026-10-12 口径：**如实标注**，不因此拦包）
+
+${r.assets.assetFree
+    ? '- 本包**不含**图片 / 音频 / 字体 / Spine 素材（zip 内与 `.spresources` 容器内部都清点过）。'
+    : `- ⚠️ **本包含素材**：共 **${r.assets.assetCount}** 个文件 / **${r.assets.assetBytes}** B。
+- 分类：\`${JSON.stringify(r.assets.zip.byKind)}\`${r.assets.containers.filter((c) => c.ok).length ? `\n- 容器内部：${r.assets.containers.filter((c) => c.ok).map((c) => `\`${c.name}\` ${c.fileCount} 个文件 / \`${JSON.stringify(c.byKind)}\``).join('；')}` : ''}
+- ⚠️ **授权与用途以原件声明为准**；若其中含**从《明日方舟》客户端导出的官方素材**，其版权归**鹰角网络 / Yostar**，
+  **仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**。本仓库与发布者**不主张**这些素材的任何权利。`}
+
+${r.notes.filter((n) => !n.startsWith('素材清点')).length ? `## 其他须知\n\n${r.notes.filter((n) => !n.startsWith('素材清点')).map((n) => `- ${n}`).join('\n')}\n` : ''}
+- 收录闸门见 [AGENTS.md](../AGENTS.md) §4；本文件由 \`tools/build-index.mjs\` 机械生成。
 `;
 }
 
@@ -304,7 +330,8 @@ if (asJson) {
   console.log('');
   console.log(`── 收件 ${accepted.length} / 退件 ${rejected.length}（manifest 共 ${modsIn.length}）`);
   for (const r of accepted) {
-    console.log(`   ✓ ${r.packId} ${r.version}  ${r.category}  层 ${r.load.layer ?? '?'}${r.load.combat ? ' · 会改战斗结果' : ''}  ${r.sizeBytes} B  ${r.name ?? ''}`);
+    const tag = r.assets.assetFree ? '' : `  ⚠️含素材 ${r.assets.assetCount} 个/${r.assets.assetBytes} B`;
+    console.log(`   ✓ ${r.packId} ${r.version}  ${r.category}  层 ${r.load.layer ?? '?'}${r.load.combat ? ' · 会改战斗结果' : ''}  ${r.sizeBytes} B${tag}  ${r.name ?? ''}`);
   }
   for (const r of rejected) {
     console.log(`   ✗ ${r.packId ?? r.stationId}（${r.name ?? ''}）`);
