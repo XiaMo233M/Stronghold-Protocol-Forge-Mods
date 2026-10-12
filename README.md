@@ -121,7 +121,7 @@ mods/
 
 | 文件 | 给谁 | 讲什么 |
 |---|---|---|
-| [SKILL.md](SKILL.md) | **包作者** | 包格式、层、`api` 与 `game`、四个沉默的坑（未知顶层键 / `api` 写成数字 / `content` 没声明 `chess` / 未声明的通道）、`notices` 公告与鸣谢、「有更好的逻辑就用我们的」、面板 `ctx`、署名纪律（含「哪份文件归谁」）、工作流、做不成包的情形、术语约定 |
+| [SKILL.md](SKILL.md) | **包作者** | 包格式、层、`api` 与 `game`、四个沉默的坑（未知顶层键 / `api` 写成数字 / `content` 没声明 `chess` / 未声明的通道）、`notices` 公告与鸣谢、「有更好的逻辑就用我们的」、面板 `ctx`、署名纪律（含「哪份文件归谁」）、工作流、做不成包的情形、术语约定；**§19 引擎这一版新加的接口面**（`behaviour` 四格 / `target` / `dependencies`·`conflicts` / 宿主 lane / mod 登记册，**含「在途」与「还没有」**）与 **§20 今天就能用的老面** |
 | [AGENTS.md](AGENTS.md) | **维护者 / AI agent** | 五条收录闸门（含「带上真实功能」「`combat` 要标注清楚」）、审核站与兼容包发布流程、操作纪律（批准类端点绝不批量调、绝不打印凭据…） |
 
 两份**不重叠**：一份讲怎么写，一份讲怎么审与怎么发。都读的话，先读 SKILL.md。
@@ -180,3 +180,6 @@ node tools/build-index.mjs --stage <站侧导出目录> --engine <引擎检出> 
 | **超大单文件在两条路上都装得上** | 单文件超过引擎默认 zip 读取上限（`shared/zip.js` 的 `ZIP_MAX_FILE_BYTES = 32 MB`）**不再是退件理由** —— 工具会放宽上限收录，并在 `index.json` 的 `notes` 里**如实记下**：引擎自带的包导入路径（编辑器「包管理」/ `workshop-pack.mjs import`）**会拒收它**，而站点侧读取器没有这个上限 ⇒ **两条路结论不同**。 |
 | **说明包上架** | 自述 `documentation-only` / 只读参考的包**不上架**，但**留在待审、不打回**（它的简介是我们做兼容包改写的依据）。 |
 | **本仓库的 agent 连服务器** | 不 `ssh`、不直连服务器做操作；站点上的动作走 [`site/README.md`](site/README.md) 里的管理 API 与隧道（见 [AGENTS.md](AGENTS.md) §3）。 |
+| **在界面上切换一个包的启停** | 引擎**有** mod 登记册（`server/modRegistry.js`）＋ CLI（`tools/workshop-pack.mjs enable` / `disable` / `uninstall` / `rollback`），但**编辑器还没接它** —— 今天看得见启停的只有 CLI、管理器 `list`，以及启动那一行 `[mod-registry] "…" disabled — not loaded`。做法与「两道闸」见 [SKILL.md](SKILL.md) §19.5。 |
+| **`trait.grantsBonds` 这一格（特质 → 叠加盟约层数）** | **在途、未合入**：引擎 `main` 里核不到这一格（没有 `grantsBonds`、没有 §28.49）。今天要这个效果，用**已有的** `server.meta` 自己叠层 —— 写法见 [SKILL.md](SKILL.md) §20.1。 |
+| **`server.modules[].channels`** | **还没有这一格**：`server.modules[]` 的字段闭集只有 `id` / `entry` / `uses` / `write`。包自己的通道走 `client.panels[].messages`（**有**，线上名 `<包 id>.<channel>`），服务端模块那一侧没有对应格。见 [SKILL.md](SKILL.md) §19.6。 |
