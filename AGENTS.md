@@ -32,7 +32,7 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）与维护者在本仓库
 | [`incoming/SOURCE.template.md`](incoming/SOURCE.template.md) | 投稿人 | `SOURCE.md` 的填空模板（五件事） |
 | [site/README.md](site/README.md) | **维护者** | 上传站 / 审核台的整套用法（部署、环境变量、三视图、兼容包发布、备份与更新） |
 | [NOTICE.md](NOTICE.md) | 所有人 | 每个包的来源、署名与许可；非商业声明 |
-| 引擎文档（本仓库只索引） | **所有人** | `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（全部表面）、`docs/design/mod-layer.md`（边界；§28.43–§28.49 是这一版新加的面，其中 **§28.49 `trait.grantsBonds` 已合入 0.18.1、今天能用**，写法与边界见 [SKILL.md](SKILL.md) §19.7） |
+| 引擎文档（本仓库只索引） | **所有人** | `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（全部表面）、`docs/design/mod-layer.md`（边界；§28.43–§28.49 是这一版新加的面，其中 **§28.49 `trait.grantsBonds` 已合入 0.17.0、今天能用**，写法与边界见 [SKILL.md](SKILL.md) §19.7） |
 
 ## 3. 硬规则
 
