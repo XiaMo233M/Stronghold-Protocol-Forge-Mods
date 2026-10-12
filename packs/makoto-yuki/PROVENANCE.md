@@ -20,13 +20,14 @@
 | 1 | `pack.json` 写 **`combat: false`** | **`combat: true`** | 它装上一名**可玩**干员（进自选池、带外观与时装）⇒ **会改对局结果** ⇒ 按业主口径必须标 `true`（`AGENTS.md` §5.1）。不标 = 静默改结果，那正是要消灭的方向 |
 | 2 | **不声明 `forms`** ⇒ `assets.modForms` 为空 | **声明 4 个形态**（`doll1` / `doll2` / `doll3p1` / `doll3p2`），逐字取自原件 `data/forms-entry.js` | 不写 ⇒ **人偶形态渲染不出来**（`doll3p1` 的 `end`/`next` 链是 S3 两段形态的切换）。形状逐字对 `FORM_ROLE_KEYS` 与 `FORM_LOOP_KEYS`：`roles.skill` 只写 `{begin,loop,end,via}`（包通道**不许** `index` / `idle`，那两个是引擎内部 `clipSet` 的字段） |
 | 3 | 其余**一字未改**（`units.json` / `tokens.json` / `assets/**` 共 **27** 个文件 sha256 **全部相同**） | 同 | 逐条比过：**DIFF = 0**（只 `pack.json` 差，差的就是上表两处） |
+| 4 | **战斗 kit 没随包发出**（那份 README 说「kit 挂不上去」） | **补上** `kits/char_4217_makoto.js`（原件 `op-makoto.js` 的函数体 499 行 + helper 77 行**逐行相同**，只换了 import 与默认导出的外壳） | 「挂不上去」是**过期说法**（引擎后来把 `pack.json.operators` 的 charId 收成了合法 kit 目标）；真卡点是**导入白名单**，由引擎侧补再导出解开。逐条见下 |
 
 **原件文本一字未改**：本包不收录原件任何文件。原件 `README.md` 里写死了原作者的本机路径与用户名，**未抄进本包**。
 
-## ⚠ 如实标注：原件里有一节**做不成包**（战斗 kit）
+## 战斗 kit：从「做不成包」到**已收录**（含引擎侧那一刀）
 
 原件带一个战斗 kit：`files/server/sim/content/kits/ops/op-makoto.js`（**48,347 B**，603 行）+ 它的
-helper `files/server/sim/content/kits/shared/mod-tier3.js`（**5,993 B**，98 行）。**本包不含它**，两条原因分开说：
+helper `files/server/sim/content/kits/shared/mod-tier3.js`（**5,993 B**，97 行）。**本包已收录**，做法逐条说清。
 
 **（一）「挂不上去」这条已经不成立（站上成品那份 `README.md` 的说法过期了）。**
 那份 README 写「结城理走自选池，没有任何 chess 记录以 `char_4217_makoto` 为 id ⇒ kit 挂不上去（`KIT_NO_TARGET`）」。
@@ -41,42 +42,52 @@ helper `files/server/sim/content/kits/shared/mod-tier3.js`（**5,993 B**，98 �
 
 ⇒ **目标合法**。所以卡住的**不是**目标。
 
-**（二）真正卡住的是导入白名单：5 个符号 / 15 处，全都够不到。**
+**（二）真卡点是导入白名单 —— 已由引擎侧补再导出解开（业主裁定 (A)）。**
 工坊 kit 只许 import **11 条白名单别名**（`@kit/tier1..6.js`、`@kit/summoner.js`、`@sim/constants.js`、
 `@sim/dir.js`、`@sim/targeting.js`、`@battle/index.js`）或包内 `./…`（**不得含 `..`**）。
 原件那个 kit 用的是引擎内部相对路径，逐条对账：
 
-| 原件 import | 符号 | 调用处 | 白名单里有吗 |
+| 原件 import | 符号 | 调用处 | 走哪条 |
 |---|---|---|---|
 | `../../../constants.js` | `COLS` `PUSH_DIRECTIONAL_MIN_DIST` | — | ✅ `@sim/constants.js` |
 | `../../../targeting.js` | `canTargetEnemy` / `absoluteRangeKeys` `sortEnemyTargets` | — | ✅ `@sim/targeting.js` |
-| `../../../body.js` | `bodyDist` `bodyInKeys` `bodyOnTile` | 6 | ✅ **`@battle/index.js` 已经再导出** |
-| `../../../simdata.js` | `normalizeChess` `normalizeSkill` | 7 | ❌ **11 条白名单一条都够不到** |
-| `../../tokens.js` | `releaseSkillSummon` `TOKEN_IDS` | 4 | ❌ 够不到 |
-| `../../items/battle.js` | `weaknessRetype` | 4 | ❌ 够不到 |
-| `../shared/mod-tier3.js` | 包内 helper | — | ✅ 改成 `./lib/mod-tier3.js`（helper 必须放**子目录**：装载器把 `kits/*.js` 的**直接子文件**都当 kit 读，放同级会得到 `KIT_NO_TARGET`） |
+| `../../../body.js` | `bodyDist` `bodyInKeys` `bodyOnTile` | 6 | ✅ `@battle/index.js`（**本来就有**） |
+| `../../../simdata.js` | `normalizeChess` `normalizeSkill` | 7 | ✅ **引擎侧补再导出**（`@battle/index.js`） |
+| `../../tokens.js` | `releaseSkillSummon` `TOKEN_IDS` `tacticalPoint` | 4 | ✅ 同上 |
+| `../../items/battle.js` | `weaknessRetype` | 4 | ✅ 同上 |
 
-实测把原件 kit 换名搬进来（能换的换别名），装载器报的正是：
+**引擎侧那一刀**（`server/sim/content/support/index.js`，即白名单里的 `@battle/index.js`）：**只增 3 行再导出**
+（`normalizeChess`/`normalizeSkill`、`TOKEN_IDS`/`releaseSkillSummon`/`tacticalPoint`、`weaknessRetype`），
+**不改既有行为、不开新前缀、不动 import map、不动 `test/kitImports.test.js`** —— 把引擎已有的原语交给包的最小改动。
+⚠️ 那一刀让 `@battle/index.js` 与 `items/battle.js` **成环**（后者本来就 import 前者）；安全，因为 `weaknessRetype`
+是**函数声明**、而 `items/battle.js` 只在**函数体**里用前者的导出（顶层零调用），两条边都不会在模块初始化期读到未初始化的绑定。
 
-```
-{ "id": "char_4217_makoto", "code": "KIT_IMPORT",
-  "reason": "import \"../../../body.js\" 不在白名单里：… 白名单：@kit/tier1.js, …, @battle/index.js；也可以用 ./… 开头的相对路径 import 本包 kits/ 下的文件（如 ./lib/util.js）" }
-```
+**（三）包侧两处机械改写（函数体一字未改）。**
 
-⇒ **要带上这个 kit，必须由引擎侧开一条路**（三条候选，**待裁决**）：
-**(A)** 在 `@battle/index.js`（= `server/sim/content/support/index.js`，**已在白名单、两端都服务**）上补再导出那
-**5 个符号** ⇒ 包侧只改 import 行，**不开新前缀、不动 import map、不动 `test/kitImports.test.js`**（**推荐**）；
+| 改了什么 | 为什么 | 证明 |
+|---|---|---|
+| **helper 并进 kit 文件**（不再有 `kits/lib/mod-tier3.js`） | 装载器只对 **kit 文件本身**跑 `rewriteKitImports`；包内相对 import 的辅助文件是用**普通文件 URL** 去 import 的、**不会再被改写**，所以它自己的 `@sim/…` 在服务端解不开（浏览器靠 import map 反而能解）。实测报过 `KIT_IMPORT_FAILED: Cannot find package '@sim/constants.js' imported from …/kits/lib/mod-tier3.js`。并成一个文件后全部 import 走同一趟改写 | helper 定义段 **77 行**，并入前后 sha256 **逐行相同**（`284f375b9120797c`） |
+| **默认导出换成裸函数**（`export default { char_4217_makoto: (bb, chess, def) => … }` → `export default (bb, chess, def) => …`） | 工坊 kit 要**裸函数**（`server/workshop.js:1295` 只认 `typeof mod.default === 'function'`），原件那份是引擎内部的 ops 约定（`content/index.js` 按 charId 键读）。实测报过 `KIT_NO_DEFAULT_EXPORT`。对象里只有这一个键，所以只是去掉外壳 | **函数体 499 行**，改写前后 sha256 **逐行相同**（`fd1d1e824dc5ccd7`） |
+
+⇒ **原件的战斗逻辑一字未改**，只换了「怎么接上引擎」的那几行。
+⚠️ 顺带纠正一条我先前的说法：helper 放 `kits/lib/` 子目录**确实**能避开「被当 kit 读」（装载器只把 `kits/*.js`
+的**直接子文件**当 kit），但**解决不了别名问题** —— 子目录里的文件同样不会被导入改写覆盖，所以最终走的是**并入**。
+
+**（四）曾考虑但没采用的路线（留档）。**
 **(B)** 在 `shared/kitImports.js` 开 3 条新白名单（`simdata.js` / `content/tokens.js` / `content/items/battle.js`）
-—— 更重，且后两个是**内容层**模块（`shared/kitImports.js:89-92` 明写那两个前缀通向的是**战斗里**的东西），与既有纪律冲突；
-**(C)** 改写 kit 绕开 —— 这 5 个是引擎内部的**规范化 / 召唤 / 破甲**原语，包内**没有**等价物，逐条重写等于重实现引擎内部，**不做**。
+—— 否：后两个是**内容层**模块，`shared/kitImports.js:89-92` 明写那两个前缀通向的是**战斗里**的东西，与既有纪律冲突。
+**(C)** 改写 kit 绕开那 5 个符号 —— 否：它们是引擎内部的**规范化 / 召唤 / 破甲**原语，包内**没有**等价物，
+逐条重写等于重实现引擎内部。
 
-**本包不声称做了这一件。** 等引擎侧开了路，补 `kits/char_4217_makoto.js` + `kits/lib/mod-tier3.js` 即可，
-其余**一个字节都不用动**。
+**不声称的**：没有在真实对局里逐条核对过这名干员的战斗数值。本包做的是**装载验证**：
+`loadWorkshop` `errors: 0` · `loadWorkshopKits` `errors: 0`、`loaded: char_4217_makoto`、模块 URL 已登记
+（`/workshop-kits/makoto-yuki/char_4217_makoto.js`）。
 
 ## 未核到 / 未测
 
 - **未核到**：原件 `b65c7f9320ca` 的 `mod.zip` **sha256**（本地只有解开的分析副本，没有那个 zip）。
 - **未核到**：原件是否声明过 `game` / `gameVersion`（原件是覆盖式安装脚本，`install.mjs` 里写的是上游 `0.2.2`；
   本包**不声明** `game`）。
-- **未测**：没有在真实对局里打过这名干员（本包只做**装载验证**：一包一根单独装载 `errors=0` +
-  `diy.ownedPool` / `assets.modForms` / `assets.chars.spine` 三处落点都实测过）。
+- **未测**：没有在真实对局里打过这名干员（本包只做**装载验证**：一包一根单独装载 `loadWorkshop` `errors=0` +
+  `loadWorkshopKits` `errors=0`、`loaded: char_4217_makoto` + `diy.ownedPool` / `diy.operators` /
+  `units.forms` / `assets.modForms` / `assets.chars.spine` / `assets.skins` 六处落点都实测过）。

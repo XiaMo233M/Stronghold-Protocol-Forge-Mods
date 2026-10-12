@@ -35,7 +35,7 @@
 
 | 包 | 形态 | 它改了什么 |
 |---|---|---|
-| [`makoto-yuki/`](makoto-yuki) | `content`（`units` + `tokens`）+ `operators`（进自选池）+ `art` + `skins` + `forms` | 结城理（`char_4217_makoto`，6★ SPECIAL / 傀儡师 `dollkeeper`）进**自选池**，带立绘 / 头像 / 模型（正背面 Spine）/ 技能与分支图标、一套联动时装 `makoto_p3r`、以及 **4 个人偶形态**（`doll1` / `doll2` / `doll3p1` / `doll3p2`）。**由站上成品记录 `49e807b1b5b0` 对齐改写而来**：`combat: false → true`、补 `forms`（原件 `data/forms-entry.js` 的 4 个形态）—— **27 个文件逐条 sha256 相同，只 `pack.json` 差这两处**。⚠️ 原件的**战斗 kit 未随包发出**（工坊 kit 的导入白名单够不到 5 个符号），逐条写在它的 `PROVENANCE.md`「如实标注」一节 |
+| [`makoto-yuki/`](makoto-yuki) | `content`（`units` + `tokens`）+ `operators`（进自选池）+ `art` + `skins` + `forms` + `kits/` | 结城理（`char_4217_makoto`，6★ SPECIAL / 傀儡师 `dollkeeper`）进**自选池**，带立绘 / 头像 / 模型（正背面 Spine）/ 技能与分支图标、一套联动时装 `makoto_p3r`、**4 个人偶形态**（`doll1` / `doll2` / `doll3p1` / `doll3p2`），以及**他的战斗 kit**（原件 `op-makoto.js` 的函数体 499 行 + helper 77 行**逐行相同**，只换了 import 与默认导出的外壳）。**由站上成品记录 `49e807b1b5b0` 对齐改写而来**：`combat: false → true`、补 `forms`、补 `kits/char_4217_makoto.js` —— **27 个文件逐条 sha256 相同，`pack.json` 差那两处，`kits/` 那一份是本包新增**（站上那份没发出来） |
 
 > **站上已发布的包是另一份清单**（存在站点的数据目录里；站上**全部**已通过的成品镜像在
 > [`../mods/`](../mods/README.md)，由 `tools/build-index.mjs` 生成）—— 本仓库的 `packs/` 只收
@@ -43,8 +43,9 @@
 >
 > ⚠️ **要「字节级就是站上那份」，请用 [`../mods/<包 id>/<版本>/mod.zip`](../mods/README.md)**（那份是
 > **不透明 zip**，换行不会被改，`index.json` 里还有它的 sha256）。这里放的是**解开的文件**：搬进来时逐条比对过
-> sha256（第一批 14 个文件、第二批 16 个文件、第三批 27 个文件 —— **全部相同**；第三批只 `pack.json` 差，
-> 差的是它的 `PROVENANCE.md` 逐条写明的那两处），但 git 的换行归一化（`core.autocrlf`）会让**仓库里
+> sha256（第一批 14 个文件、第二批 16 个文件、第三批 27 个文件 —— **全部相同**；第三批另有两处不同，
+> 都是它的 `PROVENANCE.md` 逐条写明的：`pack.json` 差 `combat` 与 `forms` 那两处，`kits/char_4217_makoto.js`
+> 是**本包新增**的、站上那份没发出来），但 git 的换行归一化（`core.autocrlf`）会让**仓库里
 > 存的那一份**与站上 zip 差几个字节 —— `cdn-source` 那三个 CRLF 文件就是这种情况（这与 `mods/README.md`「为什么
 > 不把 zip 解开」是同一条理由）。
 
