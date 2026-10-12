@@ -1,0 +1,21 @@
+{
+  "id": "theme-night",
+  "name": "夜间高对比主题",
+  "version": "1.0.0",
+  "author": "jingjiangze",
+  "description": "把引擎的调色板变量换成夜间高对比一套（更亮的正文、更暗的分隔线、保留薄荷绿强调色）。纯主题变量：不改规则、不改布局、不改任何数据。",
+  "license": "GPL-3.0-or-later",
+  "api": ">=1 <2",
+  "client": {
+    "theme": {
+      "vars": {
+        "--text-hi": "#f4faf7",
+        "--text-md": "#d3e3db",
+        "--text-lo": "#a6bab1",
+        "--text-dim": "#7f938a",
+        "--line": "#2d3d37",
+        "--line-2": "#23302b"
+      }
+    }
+  }
+}
