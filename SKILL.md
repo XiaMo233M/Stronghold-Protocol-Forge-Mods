@@ -66,7 +66,7 @@
 `combat: true` 表示这个包**能改变战斗结果** —— 装了它的对局不能与官方对局逐帧比较，玩家必须知情。
 挂 `server.meta` / `server.battle` / 带 `matchClass` 的 `server.modules` 而没写 `combat: true`，
 会被 `META_NEEDS_COMBAT` / `BATTLE_NEEDS_COMBAT` / `MODULES_NEED_COMBAT` 直接拒
-（`shared/workshop.js:1914-1929`）。
+（`shared/workshop.js:2385-2397`）。
 
 **`combat: true` 的告知义务（判据）**：mod 是**房主建房间时自己选**装不装的
 （业主 2026-10-11 口径：「标注好会影响游戏结果就行了，做到了告知义务」）⇒ **不另设闸门**，
@@ -81,22 +81,26 @@
 **站上目前不显示这一栏**（站点代码里没有 `combat` 字样；能贴自由文本的只有「兼容说明」那一栏）——
 那一格由维护者填，见 [AGENTS.md](AGENTS.md) §5.1。
 
-**② `pack.json`** —— 字段全集（引擎 `shared/workshop.js:111-128` 的 `PACK_FIELDS`，一个不多一个不少）：
+**② `pack.json`** —— 字段全集（引擎 `shared/workshop.js:126-159` 的 `PACK_FIELDS`，一个不多一个不少）：
 
 ```
 id, name, version, author, license, description, gameVersion, game, api, layer, combat,
 content, overrides, voices, voiceLangs, bondIcons, itemIcons, art, skins, support, operators, i18n,
-forms, fx, notices, playtest, assets, client, server, routes
+forms, fx, notices, playtest, variants, behaviour, assets, client, server, routes,
+target, dependencies, conflicts
 ```
+
+> **共 35 键**（`target` / `dependencies` / `conflicts` 是这一版新加的三格，见 §19.2 与 §19.3）。
+> 不认识的顶层键**点名整包拒**（`PACK_UNKNOWN_FIELD`），**绝不读过去**。
 
 **③ `api` 与 `game` 是两回事** ——
 
 - **`api`：模组 API 版本区间，引擎会强制比对。** 当前 `MOD_API_VERSION = 1`。
   合法写法（**列举，不是唯一写法**）：`">=1 <2"`、`"1.x"`、`"1"`、`"^1"`、`"~1"`、`"*"`、`"1 || 2"`。
   引擎抬到 2 时，写 `1.x` 的包会被**明确拒掉**并说明理由（`MOD_API_INCOMPATIBLE`，
-  `shared/workshop.js:1903-1905`）—— 这正是你要的保护：宁可拒绝，不要带着错的行为跑起来。
+  `shared/workshop.js:2365-2371`）—— 这正是你要的保护：宁可拒绝，不要带着错的行为跑起来。
 - **`game`：上游游戏版本区间**。引擎目前**只校验它是不是合法区间，不比对**
-  （`shared/workshop.js:1908-1909`）。它是给人和工具看的信息，不是闸门。
+  （`shared/workshop.js:2375-2376`）。它是给人和工具看的信息，不是闸门。
   `gameVersion` 是它的旧名（读的时候 `game` 优先），新包写 `game`。
 
 **④ 身份哈希** —— 每个包按内容算一个哈希。改了包里的**任何字节**，哈希就变。它的用途是让玩家一眼看出
@@ -128,7 +132,7 @@ forms, fx, notices, playtest, assets, client, server, routes
 { "api": 1 }          // ❌ 类型闸门拒绝：BAD_API_TYPE
 ```
 
-类型闸门先于区间校验（`shared/workshop.js:1864-1895`）。注释写得很直白：非字符串的声明
+类型闸门先于区间校验（`shared/workshop.js:2348-2364`）。注释写得很直白：非字符串的声明
 **会被读成「没声明」** —— 那正是「写了等于没写」。所以这一层宁可当场拒。
 
 **两个要注意的次序 / 语义细节**（实测过，容易误判）：
@@ -146,7 +150,7 @@ forms, fx, notices, playtest, assets, client, server, routes
 
 ### 5.3 `content` 必须声明 `chess`，否则加载器**完全不读**这个包的 `chess.json`
 
-装载器只读**声明过的**内容文件（`shared/workshop.js:1448-1450` 归一化，
+装载器只读**声明过的**内容文件（`shared/workshop.js:1799-1809` 归一化，
 `server/workshop.js:120-137` 按归一化后的清单逐个读盘）：
 
 - `content` 里没写 `chess` ⇒ `chess.json` **一个字节都不会被读**；
@@ -257,7 +261,7 @@ screen.loadout.detail
 **能被包裹的组件**（`client.wrap`）：`game.bondStrip`、`game.hud.topBar`、`game.shopCard`、`loadout.detail`。
 
 **包里的 URL 前缀**：素材 `/workshop-assets/<包 id>/…`，面板模块 `/workshop-panels/…`
-（`shared/workshop.js:147`、`:156`）。
+（`shared/workshop.js:228-240`）。
 
 ## 8. 「有更好的逻辑就用我们的」（业主原则）
 
@@ -321,7 +325,7 @@ screen.loadout.detail
 ```
 
 来源是引擎自己那份连接状态（`Net.snapshot()`，`'status'` 事件携带的就是它），**同一条事实，不是第二份推断**。
-只带这五个键，引擎内部字段（如 `playerId`）不外传（`public/js/ui/extensions.js:730-748`）。
+只带这五个键，引擎内部字段（如 `playerId`）不外传（`public/js/ui/extensions.js:948-966`）。
 
 ```jsonc
 // ctx.net.welcome() —— 已收到的那一帧 welcome 的冻结深拷贝
@@ -329,28 +333,28 @@ screen.loadout.detail
   "mods": { "digest": "…", "packs": [] }, "modPanels": [], "maxSeats": 0 /* … */ }
 ```
 
-帧里的字段**原样保留**：不裁、不改名、不补默认值（`public/js/ui/extensions.js:765-767`）。
+帧里的字段**原样保留**：不裁、不改名、不补默认值（`public/js/ui/extensions.js:995-1003`）。
 **为什么需要它**：面板是由**同一条 `welcome` 帧**装载的（面板清单走 `welcome.modPanels`），
 所以面板在 `mount()` 里自己去订阅这一帧，首帧大概率赶不上、要等一次重连才知道对面是谁 ——
-这正是社区投稿报过的卡点（引擎 `docs/design/mod-layer.md:1982-1987`）。
+这正是社区投稿报过的卡点（引擎 `docs/design/mod-layer.md:1957-1964`）。
 
 两格共同的语义（三条，都要照做）：
 
 1. **冻结、拿不到即 `null`** —— 不抛、不编造、不补默认值。没有读数就画空态。
 2. **不新增协议消息**：不发任何帧、不发请求、不改引擎行为（引擎侧有机械断言盯这一点，
-   `docs/design/mod-layer.md:1969-1971`）。
+   `docs/design/mod-layer.md:2024-2026`）。
 3. **加能力不抬 `MOD_API_VERSION`**：两格是往**已存在的对象**上加成员，
-   `MOD_API_VERSION` **不动**、已发布的包不会被拒（`docs/design/mod-layer.md:2004-2006`）。
+   `MOD_API_VERSION` **不动**、已发布的包不会被拒（`docs/design/mod-layer.md:1990-1991`）。
    所以包侧的正确写法是「有就用、没有就优雅降级」，不是「判版本、缺了就报错」。
 
-> 引擎侧的规范：`docs/design/mod-layer.md` **§28.24**（`status()`，`:1943`）与 **§28.25**（`welcome()`，`:1973`）。
+> 引擎侧的规范：`docs/design/mod-layer.md` **§28.24**（`status()`，`:1998`）与 **§28.25**（`welcome()`，`:2028`）。
 
 ### 9.3 `ctx.session.setPref` / `getPref` —— 唯一一格能写的东西
 
 面板**没有** `localStorage`、也没有 store 的写权限。要记住「每干员选了哪套」这类东西，用这一格：
 键自动按 `<包 id>/` 分区（两个包用同一个键名不会互相覆盖），值只收 `string` / `number` / `boolean` / `null`，
 键 1..64 字符、字符串值 ≤512 字符，**越界一律 `false` 并点名**（`CLIENT_PREF_BAD_KEY` /
-`CLIENT_PREF_BAD_VALUE`），不静默（`public/js/ui/extensions.js:536-586`）。
+`CLIENT_PREF_BAD_VALUE`），不静默（`public/js/ui/extensions.js:715-736`）。
 
 ```js
 const on = ctx.session.getPref('hardOff', false);   // 默认关
@@ -518,7 +522,8 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 - `docs/WORKSHOP.md` —— 工坊包格式的完整规则（`pack.json` 每个字段、层、覆盖、语音、准入）
 - `docs/MOD-SURFACE.md` —— 模组能碰到的**全部表面**（钩子、槽位、包裹组件、服务端成员）；**「加一格表面的清单」在它末尾**
 - `docs/design/mod-layer.md` —— 为什么是现在这个边界（§28），含 **§28.24 / §28.25**（§9.2 引的就是这两节）；本文 **§19 / §20** 引的是
-  **§28.43**（行为开关）· **§28.44 / §28.45**（宿主 lane）· **§28.46**（`target`）· **§28.47**（登记册）· **§28.48**（依赖与互斥裁决）
+  **§28.43**（行为开关）· **§28.44 / §28.45**（宿主 lane）· **§28.46**（`target`）· **§28.47**（登记册）· **§28.48**（依赖与互斥裁决）·
+  **§28.49**（`trait.grantsBonds`，§19.7）
 - `AGENTS.md`（引擎仓库自己的）—— 引擎仓库的贡献规则
 
 **核新面孔时常翻的源码**（§19 每条都从这里核出）：`shared/behaviour.js`（四格开关表）· `shared/variants.js`（三轴口径）·
@@ -531,32 +536,34 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 |---|---|
 | 只认 `<根>/<包 id>/pack.json`；只读声明过的 content 文件 | `server/workshop.js:94-110`、`:120-137` |
 | zip 形状：包内文件在同名顶层目录下；装载目录名由 `pack.json.id` 推导 | `tools/workshop-pack.mjs:13`（归档布局）、`:191-199`（顶层前缀）、`:252-255`（装到 `<root>/<pack.json.id>/`） |
-| `PACK_FIELDS` 闭集 | `shared/workshop.js:123-156`（核于 `17d446c2`；这一格加过 `target` / `dependencies` / `conflicts`，所以行号与本文早先记的不同） |
+| `PACK_FIELDS` 闭集 | `shared/workshop.js:126-159`（核于 `f15bad80`；这一格加过 `target` / `dependencies` / `conflicts`，所以行号与本文早先记的不同） |
 | 未知顶层键整包拒 | `shared/workshop.js:131`（拒绝码）、`:1770-1783`（判据） |
 | `id` 必须等于目录名 | `shared/workshop.js:1788`（`PACK_ID_MISMATCH`） |
 | `content` 名单 | `shared/workshop.js:40-41`（14 个文件） |
 | `api` / `game` 类型闸门与比对 | `shared/workshop.js:1883-1895`（类型）、`:1897`（区间）、`:1903-1905`（与 `MOD_API_VERSION` 比对）、`:1909`（`game`） |
-| `support` / `playtest` / `variants` / `behaviour` / `dependencies` / `conflicts` 不是贡献项；`EMPTY_PACK` | `shared/workshop.js:2308-2326`（六样的清单在 `:2319`，`EMPTY_PACK` 在 `:2326`；`stardust` 目标豁免在 `:2308`） |
-| `notices` 形状与拒绝码 | `shared/workshop.js:1372-1388` |
-| `behaviour` 四格表与引擎读取点 | `shared/behaviour.js:91-183`；硬闸门 `shared/workshop.js:2415`；表面锚点 `shared/modSurface.js:329` |
-| `target` 闭枚举 / 跨宿主 `foreign` | `shared/workshop.js:159`、`:2259-2260`；`server/workshop.js:127`、`:254`；三面 `tools/workshop-validate.mjs:212`、`tools/workshop-pack.mjs:912`、`editor/ui/pack.js:153` |
-| 依赖与互斥的装载期裁决 | `shared/workshop.js:4279-4365`；装载点 `server/index.js:120-123` |
+| `support` / `playtest` / `variants` / `behaviour` / `dependencies` / `conflicts` 不是贡献项；`EMPTY_PACK` | `shared/workshop.js:2248-2262`（六样的语义逐条在 `:2248-2260`，`EMPTY_PACK` 的豁免在 `:2258-2260`） |
+| `notices` 形状与拒绝码 | `shared/workshop.js:1374-1391` |
+| `behaviour` 四格表与引擎读取点 | `shared/behaviour.js:91-183`；硬闸门 `shared/workshop.js:2418`；表面锚点 `shared/modSurface.js:329` |
+| `target` 闭枚举 / 跨宿主 `foreign` | `shared/workshop.js:162`（`PACK_TARGETS`）、`:2263`（`PACK_TARGET_UNKNOWN`）；`server/workshop.js:127`、`:254`；三面 `tools/workshop-validate.mjs:212`、`tools/workshop-pack.mjs:912`、`editor/ui/pack.js:153` |
+| 依赖与互斥的装载期裁决 | `shared/workshop.js:4320-4406`（`adjudicatePackGraph`）；装载点 `server/index.js:120-123` |
+| `trait.grantsBonds`（§19.7） | `shared/morph.js:117-118`（键名）、`:149`（唯一判据）、`:154-166`（点名的那几类）；作者侧 `shared/chessAuthoring.js`；契约测试 `test/traitGrants.test.js`；表面账本 `shared/modSurface.js` 的 `traits.grantsBonds` 那一格；设计稿 §28.49（`docs/design/mod-layer.md:3489`） |
 | 宿主注册 lane | `server/http/wsLanes.js`、`server/http/httpLanes.js`；入口 `server/index.js:83-84`、`:352`、`:355` |
-| 登记册与"两道闸" | `server/modRegistry.js:33`、`:99`、`:135-147`；`tools/workshop-pack.mjs:1027-1052`（卸载）、`:1061-1077`（回滚） |
+| 登记册与"两道闸" | `server/modRegistry.js:33`、`:99`、`:135-147`；`tools/workshop-pack.mjs:1027-1050`（卸载 `cliUninstall`）、`:1061-1077`（回滚 `cliRollback`） |
 | `server.meta` 的叠层写法（§20.1） | `server/match/effectsMeta.js:52`（`HOOKS`）、`:526`（`chessRecord`）、`:561`（`addLayers`）、`server/match/builtinMeta.js:82`（`ctx.pieceBonds`）；`shared/workshop.js:470`、`:2383` |
-| `assets.mirrors` / `client.panels[].messages` / `server.modules[]` 字段闭集 | `shared/workshop.js:307`、`:782-799`、`:520` |
+| `assets.mirrors` / `client.panels[].messages` / `server.modules[]` 字段闭集 | `shared/workshop.js:310`、`:787-799`、`:523` |
 | `variants` 三轴 | `shared/variants.js:57`（`training`）、`:72`（`form`）、`:87`（`deploy`） |
 | 面板 ctx 的键 | `public/js/ui/extensions.js:798-805` |
-| `net` 成员与两格新读数 | `public/js/ui/extensions.js:667-768`；`docs/design/mod-layer.md:1943-2014` |
+| `net` 成员与两格新读数 | `public/js/ui/extensions.js:667-768`；`docs/design/mod-layer.md:1928-2013` |
 | 偏好口 | `public/js/ui/extensions.js:536-586` |
 | 主题变量（加法） | `public/js/ui/extensions.js:1106-1120` |
 | 关动画的引擎通道 | `public/css/theme.css:387-393`、`public/js/ui/device.js:106-107` |
 | 资源分发内建 | `public/js/resources/{bundle,verify,host,worker,service,common}.js` |
 | URL 前缀 | `shared/workshop.js:147`、`:156` |
 
-> 上面这些行号是**核的时候**记的，核于引擎 `main` 的 **`17d446c2`**（同一批核证里更早的一瞬是 `44579249` ——
-> 别的线正在合并，两分钟里 HEAD 就走过去了）。引擎在动，**行号会漂** —— 核不准时**按符号名搜**
-> （`PACK_FIELDS`、`BEHAVIOUR_SWITCHES`、`adjudicatePackGraph`…），不要按行号硬找。
+> 上面这些行号是**核的时候**记的，核于引擎 `main` 的 **`f15bad80`**（= 引擎 `origin/main`；上一版核的是
+> `17d446c2`，底座从上游 0.2.4 抬到 **0.2.5** 之后有若干行号漂移，本版已逐条重核并订正 6 处）。
+> 引擎在动，**行号会漂** —— 核不准时**按符号名搜**（`PACK_FIELDS`、`BEHAVIOUR_SWITCHES`、`adjudicatePackGraph`…），
+> 不要按行号硬找。
 > §19 / §20 的路由细节以引擎文件为准，**本文只记「在哪、怎么写、边界是什么」**。
 
 ## 18. 术语约定（同一个概念全文只用一个词）
@@ -576,12 +583,13 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 同一份文档里，**包 id 与 `name` 是两件事**：前者只能用 `[A-Za-z0-9_-]`、命名目录与 URL；
 后者是任意字符串、只上屏。
 
-## 19. 引擎这一版新加的接口面（核于引擎 `main` `17d446c2`）
+## 19. 引擎这一版新加的接口面（核于引擎 `main` `f15bad80`）
 
 **口径先摆出来**：下面每条都**去引擎代码里核过**，不是照抄任何清单。判「今天能用」的判据是三样齐 ——
 **实现点 + 一个钉行为的测试 + 一节设计文档**；核不到的写「在途」，没有的写「没有」。
-**核时的引擎 HEAD**：`17d446c2debd16cf13c2b20cef2ef2c48c293812`（同一天更早的一瞬是 `44579249`；
-别的线正在合并，两分钟里 HEAD 就走到了 `17d446c2` —— 本节所有 `文件:行号` 按后者核）。
+**核时的引擎 HEAD**：`f15bad80ef8aee96b7944da31dd7a93a1cafd489`（= 引擎 `origin/main`，发布 tag
+`v0.18.0-0.2.5` 的祖先；本节的 `文件:行号` 全部按这一版重核过一遍，上一版记的是更早的 `17d446c2`，
+底座从上游 0.2.4 抬到 **0.2.5** 之后有若干行号漂移 —— 见 §17 末尾那条说明）。
 **引擎是最终依据**：这一节只讲「在哪、怎么写、边界是什么」，规则细节回引擎读（§16 的清单）。
 
 ### 19.1 `behaviour` 行为开关 —— 四格，**今天能用**
@@ -609,7 +617,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | # | 边界 | 判据 |
 |---|---|---|
 | 1 | **闭枚举，整包拒（不是忽略）**：开关名不认识 ⇒ `BEHAVIOUR_UNKNOWN_SWITCH`；选项名不认识 ⇒ `BEHAVIOUR_UNKNOWN_OPTION` | `docs/MOD-SURFACE.md:75`、`shared/modSurface.js:329` |
-| 2 | ⚠️ **`combat: true` 是硬闸门**：四格**每一格都会改对局结果**（商店出货 / 配发 / 盟约成员与层数 / 装备位），不写 ⇒ `BEHAVIOUR_NEEDS_COMBAT` **整包拒** | `shared/workshop.js:2415` |
+| 2 | ⚠️ **`combat: true` 是硬闸门**：四格**每一格都会改对局结果**（商店出货 / 配发 / 盟约成员与层数 / 装备位），不写 ⇒ `BEHAVIOUR_NEEDS_COMBAT` **整包拒** | `shared/workshop.js:2418` |
 | 3 | ⚠️ **`behaviour` 不是贡献项**：只带它的包照旧 **`EMPTY_PACK` 整包拒**，**必须另带真贡献**（`content` / `client` / `notices` / `routes` / 素材…）。与它同一条的还有 `support` / `playtest` / `variants` / `dependencies` / `conflicts` | `shared/workshop.js:2308-2326`（六样清单在 `:2319`）、[README](README.md) 与 §5.3 |
 | 4 | **包里给不出数值、也给不出路径**：`module` / `entry` / `file` / `path` / `value` / `key` 这类键在形状层**点名拒**；动作 `{ kind, value }` **由引擎构造** | `docs/MOD-SURFACE.md:75` |
 | 5 | 不声明 ⇒ 归一化清单里**不长这个键**；声明了**必须进包身份哈希**（不进 `modDigest`） | `docs/MOD-SURFACE.md:75` |
@@ -620,7 +628,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
   **未实现、也未被读取**（源件不在手上，业主口径「缺源件就不做假实现」）：`shared/behaviour.js:84-89`；
 - `prepLoadout` 的**客户端入口还没做**（`PREP` 期换技能/模组的那个按钮），记账在 §28.43.4：`docs/design/mod-layer.md:3189`。
 
-**想加第五格？包作者加不了。** 加一格的前置是「**引擎先有实现点**」——清单在 `docs/MOD-SURFACE.md:107-114`
+**想加第五格？包作者加不了。** 加一格的前置是「**引擎先有实现点**」——清单在 `docs/MOD-SURFACE.md:108-115`
 （形状校验 + 锚点 + 实现文件 + 一个测试文件 + 一节设计文档）；包这一侧只能声明**表里已有的**。
 设计稿：§28.43（`docs/design/mod-layer.md:2937` 起）。
 
@@ -633,7 +641,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | `"target": "stardust"` | 给 Stardust 宿主的**声明型包**：本引擎**认识、但不装载**（`foreign`）；不进数据叠加层、不进 `/mods/catalog.json`、也**不受 `EMPTY_PACK` 约束**；启动日志一行具名 |
 | **别的值**（不在闭枚举里） | **整包拒** `PACK_TARGET_UNKNOWN`（不猜、不忽略） |
 
-判据：闭枚举 `shared/workshop.js:159`、拒绝 `:2259-2260`；不装载 `server/workshop.js:127`、日志 `:254`。
+判据：闭枚举 `shared/workshop.js:162`、拒绝 `:2263`；不装载 `server/workshop.js:127`、日志 `:254`。
 
 **三面都会点名它**（业主 2026-10-12 裁定：`foreign` 必须**响亮** —— 「接受了却一声不吭」正是要消灭的形状）：
 
@@ -652,15 +660,15 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 `DEPENDENCIES_BAD_ID` / `DEPENDENCIES_BAD_RANGE` / `DEPENDENCIES_CONFLICTING_RANGES`（同一个 id 配两个 range —— 不许猜作者的意思）；
 `conflicts` 用同一套解析器，错误码换 `CONFLICTS_` 前缀。
 
-**语义在装载期裁决**（`adjudicatePackGraph`，纯函数、确定性、全部具名，`shared/workshop.js:4279-4365`）：
+**语义在装载期裁决**（`adjudicatePackGraph`，纯函数、确定性、全部具名，`shared/workshop.js:4320-4406`）：
 
 | # | 规则 | 落点 |
 |---|---|---|
-| 1 | **缺失依赖** ⇒ 依赖方被拒 | `:4303` |
-| 2 | **版本不合** ⇒ 依赖方被拒；⚠️ **对方没写 `version` 视为满足**（归一化出的 `0.0.0` 也按「未声明」处理 —— 是「未声明」，不是「不匹配」） | `:4291-4295`、`:4304-4306` |
-| 3 | **互斥命中** ⇒ **包 id 大者败**；带 `range` 时只有区间匹配才算互斥；双方都声明时同一条边只裁决一次 | `:4308-4315` |
-| 4 | **级联** ⇒ 依赖链上有人被拒，依赖方跟着拒，**迭代到不动点** | `:4317-4332` |
-| 5 | **循环** ⇒ **环上全体被拒**（与级联不同：每个包自己的依赖都"在"，是声明本身死锁） | `:4333-4358` |
+| 1 | **缺失依赖** ⇒ 依赖方被拒 | `:4344` |
+| 2 | **版本不合** ⇒ 依赖方被拒；⚠️ **对方没写 `version` 视为满足**（归一化出的 `0.0.0` 也按「未声明」处理 —— 是「未声明」，不是「不匹配」） | `:4332-4338`、`:4345-4347` |
+| 3 | **互斥命中** ⇒ **包 id 大者败**；带 `range` 时只有区间匹配才算互斥；双方都声明时同一条边只裁决一次 | `:4349-4356` |
+| 4 | **级联** ⇒ 依赖链上有人被拒，依赖方跟着拒，**迭代到不动点** | `:4358-4373` |
+| 5 | **循环** ⇒ **环上全体被拒**（与级联不同：每个包自己的依赖都"在"，是声明本身死锁） | `:4374-4399` |
 
 拒绝全部**具名成一行启动日志**：`[mod-registry] "<id>" refused: <原因>`（`server/index.js:120-123`）。
 ⚠️ **不是贡献项**：只声明依赖的包照旧 `EMPTY_PACK`；不声明的包清单里不长这个键（老包哈希不变）。设计稿：§28.48。
@@ -690,9 +698,9 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | 面 | 今天的状态 | 判据 |
 |---|---|---|
 | 登记册文件 | `<stateRoot>/mod-registry.json`：记录「本管理器装过什么、操作者启停过什么、升级时留底在哪」 | `server/modRegistry.js:33`、`:99`、`:102-147` |
-| **启停** | CLI `enable` / `disable`。禁用后**连它的服务端载荷都不装载**（没有 hook、没有订阅、没有字节），**文件留在磁盘**，一条 `enable` 就回来；重启服务器后生效 | `tools/workshop-pack.mjs:1080-1087`、`server/index.js:114-119` |
-| **卸载** | **两道闸，都不可绕过**：① **ownership** —— 只卸载**本管理器登记过**的包（登记册里没有记录 ⇒ 拒绝，让你手动处理）② **留底** —— `fs.renameSync` 把**整个包目录**挪进 `<root>/.mod-backups/<id>/uninstall-<时间戳>/`，**不是删除**（点开头 ⇒ 装载器不扫描，所以它立刻"不在"，但一个字节没丢；CLI 会把留底路径打出来） | `tools/workshop-pack.mjs:1027-1052` |
-| **升级 / 回滚** | `import --force` 时旧版进 `.mod-backups/<id>/…`；`rollback` 换回来，被换掉的那份**也留底** | `:265-267`、`:1001-1006`、`:1061-1077` |
+| **启停** | CLI `enable` / `disable`。禁用后**连它的服务端载荷都不装载**（没有 hook、没有订阅、没有字节），**文件留在磁盘**，一条 `enable` 就回来；重启服务器后生效 | `tools/workshop-pack.mjs:1020-1025`（`cliEnable`）、`server/index.js:114-119` |
+| **卸载** | **两道闸，都不可绕过**：① **ownership** —— 只卸载**本管理器登记过**的包（登记册里没有记录 ⇒ 拒绝，让你手动处理）② **留底** —— `fs.renameSync` 把**整个包目录**挪进 `<root>/.mod-backups/<id>/uninstall-<时间戳>/`，**不是删除**（点开头 ⇒ 装载器不扫描，所以它立刻"不在"，但一个字节没丢；CLI 会把留底路径打出来） | `tools/workshop-pack.mjs:1027-1050`（`cliUninstall`） |
+| **升级 / 回滚** | `import --force` 时旧版进 `.mod-backups/<id>/…`；`rollback` 换回来，被换掉的那份**也留底** | `:266-267`、`:1001-1006`、`:1061-1077` |
 | ⚠️ **编辑器** | **还没接登记册**：`editor/` 下**没有任何** registry 引用（`git grep registry -- editor/*` 只命中一条无关文案）⇒ **不要指望在界面上切换启停**。今天看得见启停的只有 **CLI**、管理器 `list`，以及启动那一行 `[mod-registry] "<id>" disabled (…) — not loaded` | `server/index.js:119` |
 
 设计稿：§28.47。登记册是**管理器**的账本，不是包格式的一格 —— 包作者不用管它，但要知道
@@ -702,24 +710,63 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 
 | 面 | 实测 | 证据 |
 |---|---|---|
-| `trait.grantsBonds`（§28.49，特质 → 叠加盟约层数） | **在途 / 未合入**：`grantsBonds` 在**所有 ref**（`--all`、含各 knife 分支）**零命中**；`docs/design/mod-layer.md` 里**没有 §28.49**；没有名为 trait 的分支或 worktree | `git grep grantsBonds 17d446c2` 空、`git log --all --grep=grantsBonds` 空 |
-| `server.modules[].channels` | **还没有这一格**：`server.modules[]` 的字段闭集是 `id` / `entry` / `uses` / `write` | `shared/workshop.js:520`、`:913-914` |
+| `server.modules[].channels` | **还没有这一格**：`server.modules[]` 的字段闭集是 `id` / `entry` / `uses` / `write` | `shared/workshop.js:523`、`:916-917` |
 | `shopBias` 的两条子规则与 `giveBondBiasOnly` | **未实现、也未读取**（源件不在手上，不做假实现） | `shared/behaviour.js:84-89` |
 | `prepLoadout` 的 `PREP` 客户端入口 | **还没做** | `docs/design/mod-layer.md:3189`（§28.43.4） |
-| ✅ 已合入、可以用的 | `behaviour` 四格 · `target` · `dependencies` / `conflicts` · 宿主 lane · 登记册（CLI） | 见 §19.1–§19.5 |
+| 编辑器接登记册 | **还没接**：`editor/` 下点不到登记册，启停只有 CLI 看得见 | 见 §19.5 那张表 |
+| ✅ 已合入、可以用的 | `behaviour` 四格 · `target` · `dependencies` / `conflicts` · 宿主 lane · 登记册（CLI）· **`trait.grantsBonds`**（§19.7） | 见 §19.1–§19.5 与 §19.7 |
+
+> **上一版写在这里的 `trait.grantsBonds` 已经落地**（当时写的是「在途 / 未合入：所有 ref 零命中、
+> `mod-layer.md` 里没有 §28.49」）。本版按当前树核实并改写成 §19.7 —— 那是这一轮**最重要的一条更正**：
+> 它从「只能用 `server.meta` 自己叠层」变成了**一格数据声明**。
+
+### 19.7 `trait.grantsBonds` —— **已合入 `0.18.0`，今天能用**（§28.49）
+
+**一句话**：一条 `chess` 记录写 `trait.grantsBonds = ["<盟约 id>", …]` ⇔「带这条特质的棋子**视为那些盟约的成员**」
+⇒ 进 `bondsMeta` 的去重成员集合 ⇒ count +1 ⇒ 盟约层数自然上去。**不需要模块、不需要 `server.meta`、不需要一行脚本。**
+
+```json
+// units.json / chess.json（引擎侧记录）里的一条 chess 记录，`trait` 是**对象**：
+"trait": { "desc": "…", "bb": {}, "rangeGrid": null, "grantsBonds": ["bond_abyss", "bond_victoria"] }
+```
+
+| 项 | 实况 | 依据 |
+|---|---|---|
+| 键名 | `grantsBonds`，写在 **`trait` 这个对象**里（**不是** `def.trait` 那个投影出来的文本字符串） | `shared/morph.js:117-118`（`TRAIT_GRANT_KEY`） |
+| 唯一判据 | `grantedBondsByTrait(trait, { hasBond })`；成员资格的**合并**也只有一份 `memberBonds` | `shared/morph.js:149`、`:105-115` |
+| 三处读取点 | prep 的 `bondsMeta.pieceBonds` · 战斗的 `support/index.js unitBonds` · 客户端的 `gameLogic/bonds.js`（`pieceBondIds` 与 `bondMembers` 两处读者）—— **都调同一份判据** | `shared/modSurface.js` 的 `traits.grantsBonds` 那一格 |
+| 不写这一格 | **逐字节不变**（官方 266 条记录一条都没有它）⇒ **不需要 `golden:update`** | `shared/modSurface.js:70-71` |
+| ⚠️ 改对局结果 | 成员资格决定 count / tier / 层数 ⇒ **会改结果**，所以它像 `behaviour` 一样有具名读取点、锚点、测试与一节文档 | `shared/modSurface.js:56-61` |
+| 写歪了 | **点名，但不拒包、不改数据**：不是数组 / 数组里有非空字符串以外的东西 ⇒ `TRAIT_GRANT_BAD_SHAPE`；空数组 ⇒ `TRAIT_GRANT_EMPTY`（声明了个寂寞）；数据里不存在的盟约 id ⇒ `TRAIT_GRANT_UNKNOWN_BOND`（读取点的 `hasBond` 会把它挡在计数之外） | `shared/morph.js:165-166`、`:173-204` |
+| 作者侧什么时候会看到 | 启动日志（`report.traitGrants`）+ `npm run workshop:validate`（`shared/chessAuthoring.js` 的 `validateChessRecord`）：**装之前**就点名 | `shared/morph.js:154-157` |
+| 契约测试 | `test/traitGrants.test.js`；设计稿 §28.49 | `docs/design/mod-layer.md:3489` |
+
+**为什么它比 `server.meta` 好**（同一件事的两条路，按需要选）：
+
+| 你想要的 | 用哪条 | 为什么 |
+|---|---|---|
+| 「这条特质视为某几个盟约的成员」——**纯数据、固定映射** | **`trait.grantsBonds`**（本格） | 一格数据声明，**不用写代码**、不用 `combat: true`（它不新增通道，它是一条记录字段）；缺省不写就逐字节不变 |
+| 「按对局状态**算**层数 / 有条件地叠 / 读别的记录再决定」 | `server.meta`（§20.1） | 那是**代码**：能读 `ctx.chessRecord`、能按 `requireActive` 之类条件决定叠不叠 —— `grantsBonds` 表达不了这种条件 |
+
+⇒ 两条**不是替代关系**：**固定映射走本格，条件叠层走 `server.meta`**（§20.1 保留，作为「更复杂效果」的做法）。
+
 
 ## 20. 今天就能用、以前没写清的老面
 
-### 20.1 `server.meta`：让「因特质叠层」**今天就成立**（不用改引擎）
+### 20.1 `server.meta`：**条件叠层**、更复杂效果的那条路（不用改引擎）
 
-这是**已有面**，不是这一版新加的 —— 写在这里，是因为它今天就能做，而本文之前没写做法。
+⚠️ **先看清与 §19.7 的分工**：只想要「这条特质视为某几个盟约的成员」这个**固定映射**，用
+**`trait.grantsBonds`**（§19.7）—— 一格数据，不用写代码。这一节是**另一条路**：需要在**运行时按条件算**
+（读某条记录再决定、按对局状态决定叠不叠、算出来的层数不是常量）时，用 `server.meta`。
 
-1. `pack.json` 写 `server.meta = { module, registers }`（`META_FIELDS` 只有这两格：`shared/workshop.js:470`），
-   并且**必须** `combat: true`（它会改结果；不写 ⇒ `META_NEEDS_COMBAT` **整包拒**：`shared/workshop.js:2383`）；
+这是**已有面**，不是新加的 —— 写在这里，是因为它今天就能做，而本文之前没写做法。
+
+1. `pack.json` 写 `server.meta = { module, registers }`（`META_FIELDS` 只有这两格：`shared/workshop.js:473`），
+   并且**必须** `combat: true`（它会改结果；不写 ⇒ `META_NEEDS_COMBAT` **整包拒**：`shared/workshop.js:2386`）；
 2. 模块里注册 `HOOKS` 里的钩子 —— 共 **19 个**（`onPrepEnd` 是其中一个）：`server/match/effectsMeta.js:52`；
 3. 钩子里**读**：`ctx.chessRecord(uid)` → `data/chess.json` 那条记录，**它带 `trait`**
    （形状例如 `"trait": { "desc": …, "bb": {}, "rangeGrid": null }`）：`server/match/effectsMeta.js:526`；
-4. 钩子里**写**：`ctx.addLayers(bondId, n, { requireActive?, reason? })` —— 叠加盟约层数：`:561`。
+4. 钩子里**写**：`ctx.addLayers(bondId, n, { requireActive?, reason? })` —— 叠加盟约层数：`server/match/effectsMeta.js:561`。
 
 ```js
 // 钩子体里（注册外层怎么写，以引擎 docs/WORKSHOP.md 的 META 那一节为准）：
@@ -735,12 +782,12 @@ if (rec?.trait) for (const b of ctx.pieceBonds(uid)) ctx.addLayers(b, 1, { reaso
 | 面 | 今天有吗 | 边界（要点） | 依据 |
 |---|---|---|---|
 | `content` | **有** | 名单是引擎固定的 **14** 个文件：`chess` / `units` / `items` / `enemies` / `stages` / `waves` / `tokens` / `bosses` / `factions` / `garrisons` / `bands` / `bonds` / `effects` / `choices` | `shared/workshop.js:40-41` |
-| `operators` | **有** | `operators[<charId>]` **只有两个字段**：`bonds` 与 `powers`（每项非空字符串、去重排序）。它把干员放进**自选池** —— 与 `content: ["chess"]` 是两条不同的入口（同一个干员两条路都走会被点名） | `shared/workshop.js:1559`、`:2156`、`:2722-2733` |
-| `client.panels[].messages` | **有** | 通道名由包自己起（线上名是 `<包 id>.<channel>`），有**额度与限流**；没声明的通道点名 `CLIENT_CHANNEL_UNDECLARED` | `shared/workshop.js:782-799`、`docs/MOD-SURFACE.md:95` |
-| `server.modules[].channels` | **没有** | 见 §19.6 —— 字段闭集里没有这一格 | `shared/workshop.js:520` |
+| `operators` | **有** | `operators[<charId>]` **只有两个字段**：`bonds` 与 `powers`（每项非空字符串、去重排序）。它把干员放进**自选池** —— 与 `content: ["chess"]` 是两条不同的入口（同一个干员两条路都走会被点名） | `shared/workshop.js:64`（`UNIT_REQUIRED_FIELDS`）、`:2155-2167`、`:2722-2733` |
+| `client.panels[].messages` | **有** | 通道名由包自己起（线上名是 `<包 id>.<短名>`），有**额度与限流**；通道名形状写歪点名 `CLIENT_PANEL_CHANNEL` | `shared/workshop.js:787-799`、`docs/MOD-SURFACE.md:95` |
+| `server.modules[].channels` | **没有** | 见 §19.6 —— 字段闭集里没有这一格 | `shared/workshop.js:523` |
 | `assets.mirrors` | **有** | `mirrors[] = { id, base, sha256 }`：**只镜像本包自己的容器**；`base` 必须绝对 `https://`（有主机、无凭据、无查询、尾斜杠）、id 唯一且 **≤ 4 条**、`sha256` 必须等于装载期从包内文件算出的容器摘要（对不上的那条**停用并点名**，不拒包）；声明它**必须写 `license`**；**服务端不为这一格发一次网络请求**（取字节的是客户端） | `docs/MOD-SURFACE.md:74`、`:97` |
 | `variants` | **有** | **三条轴**：`training`（`official` · `full`，缺省 `full`）、`form`（`official` · `elite`，缺省 `official`）、`deploy`（`official` · `max`，缺省 `official`）。缺省＝引擎今天的行为；**不是贡献项** | `shared/variants.js:57`、`:72`、`:87` |
 | `routes` | **有** | `routes = [{ path, cache }]`：路径与缓存策略都必须在引擎的允许集合内；**只有 GET/HEAD** —— 整个 HTTP 面「除 GET/HEAD 之外的方法一律 405，除非某条**宿主 lane** 为那个路径认领了该方法」。要 POST 得走 §19.4 那两条**宿主**通道，包没有 | `docs/MOD-SURFACE.md:73`、`server/http/routes.js:5`、`:12-15` |
-| `notices` | **有** | `notices = { 栏目: 文本 }`（只认 `announcement` / `credits`），纯文本、结构化但**不执行**；**是贡献项** | `docs/MOD-SURFACE.md:57`、`shared/workshop.js:1372-1388`、本文 §6 |
+| `notices` | **有** | `notices = { 栏目: 文本 }`（只认 `announcement` / `credits`），纯文本、结构化但**不执行**；**是贡献项** | `docs/MOD-SURFACE.md:58`、`shared/workshop.js:1372-1388`、本文 §6 |
 
 
