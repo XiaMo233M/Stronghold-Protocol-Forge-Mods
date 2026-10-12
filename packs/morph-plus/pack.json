@@ -1,0 +1,20 @@
+{
+  "id": "morph-plus",
+  "name": "变形同构体加强mod",
+  "version": "1.1.0",
+  "author": "B站@伊佐那邪_",
+  "license": "NOASSERTION",
+  "description": "变形同构体的配对规则加强：一件装备就能配对，只取装备行最左边那一件。声明引擎的 behaviour 开关 morphPairing = plus；官方缺省档下占一个装备位且每件 giveBondId 装备都授予。",
+  "api": ">=1 <2",
+  "combat": true,
+  "behaviour": [
+    {
+      "switch": "morphPairing",
+      "option": "plus"
+    }
+  ],
+  "notices": {
+    "announcement": "notice/announcement.json",
+    "credits": "notice/credits.json"
+  }
+}

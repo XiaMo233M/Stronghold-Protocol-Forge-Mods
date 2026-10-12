@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "date": "2026-10-12",
+  "summary": "休整期也能改干员的技能与精英模组，不必在干员调配里一次定死。",
+  "sections": [
+    {
+      "name": "改动",
+      "items": [
+        "声明引擎的 behaviour 开关 prepLoadout = prep：休整期里、且本座位还没点「准备」时，也接受一次 room.loadout 提交。",
+        "这一次提交只覆盖它写了的那些干员，没写的保留当前配发。",
+        "官方缺省档（locked）下技能与模组在干员调配锁定后不再可改。"
+      ]
+    },
+    {
+      "name": "已知限制",
+      "items": [
+        "原件另加了一条 g.loadout 意图；本包复用引擎既有的 room.loadout，不新增协议消息，因此不包含该意图。",
+        "原件是安装器型，整份覆盖 shared/protocol.js、server/match/match/intents.js、server/match/match/platform.js 与四个客户端文件；本包不含任何覆盖。"
+      ]
+    }
+  ]
+}

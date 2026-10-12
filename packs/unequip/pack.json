@@ -1,0 +1,20 @@
+{
+  "id": "unequip",
+  "name": "装备拆卸mod",
+  "version": "1.1.0",
+  "author": "B站@伊佐那邪_",
+  "license": "NOASSERTION",
+  "description": "休整期可以把已装备的装备从干员身上卸下（退回手牌，手牌满则进临时整备区）。声明引擎的 behaviour 开关 unequip = allow；官方缺省档下装备装上后只能靠精英化 / 合成 / 卖出离开。",
+  "api": ">=1 <2",
+  "combat": true,
+  "behaviour": [
+    {
+      "switch": "unequip",
+      "option": "allow"
+    }
+  ],
+  "notices": {
+    "announcement": "notice/announcement.json",
+    "credits": "notice/credits.json"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "prep-loadout",
+  "name": "休整期可更换技能和模组mod",
+  "version": "1.0.0",
+  "author": "B站@伊佐那邪_",
+  "license": "NOASSERTION",
+  "description": "休整期也能改干员的技能与精英模组（本座位还没点「准备」时）。声明引擎的 behaviour 开关 prepLoadout = prep；官方缺省档下干员调配锁定后不再可改。",
+  "api": ">=1 <2",
+  "combat": true,
+  "behaviour": [
+    {
+      "switch": "prepLoadout",
+      "option": "prep"
+    }
+  ],
+  "notices": {
+    "announcement": "notice/announcement.json",
+    "credits": "notice/credits.json"
+  }
+}

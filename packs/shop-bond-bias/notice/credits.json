@@ -1,0 +1,10 @@
+[
+  {
+    "name": "伊佐那邪（B站）",
+    "note": "原投稿作者（来源：站侧记录 meta.json 的 note 栏「作者B站@伊佐那邪_」；原件 zip 内的 manifest.json 未声明 author）"
+  },
+  {
+    "name": "Mo233",
+    "note": "兼容改写者：把安装器型原件改写成只声明 behaviour 开关的标准工坊包，不含任何文件覆盖"
+  }
+]
