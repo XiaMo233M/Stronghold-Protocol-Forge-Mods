@@ -32,7 +32,7 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）与维护者在本仓库
 | [`incoming/SOURCE.template.md`](incoming/SOURCE.template.md) | 投稿人 | `SOURCE.md` 的填空模板（五件事） |
 | [site/README.md](site/README.md) | **维护者** | 上传站 / 审核台的整套用法（部署、环境变量、三视图、兼容包发布、备份与更新） |
 | [NOTICE.md](NOTICE.md) | 所有人 | 每个包的来源、署名与许可；非商业声明 |
-| 引擎文档（本仓库只索引） | **所有人** | `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（全部表面）、`docs/design/mod-layer.md`（边界与 §28.24 / §28.25） |
+| 引擎文档（本仓库只索引） | **所有人** | `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（全部表面）、`docs/design/mod-layer.md`（边界；§28.43–§28.49 是这一版新加的面，其中 **§28.49 `trait.grantsBonds` 已合入 0.18.0、今天能用**，写法与边界见 [SKILL.md](SKILL.md) §19.7） |
 
 ## 3. 硬规则
 
@@ -142,7 +142,7 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 - **站上 —— 未验证 / 当前做不到**：站点代码里**没有任何 `combat` 字样**
   （`site/*.mjs`、`site/pages/*.html` 全无），所以站上**目前不显示**这一栏；
   `/mods` 公开面能承载自由文本的只有「**兼容说明**」一栏（`meta.json` 的 `compatNote`，
-  由 `POST /api/<ADMIN_PATH>/compat/note` 改写，`site/server.mjs:516`、`:1269-1274`）。
+  由 `POST /api/<ADMIN_PATH>/compat/note` 改写，`site/server.mjs:1291`、`:1258-1289`）。
   也就是说：**要贴在站上，当前只能写进「兼容说明」**；想让它成为独立的一栏，需要改站点代码 ——
   那件事**不在本文档的改动范围里**，列为待裁决。
 
@@ -220,7 +220,7 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 ### 7.6 没留档原件时**不下发** `archiveDownload`
 
 兼容包详情里的 `archiveDownload`（`?variant=orig`）只在磁盘上真的有 `orig.zip` 时才给
-（`site/server.mjs:680` 的 `existsSync`）—— 没留档就**不派发这个入口**，
+（`site/server.mjs:748` 的 `existsSync`）—— 没留档就**不派发这个入口**，
 不要用一个 404 去假装它存在。
 
 ## 8. 纪律与坑（每条都有依据）
@@ -235,7 +235,7 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 会被这次批量调用**又批准回去**（批准 = 上线 + 放开下载 + 取代原投稿），而记录里只剩下一个
 `approved`，**看不出它是被哪一次批量操作顺带翻回来的**。
 
-这条是 2026-10-11 线上回归的实测，写在 `site/server.mjs:19-27`（文件头）与 `:684-686`：
+这条是 2026-10-11 线上回归的实测，写在 `site/server.mjs:19-27`（文件头）与 `:23`、`:753`、`:1113`、`:1200`：
 有人想「把该上线的都上线」，对一批筛出来的兼容包连着调 `/compat/decide`，
 把**刚刚打回的两条 demo 样板件又批准了回去** —— 过时样板重新出现在公网 `/api/mods` 上。
 
