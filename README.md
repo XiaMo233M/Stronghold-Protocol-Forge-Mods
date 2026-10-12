@@ -197,7 +197,7 @@ ssh <站点主机> 'node <仓库>/tools/collect-station.mjs --out /tmp/modrepo-s
 
 | 现在能做 | 到什么程度 |
 |---|---|
-| **`trait.grantsBonds`（特质 → 视为某几个盟约的成员 ⇒ 叠层）** | ✅ 引擎 **`0.18.0`** 已合入（设计稿 §28.49）：一条 `chess` 记录写 `trait.grantsBonds = ["<盟约 id>", …]`，**一格数据、不用写代码**。盟约 id 不存在或形状写歪 **点名但不拒包**（`TRAIT_GRANT_UNKNOWN_BOND` / `TRAIT_GRANT_BAD_SHAPE` / `TRAIT_GRANT_EMPTY`），作者侧在 `npm run workshop:validate` 时就能看到；不写这一格 ⇒ 逐字节不变、不需要 `golden:update`。想**按条件算**层数（不是固定映射）仍走 `server.meta` —— 两条路的分工见 [SKILL.md](SKILL.md) §19.7 与 §20.1。 |
+| **`trait.grantsBonds`（特质 → 视为某几个盟约的成员 ⇒ 叠层）** | ✅ 引擎 **`0.18.1`** 已合入（设计稿 §28.49）：一条 `chess` 记录写 `trait.grantsBonds = ["<盟约 id>", …]`，**一格数据、不用写代码**。盟约 id 不存在或形状写歪 **点名但不拒包**（`TRAIT_GRANT_UNKNOWN_BOND` / `TRAIT_GRANT_BAD_SHAPE` / `TRAIT_GRANT_EMPTY`），作者侧在 `npm run workshop:validate` 时就能看到；不写这一格 ⇒ 逐字节不变、不需要 `golden:update`。想**按条件算**层数（不是固定映射）仍走 `server.meta` —— 两条路的分工见 [SKILL.md](SKILL.md) §19.7 与 §20.1。 |
 
 > **底座**：本仓库的包对着引擎 **`0.18.0`（上游 `0.2.5`）** 核过；上一版文档里写「底座 0.2.4」的地方一律以这一行为准。
 
