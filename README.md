@@ -1,7 +1,9 @@
 # Stronghold-Protocol-Forge-Mods
 
-[Stronghold-Protocol-Forge](https://github.com/XiaMo233M/Stronghold-Protocol-Forge) 的**工坊包仓库**：
-存放可以装进游戏的 mod（工坊包），并给出写包、改包、验包的说明书。
+[Stronghold-Protocol-Forge](https://github.com/XiaMo233M/Stronghold-Protocol-Forge) 的**工坊包仓库**。它做两件事：
+
+- **当 mod 仓库**：站上**已通过**的成品逐字节镜像在 [`mods/`](mods)，机器可读的目录是 [`mods/index.json`](mods/index.json) —— **那个索引是唯一的真相**，每条都带 sha256、大小、分类与许可。条数**以 `index.json` 为准**，本文不写死。
+- **当说明书**：写包、改包、投稿、验包、审包的规矩都在这里 —— [SKILL.md](SKILL.md) 给**包作者**，[AGENTS.md](AGENTS.md) 给**维护者 / AI agent**，[UPLOAD.md](UPLOAD.md) 给**投稿人**。
 
 - 游戏本体与引擎源码**不在这里** —— 那是 [Stronghold-Protocol-Forge](https://github.com/XiaMo233M/Stronghold-Protocol-Forge)
 - 上游原作：[sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol)
@@ -9,13 +11,14 @@
 
 > 非官方同人作品，**禁止商业使用**。《明日方舟》及其素材版权归**鹰角网络**所有。
 
-## 三个目录，三种含义
+## 目录地图
 
 | 目录 | 放什么 | 判定 |
 |---|---|---|
+| [`mods/`](mods) | **站上已通过成品的镜像**（一份包一个 `mod.zip`，**逐字节原样**）+ [`index.json`](mods/index.json) | 由 `tools/build-index.mjs` 生成；入库闸门见 [`mods/README.md`](mods/README.md) |
 | [`packs/`](packs) | **兼容已完成、验过的包** —— 能直接装 | **闸门**：里面必须全部装上 |
-| [`demo/`](demo) | **已过时的样板**（三份旧包，**不再对外提供、不要照抄**） | 退役：说明见 [`demo/README.md`](demo/README.md) |
 | [`incoming/`](incoming) | **组员上传、尚未完成兼容**的 mod 原件 | 只报告，**不拦**（被拒是正常的） |
+| [`demo/`](demo) | **已过时的样板**（三份旧包，**不再对外提供、不要照抄**） | 退役：说明见 [`demo/README.md`](demo/README.md) |
 
 另有一个**不是包**的目录：[`docs-copy-examples/`](docs-copy-examples/README.md) 只放文档里引用的
 **可抄片段**（`notices` 的形状等），不参与任何闸门 —— 想照抄当前格式看它，别回头抄 `demo/`。
@@ -26,16 +29,55 @@
 incoming/<mod>  ──►  读来源说明、判断哪些部分有接口  ──►  改写成工坊包  ──►  packs/<包 id>
 ```
 
+完整的链还多两步（站上发布、以及入库成 `mods/`），画出来是这样：
+
+![投稿 → 兼容 → 收录](docs/img/repo-map.svg)
+
 - **想上传一个 mod** → 先读 **[UPLOAD.md](UPLOAD.md)**（上传说明：要传什么、三种上传方式、
   照抄的 `SOURCE.md` 模板、上传前清单）
 - **不想碰 git？** 本仓库自带一个**上传站**（[`site/`](site)）：网页上填「mod 名 + 备注」传 zip →
   维护者下载跑测试 → 名称与内容审过 → 自动上线到公开列表。部署见 [`site/README.md`](site/README.md)
 - 收录的条件 → [`packs/README.md`](packs/README.md)
 - 上传区的规则 → [`incoming/README.md`](incoming/README.md)
+- **什么叫「标准工坊包」** → 引擎仓库的 [docs/STANDARD-PACK.md](https://github.com/XiaMo233M/Stronghold-Protocol-Forge/blob/main/docs/STANDARD-PACK.md)：七种投稿形态的定级、标准包的四条硬要求、`functional` / `documentation` / `unknown` 判据
 
-> `packs/` 目前是**空的** —— 这个仓库里还没有包走完兼容流程。
-> 注意这是**两回事**：`packs/` 是**正式收录区**（进这里才算被本仓库收录），
-> 而**站上已经发布的兼容包是另一份清单** —— 两者不互相同步。
+> `packs/` 与 `mods/` 是**两份清单，不互相同步**：`packs/` 只收**提交进这里**的那几个包（解开的文件，进这里才算被本仓库收录）；
+> `mods/` 是**站上全部已通过成品**的镜像（不透明 zip，字节级就是站上那份）。
+> 两者的条数**以各自的 `README.md` 与 `index.json` 为准**，本 README 不写死。
+
+## `mods/` 是什么
+
+**站上已经通过的成品，逐字节镜像在这里**，外加一份机器可读的目录。它和 `packs/` 的分工：
+
+| 目录 | 是什么 | 判定 |
+|---|---|---|
+| `packs/` | 我们**自己改写并验过**的兼容包（一份包一个目录，**解开的文件**） | **闸门**：必须全部装上 |
+| **`mods/`** | **站上已通过的成品镜像**（一份包一个 `mod.zip`，**逐字节原样**）+ 索引 | 由 `tools/build-index.mjs` 生成 |
+
+```
+mods/
+  index.json                        ← 唯一真相（机器可读目录）
+  <包 id>/<版本>/mod.zip            ← 站上那份 mod.zip，逐字节原样（索引里的 sha256 才对得上）
+  <包 id>/<版本>/meta.json          ← 站侧记录快照
+  <包 id>/<版本>/decision.json      ← 站侧裁定快照
+```
+
+- **怎么用**：想装哪个包，直接下 `mods/<包 id>/<版本>/mod.zip`，再照[怎么装一个包](#怎么装一个包)那三步走。
+- **要「字节级就是站上那份」，就用这里的 zip** —— `packs/` 里那份是**解开的文件**，git 的换行归一化会让它与站上差几个字节（这也是**为什么这里把 zip 原样收着、不解开**：解开就对不上 sha256 了，而「字节没走样」正是入库闸门的一条）。
+- **`index.json` 是唯一真相**：每条都带 `sha256`、大小、文件数、`category`、许可与素材清点，全部**实测**得来。
+
+**入库闸门**（`tools/build-index.mjs`；不满足就**报出来等人判**，工具绝不自己挑）：
+
+| # | 闸门 | 判据 |
+|---|---|---|
+| 1 | **装得上** | 引擎自己的装载器（`loadWorkshop`）：`packsLoaded` 恰好 `[包 id]` 且 `errors = 0` |
+| 2 | **字节没走样** | `mod.zip` 重算的 sha256 == manifest 里的值 |
+| 3 | **不是说明包** | `category !== documentation`（业主口径：只收**非**说明文档） |
+| 4 | **元数据齐** | `pack.json` 能读、`id` 与包内目录名一致 |
+
+被退**不是打回**：站上那条记录照旧（不打回、不删），工具只是把原因逐条写进 `index.json` 的 `rejected[]`。
+
+**素材**：含官方素材的包**照收**，但工具会按扩展名清点 zip 内**与 `.spresources` 容器内部**的图片 / 音频 / 字体 / Spine，把结果写进 `index.json` 与各包的 `PROVENANCE.md`（`.spresources` 是不透明容器，只看 zip 条目名会整批漏过，所以要解析容器头再清点一次）。**未标注才是问题**；标注了就算尽到告知义务。
 
 ## `demo/` 里的三份样板 —— **已过时，不再对外提供**
 
@@ -92,13 +134,22 @@ incoming/<mod>  ──►  读来源说明、判断哪些部分有接口  ──
 ## 验包
 
 ```bash
-node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge
+node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge            # 三个目录一起看
+node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --root packs
+node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json     # 机器可读
+
+node tools/build-index.mjs --stage <站侧导出目录> --engine <引擎检出>            # 只报，不写盘
+node tools/build-index.mjs --stage <站侧导出目录> --engine <引擎检出> --write    # 真写 index.json
 ```
 
-用**引擎自己那一份装载器**过一遍三个目录，逐个报出「装上了 / 被拒的理由」。
+`check-packs.mjs` 用**引擎自己那一份装载器**过一遍三个目录，逐个报出「装上了 / 被拒的理由」。
 `--root packs` 可以只看某一个目录；`--json` 给机器读。
 退出码非 0 表示 **`packs/` 或 `demo/` 里有包装不上**（工具把两者都当闸门，这次退役没有改动工具）。
 `demo/` 已**不再对外提供**（见 [`demo/README.md`](demo/README.md)）—— 闸门管的是「文件还装得上」，不是「可下载」。
+
+`build-index.mjs` 从**站侧导出**生成 `mods/index.json`（布局见 [`mods/README.md`](mods/README.md)）。
+它**不在本仓库里重写校验规则** —— 包的格式、能不能装、装成哪一层，全部调用引擎那一份（`loadWorkshop`）；
+索引里每个字段都**实测**得来。默认**只报不写盘**，要落盘得显式 `--write`。
 
 ## 兼容性
 
@@ -116,3 +167,16 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge
   —— 等它带上真实功能再上架（见 [AGENTS.md](AGENTS.md) §4）。
 - **会改对局结果的包要标注清楚**：`combat: true` 的包**不另设闸门**（mod 由房主建房间时自己选装），
   但**必须在包自述里讲明「会影响对局结果」**；不标才是问题（见 [SKILL.md](SKILL.md) §4）。
+
+## 还不能做什么
+
+和上一节一样重要 —— 写在这里，是为了让「能不能用」有一个当场能查的答案。
+
+| 还不行 | 具体到什么程度 |
+|---|---|
+| **在站上单独标出「会改对局结果」** | 站点代码里**没有任何 `combat` 字样**（`site/*.mjs`、`site/pages/*.html` 全无）⇒ 站上**目前不显示**这一栏。`/mods` 公开面能承载自由文本的只有「**兼容说明**」一栏；想让它成为独立的一栏，需要改站点代码 —— 那件事不在本文档的改动范围里（见 [AGENTS.md](AGENTS.md) §5.1）。 |
+| **`packs/` 与 `mods/` 自动同步** | 两者**不互相同步**。站上新增已通过的包 ⇒ **重跑 `build-index.mjs`**，不要手工往 `index.json` 里补条目。 |
+| **`mods/` 里的包直接改** | `mods/` 下的包内容**只读**（审核与分发用）。要改包请回到站上的兼容包流程。 |
+| **超大单文件在两条路上都装得上** | 单文件超过引擎默认 zip 读取上限（`shared/zip.js` 的 `ZIP_MAX_FILE_BYTES = 32 MB`）**不再是退件理由** —— 工具会放宽上限收录，并在 `index.json` 的 `notes` 里**如实记下**：引擎自带的包导入路径（编辑器「包管理」/ `workshop-pack.mjs import`）**会拒收它**，而站点侧读取器没有这个上限 ⇒ **两条路结论不同**。 |
+| **说明包上架** | 自述 `documentation-only` / 只读参考的包**不上架**，但**留在待审、不打回**（它的简介是我们做兼容包改写的依据）。 |
+| **本仓库的 agent 连服务器** | 不 `ssh`、不直连服务器做操作；站点上的动作走 [`site/README.md`](site/README.md) 里的管理 API 与隧道（见 [AGENTS.md](AGENTS.md) §3）。 |
