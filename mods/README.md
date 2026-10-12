@@ -58,6 +58,51 @@ node tools/build-index.mjs --stage <…> --engine <…> --write     # 加 --writ
 ① 声明了 `content / overrides / kits / variants / behaviour / client / server / assets / notices / routes` 任一 ⇒ `functional`；
 ② 否则若包**自述**是参考/说明包 ⇒ `documentation`；③ 都不满足 ⇒ `unknown`（不入库，报人判）。
 
+## 什么时候重新生成（⚠️ 每次发版前都跑一次）
+
+`mods/` 是**站上某个时刻的快照**，不是自动跟随的。**站上一旦新批了包，镜像不会自己变** ——
+所以在**每次发版前**都要重新导出一次 staging、重跑 `build-index.mjs --write`，再逐条核对
+「已经 live 的包一条没掉」。不做这一步，`mods/` 与站上就会悄悄分叉。
+
+**实测过的分叉（2026-10-12）**：索引生成于 `07:43Z`，而站上 `84ab02864356`（chat-bubble）与
+`b6a3f39ae9ad`（duel-mode v0.2.1）分别在 `08:26Z` / `08:40Z` 才通过 ⇒ 两条都**漏收**，
+`mods/duel-mode/` 还停在已被取代的 v0.1.0 上。
+
+⚠️ **最容易踩的那个坑：同一个包 id 有「旧版先 approved → 新版后 approved」的更替时，
+只重跑工具、不重新导出 staging，镜像会停在旧件。** 因为闸门里没有「同 id 取新版」这一条 ——
+工具只按 staging 给的清单收件，**新旧哪一条进 staging 由导出那一步决定**。
+所以「重新导出」和「重新生成」**必须成对做**，缺一个就会留下一个看不见的旧版本。
+
+## 同一个包 id 出现两份公开件：只镜像一条（以及为什么）
+
+引擎**不允许同 id 并存**（同一 workshop 根里放两份 id 相同的包 ⇒ 只装载 1 条，后者静默覆盖前者），
+所以导出时按**包内 `pack.json.id`** 去重，一个 id 只放一条进 staging。判定顺序（确定性）：
+**① 上传时间晚者优先 ② 批准时间晚者优先 ③ 站点编号大者优先**
+（把上传时间排第一，是因为两条常常是**同一批一起批准**的，批准时间分不出新旧）。
+
+**当前这一条**（`index.json` 的 `source.excludedSamePackId` 里也原样带着）：
+
+| 站点编号 | 包 id | 版本 | 处置 |
+|---|---|---|---|
+| `05c6dd5c5844` | `duel-assets` | 0.1.0 | **收录**（`mods/duel-assets/0.1.0/`） |
+| `d19511bd5485` | `duel-assets` | 0.1.0 | **不镜像**（同包 id 只能一条） |
+
+两条的**载荷完全相同**（`pack.json` 之外三个成员逐字节相同），只差 `pack.json` 里的 `name`：
+前者「客户端导出 · 非商业」、后者「官方解包件」。站上两条都仍是公开记录 ——
+**不镜像 ≠ 下架**，这里只是「仓库里同一个包 id 放不下一份」。
+
+## `_selection.json` 是采集清单，`manifest.json` 才是入选清单
+
+每次导出会在 staging 里留两个文件，**它们不是一回事**：
+
+| 文件 | 里面是什么 |
+|---|---|
+| `_selection.json` | **采集时刻的全部记录**（含当时 `pending` / `superseded` / `rejected` 的）—— 它的用途是留档「这一刻站上都有什么」 |
+| `manifest.json` 的 `mods[]` | **入选清单**：`state=approved 且 packKind=functional` 再按上面的规则去重之后的那些 |
+
+判「缺了哪个包」请**按 `manifest.json` / `index.json` 判**，不要拿 `_selection.json` 比 ——
+那里面本来就有一堆不该入库的记录。
+
 ## 关于被退件的包
 
 工具会**逐条列出**退件与原因（写进 `index.json` 的 `rejected[]`）。被退**不是打回**：
@@ -76,4 +121,8 @@ node tools/build-index.mjs --stage <…> --engine <…> --write     # 加 --writ
 
 - `mods/` 下的**包内容只读**（审核与分发用），不要顺手「优化」；要改包请回到站上的兼容包流程。
 - **本仓库的 agent 不要 `ssh`**（[AGENTS.md](../AGENTS.md) §3）。
-- 站上新增已通过的包 ⇒ **重跑 `build-index.mjs`**，不要手工往 `index.json` 里补条目。
+- 站上新增已通过的包 ⇒ **重新导出 staging + 重跑 `build-index.mjs --write`**（见上面
+  「什么时候重新生成」），不要手工往 `index.json` 里补条目。
+- `mods/` 是**生成物**：`<包 id>/<版本>/` 由导出清单决定。旧版本目录**随生成规则替换**，
+  这不算「删站上记录」—— 站上那条记录一个字节都不动；`mods/` 的历史由 git 留着。
+  但**删之前要看一眼**：旧目录必须先确认站上那条已被取代（`superseded`）才让它消失。

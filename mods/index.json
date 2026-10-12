@@ -1,12 +1,26 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-12T07:43:08.490Z",
+  "generatedAt": "2026-10-12T11:46:01.400Z",
   "source": {
-    "stage": "E:\\destop\\harness_1\\_up\\modrepo-stage",
+    "stage": "E:\\destop\\harness_1\\_up\\modrepo-stage-new\\modrepo-stage",
     "host": null,
     "dataDir": "/var/lib/sp-modsite",
     "readAt": null,
-    "manifestGeneratedAt": "2026-10-12T06:16:31.792Z"
+    "manifestGeneratedAt": "2026-10-12T11:44:10.715Z",
+    "selection": "state=approved 且 packKind=functional",
+    "excludedSamePackId": [
+      {
+        "id": "d19511bd5485",
+        "packId": "duel-assets",
+        "version": "0.1.0",
+        "uploadedAt": "2026-10-12T02:45:14.393Z",
+        "decisionAt": "2026-10-12T04:39:29.928Z",
+        "reason": "同 pack id 只能一条（引擎不允许并存）",
+        "keptId": "05c6dd5c5844",
+        "keptDecisionAt": "2026-10-12T04:39:29.920Z",
+        "keptUploadedAt": "2026-10-12T02:46:16.446Z"
+      }
+    ]
   },
   "engine": {
     "path": "E:\\destop\\harness_1\\Stronghold-Protocol",
@@ -141,6 +155,38 @@
       "engineLoad": {
         "packsLoaded": [
           "cdn-source"
+        ],
+        "errors": [],
+        "layer": "C",
+        "combat": false
+      }
+    },
+    {
+      "id": "chat-bubble",
+      "name": "局内文字聊天（房内气泡）",
+      "version": "1.0.0",
+      "sha256": "3346f0a383963ca5799f48ed93fe7e2113a04f17477418c656d66cc8345e8e34",
+      "packHash": "215d942778d3ba161148e62cf289e85fb110634727c09f7062fb9f48b7c01ea7",
+      "category": "functional",
+      "categoryWhy": "声明了 client",
+      "stationId": "84ab02864356",
+      "path": "mods/chat-bubble/1.0.0/mod.zip",
+      "sizeBytes": 7035,
+      "fileCount": 4,
+      "unpackedBytes": 11837,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "chat-bubble"
         ],
         "errors": [],
         "layer": "C",
@@ -321,16 +367,16 @@
     {
       "id": "duel-mode",
       "name": "争锋频道 · 玩法叠加层（服务端驱动）",
-      "version": "0.1.0",
-      "sha256": "8bfeb25a4b4ebe00408e624ee792d3cbaf296d8abe9e57aa63fa700f92b12559",
-      "packHash": "065000194bce1f242c4e83544754cd5f692402acd2849299239e0a3c735ae2d6",
+      "version": "0.2.1",
+      "sha256": "78580c4cb273b65c94dc24f4879e9a5197dc04bba30c846bc4906ad286bad9f0",
+      "packHash": "f725f4849eeb5b22454dfba6555669d6ccc859400b449ee3f768f0ef47dc4239",
       "category": "functional",
       "categoryWhy": "声明了 client / server",
-      "stationId": "4958f9c84f9a",
-      "path": "mods/duel-mode/0.1.0/mod.zip",
-      "sizeBytes": 7481,
-      "fileCount": 5,
-      "unpackedBytes": 13254,
+      "stationId": "b6a3f39ae9ad",
+      "path": "mods/duel-mode/0.2.1/mod.zip",
+      "sizeBytes": 24633,
+      "fileCount": 8,
+      "unpackedBytes": 56581,
       "assets": {
         "assetFree": true,
         "count": 0,
@@ -516,6 +562,38 @@
       }
     },
     {
+      "id": "morph-plus",
+      "name": "变形同构体加强mod",
+      "version": "1.1.0",
+      "sha256": "f232b8435ec5635f69fe4b987186f67f451354c647d338945d97997dad7b1179",
+      "packHash": "ae24b7052625d4e8126b09f86d2d13d18eb788bf515ed2baf7b464e2d54fde37",
+      "category": "functional",
+      "categoryWhy": "声明了 behaviour / notices",
+      "stationId": "cc00536ec10d",
+      "path": "mods/morph-plus/1.1.0/mod.zip",
+      "sizeBytes": 4412,
+      "fileCount": 4,
+      "unpackedBytes": 6452,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "morph-plus"
+        ],
+        "errors": [],
+        "layer": "A",
+        "combat": true
+      }
+    },
+    {
       "id": "name-guard",
       "name": "代号审查（名字策略链）",
       "version": "1.0.0",
@@ -641,6 +719,70 @@
         "errors": [],
         "layer": "C",
         "combat": false
+      }
+    },
+    {
+      "id": "prep-loadout",
+      "name": "休整期可更换技能和模组mod",
+      "version": "1.0.0",
+      "sha256": "1059bce6db2aa3b3e71ef67ef542b408ac7fb684673c489ef8c88d613a7600de",
+      "packHash": "177e8d373d69f0546b7a600449960b931d198f86995ced8c44e0fdd41ab4a7f1",
+      "category": "functional",
+      "categoryWhy": "声明了 behaviour / notices",
+      "stationId": "b0d02cf32105",
+      "path": "mods/prep-loadout/1.0.0/mod.zip",
+      "sizeBytes": 4024,
+      "fileCount": 4,
+      "unpackedBytes": 5525,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "prep-loadout"
+        ],
+        "errors": [],
+        "layer": "A",
+        "combat": true
+      }
+    },
+    {
+      "id": "shop-bond-bias",
+      "name": "商店刷新盟约装备几率提升mod",
+      "version": "1.0.0",
+      "sha256": "689804b53a7867f82bc1528b4e3d239a6ff222344a30c40a5763e10ca93d2a85",
+      "packHash": "9895357c4fccc7c95a9baaaacc6813b1805f5faabf1eb5bfdc2f95b5d8af370e",
+      "category": "functional",
+      "categoryWhy": "声明了 behaviour / notices",
+      "stationId": "41146b5df93d",
+      "path": "mods/shop-bond-bias/1.0.0/mod.zip",
+      "sizeBytes": 4117,
+      "fileCount": 4,
+      "unpackedBytes": 5819,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "shop-bond-bias"
+        ],
+        "errors": [],
+        "layer": "A",
+        "combat": true
       }
     },
     {
@@ -803,6 +945,38 @@
         "errors": [],
         "layer": "C",
         "combat": false
+      }
+    },
+    {
+      "id": "unequip",
+      "name": "装备拆卸mod",
+      "version": "1.1.0",
+      "sha256": "6e646b067cc23c43a5b695885299fc6e3bfc26ab45e7d68ca678d62257b6e8b6",
+      "packHash": "a4cc1252e746f6d2fb9e862c156c0805c80767bae55273656681e1b2daeee41e",
+      "category": "functional",
+      "categoryWhy": "声明了 behaviour / notices",
+      "stationId": "be394494ebb7",
+      "path": "mods/unequip/1.1.0/mod.zip",
+      "sizeBytes": 4184,
+      "fileCount": 4,
+      "unpackedBytes": 5705,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "unequip"
+        ],
+        "errors": [],
+        "layer": "A",
+        "combat": true
       }
     },
     {

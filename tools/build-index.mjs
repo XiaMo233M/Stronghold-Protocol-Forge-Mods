@@ -252,7 +252,14 @@ rmSync(tmpRoot, { recursive: true, force: true });
 const index = {
   schemaVersion: 1,
   generatedAt: new Date().toISOString(),
-  source: { stage, host: manifest.source?.host ?? null, dataDir: manifest.source?.dataDir ?? null, readAt: manifest.source?.readAt ?? null, manifestGeneratedAt: manifest.generatedAt ?? null },
+  source: {
+    stage, host: manifest.source?.host ?? null, dataDir: manifest.source?.dataDir ?? null,
+    readAt: manifest.source?.readAt ?? null, manifestGeneratedAt: manifest.generatedAt ?? null,
+    // 采集侧给的选择口径与**同 pack id 去重**决定：原样带进索引，免得那条决定只活在
+    // staging 里、仓库读者看不到（为什么两条公开件只镜像一条）。
+    selection: manifest.source?.selection ?? null,
+    excludedSamePackId: manifest.source?.excludedSamePackId ?? [],
+  },
   engine: { path: engine, appVersion: engineConsts.APP_VERSION ?? null, modApiVersion: engineConsts.MOD_API_VERSION ?? null },
   note: '本索引是 mod 仓库的唯一真相；每条字段都实测（sha256 重算、装载调用引擎那一份）。`fileCount` 是 ZIP 条目数，不等于包内实际文件数（`.spresources` 容器内部另有若干文件）。',
   mods: accepted.map((r) => ({

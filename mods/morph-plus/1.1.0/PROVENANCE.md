@@ -1,15 +1,15 @@
-# PROVENANCE — 争锋频道 · 玩法叠加层（服务端驱动）
+# PROVENANCE — 变形同构体加强mod
 
 本文件由 `tools/build-index.mjs` 从站侧记录**机械生成**（事实来源：站点记录与包内 `pack.json`）。
 **没有的事实写「未声明」，不编造。** 人工增补请直接改本文件并在提交信息里说明。
 
 | 项 | 值 |
 |---|---|
-| ① 包 id / 版本 | `duel-mode` · 0.1.0 |
-| ② 原作者 | jingjiangze（来源：pack.json） |
-| ③ 原件许可 | AGPL-3.0-or-later |
-| ④ 兼容改写者 | **未声明** |
-| ⑤ 来源 | 站上记录 `4958f9c84f9a` · https://github.com/Cloudnyco/Duel-Channel |
+| ① 包 id / 版本 | `morph-plus` · 1.1.0 |
+| ② 原作者 | B站@伊佐那邪_（来源：pack.json） |
+| ③ 原件许可 | NOASSERTION |
+| ④ 兼容改写者 | Stronghold-Protocol |
+| ⑤ 来源 | 站上记录 `cc00536ec10d` · 由原件 `19ea65909cf6` 改写 |
 | ⑥ 改了什么 | **未声明** |
 
 ## 素材与授权（实测清点，业主 2026-10-12 口径：**如实标注**，不因此拦包）
