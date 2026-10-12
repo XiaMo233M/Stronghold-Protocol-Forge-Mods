@@ -28,10 +28,21 @@ mods/
 
 ```bash
 node tools/build-index.mjs --stage <站侧导出目录> --engine /path/to/Stronghold-Protocol-Forge
-node tools/build-index.mjs --stage <…> --engine <…> --write     # 加 --write 才真写盘
+node tools/build-index.mjs --stage <…> --engine <…> --write               # 加 --write 才真写盘
+node tools/build-index.mjs --stage <…> --engine <…> --write --prune-stale # 真写 + 清掉已不 live 的旧版本目录
+node tools/build-index.mjs --stage <…> --engine <…> --assert-only         # 只核「应 live 的一条没掉」（只读，不动盘）
 ```
 
-`<stage>` 由站侧导出：`manifest.json` + `mods/<站点编号>/{mod.zip,meta.json,decision.json}`。
+`<stage>` 由站侧导出：`manifest.json` + `_selection.json` + `mods/<站点编号>/{mod.zip,meta.json,decision.json}`。
+导出用的就是本仓库里那一份 **[`tools/collect-station.mjs`](../tools/collect-station.mjs)**（**只读站点**：只复制
+`mod.zip` / `meta.json` / `decision.json`，站点文件一个字节不写；凭据不进文件、也不打印）：
+
+```bash
+ssh <站点主机> 'node <仓库>/tools/collect-station.mjs --out /tmp/modrepo-stage' > stage.tar
+mkdir -p _up/modrepo-stage && tar -xf stage.tar -C _up/modrepo-stage
+node tools/build-index.mjs --stage _up/modrepo-stage/modrepo-stage --engine <引擎检出> --write --prune-stale
+node tools/build-index.mjs --stage <…> --engine <…> --assert-only     # 复核：应 live 的 30 条一条没掉
+```
 
 ## 四道硬闸门（不满足就不入库，**报出来等人判**，工具绝不自己挑）
 
@@ -61,8 +72,9 @@ node tools/build-index.mjs --stage <…> --engine <…> --write     # 加 --writ
 ## 什么时候重新生成（⚠️ 每次发版前都跑一次）
 
 `mods/` 是**站上某个时刻的快照**，不是自动跟随的。**站上一旦新批了包，镜像不会自己变** ——
-所以在**每次发版前**都要重新导出一次 staging、重跑 `build-index.mjs --write`，再逐条核对
-「已经 live 的包一条没掉」。不做这一步，`mods/` 与站上就会悄悄分叉。
+所以在**每次发版前**都要重新导出一次 staging、重跑
+`build-index.mjs --write --prune-stale`，再用 `--assert-only` 核一遍「应 live 的包一条没掉」。
+不做这一步，`mods/` 与站上就会悄悄分叉。
 
 **实测过的分叉（2026-10-12）**：索引生成于 `07:43Z`，而站上 `84ab02864356`（chat-bubble）与
 `b6a3f39ae9ad`（duel-mode v0.2.1）分别在 `08:26Z` / `08:40Z` 才通过 ⇒ 两条都**漏收**，
@@ -103,6 +115,32 @@ node tools/build-index.mjs --stage <…> --engine <…> --write     # 加 --writ
 判「缺了哪个包」请**按 `manifest.json` / `index.json` 判**，不要拿 `_selection.json` 比 ——
 那里面本来就有一堆不该入库的记录。
 
+## 旧版本目录：由生成器**带守卫**清理（`--prune-stale`）
+
+同 id 换了新版本之后，旧版本目录（`mods/<包 id>/<旧版本>/`）**不会自己消失** —— 生成器只往清单里收件。
+2026-10-12 那次就是**手删**的（`mods/duel-mode/0.1.0/`）。现在这一步做进了
+`tools/build-index.mjs`，但**带守卫**，而且**默认不开**（不加 `--prune-stale` 只报不删）：
+
+| # | 守卫 | 落在哪 |
+|---|---|---|
+| 1 | 只删「站上对应记录**已不在接受集**」的目录 | 候选目录的 `meta.json.id` ⇄ staging 的 `_selection.json`：状态必须是 `superseded` / `rejected` / `pending` |
+| 2 | **先打印将要删的清单**（路径 + 站上状态 + 依据） | 删之前，逐条打印；机器可读的那一份在 `index.json` 的 `prune.wouldDelete[]` |
+| 3 | live 的一律不碰 | 本次入选集（`mods/<包 id>/<版本>/`）里的目录只报「保留」，不删 |
+| 4 | 删完**脚本断言**「应 live 的一条没掉」 | 拿**已写出的 `index.json`** 去核每个 `mod.zip` 在不在；少一条就非 0 退出（3） |
+| 5 | 状态**核不到就不删** | 缺 `_selection.json`、目录里没有可读的 `meta.json.id`、或那条记录不在采集清单里 ⇒ 报「拒不删」交人判 |
+
+⚠️ **第 4 条为什么按索引核、不按内存里的收件清单核**：`--write` 会把入选集**重新拷**进 `mods/`，
+所以「少了一条 live」只有拿索引去对才看得见 —— 拿内存核等于没核（目录刚被本工具重写过，当然条条都在）。
+单独复核用 `--assert-only`（只读、不装载、不写盘、不删）。
+
+四道入库闸门**不受这段影响**：清理跑在闸门**之后**，只可能动**没入选**的目录。
+
+## 被取代的那一条记录：旧目录退出的时刻（留档）
+
+`mods/duel-mode/0.1.0/` 就是本规则要处理的形态：站上记录 `4958f9c84f9a` 已是 `superseded`，
+同包 id 的新版本 `0.2.1`（记录 `b6a3f39ae9ad`）入选 ⇒ 旧目录是「站上已不接受、本地还在」，
+`--prune-stale` 下由守卫删掉。**站上那条记录一个字节都不动**，这里删的只是镜像里的旧目录。
+
 ## 关于被退件的包
 
 工具会**逐条列出**退件与原因（写进 `index.json` 的 `rejected[]`）。被退**不是打回**：
@@ -121,8 +159,10 @@ node tools/build-index.mjs --stage <…> --engine <…> --write     # 加 --writ
 
 - `mods/` 下的**包内容只读**（审核与分发用），不要顺手「优化」；要改包请回到站上的兼容包流程。
 - **本仓库的 agent 不要 `ssh`**（[AGENTS.md](../AGENTS.md) §3）。
-- 站上新增已通过的包 ⇒ **重新导出 staging + 重跑 `build-index.mjs --write`**（见上面
-  「什么时候重新生成」），不要手工往 `index.json` 里补条目。
-- `mods/` 是**生成物**：`<包 id>/<版本>/` 由导出清单决定。旧版本目录**随生成规则替换**，
-  这不算「删站上记录」—— 站上那条记录一个字节都不动；`mods/` 的历史由 git 留着。
-  但**删之前要看一眼**：旧目录必须先确认站上那条已被取代（`superseded`）才让它消失。
+- 站上新增已通过的包 ⇒ **重新导出 staging + 重跑 `build-index.mjs --write --prune-stale` +
+  `--assert-only` 复核**（见上面「什么时候重新生成」），不要手工往 `index.json` 里补条目。
+- `mods/` 是**生成物**：`<包 id>/<版本>/` 由导出清单决定。旧版本目录由 `--prune-stale` 的守卫
+  **按上面的规则自动清**（判据 = 站上那条已不在接受集 + 不在本次入选集）—— 这不算「删站上记录」，
+  站上那条记录一个字节都不动；`mods/` 的历史由 git 留着。
+  ⚠️ **不许手删**：手删没有「先打印清单 + 删完断言」，出了错没人看得见；要清就开 `--prune-stale`，
+  删完必须看到那条 `✅ 断言：应 live 的 N 条一条没掉`。

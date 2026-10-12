@@ -140,6 +140,11 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 
 node tools/build-index.mjs --stage <站侧导出目录> --engine <引擎检出>            # 只报，不写盘
 node tools/build-index.mjs --stage <站侧导出目录> --engine <引擎检出> --write    # 真写 index.json
+node tools/build-index.mjs --stage <…> --engine <…> --write --prune-stale       # 真写 + 清掉站上已不 live 的旧版本目录
+node tools/build-index.mjs --stage <…> --engine <…> --assert-only              # 只核「应 live 的一条没掉」
+
+# 站侧导出（只读站点）就是本仓库里那一份 tools/collect-station.mjs：
+ssh <站点主机> 'node <仓库>/tools/collect-station.mjs --out /tmp/modrepo-stage' > stage.tar
 ```
 
 `check-packs.mjs` 用**引擎自己那一份装载器**过一遍三个目录，逐个报出「装上了 / 被拒的理由」。
@@ -150,6 +155,9 @@ node tools/build-index.mjs --stage <站侧导出目录> --engine <引擎检出> 
 `build-index.mjs` 从**站侧导出**生成 `mods/index.json`（布局见 [`mods/README.md`](mods/README.md)）。
 它**不在本仓库里重写校验规则** —— 包的格式、能不能装、装成哪一层，全部调用引擎那一份（`loadWorkshop`）；
 索引里每个字段都**实测**得来。默认**只报不写盘**，要落盘得显式 `--write`。
+`--prune-stale` 才会清「站上对应记录已不在接受集、本次也没入选」的旧版本目录，**且带守卫**
+（先打印将要删的清单 → 状态核不到的一律不删 → 删完断言应 live 的一条没掉）；
+`--assert-only` 是那条断言的单独复核入口（只读、不装载、不写盘）。细则见 [`mods/README.md`](mods/README.md)。
 
 ## 兼容性
 
