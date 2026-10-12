@@ -5,7 +5,7 @@
 
 - 游戏本体与引擎源码**不在这里** —— 那是 [Stronghold-Protocol-Forge](https://github.com/XiaMo233M/Stronghold-Protocol-Forge)
 - 上游原作：[sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol)
-- **本仓库不含任何游戏素材**（见 [NOTICE.md](NOTICE.md) 与 [SKILL.md](SKILL.md) §14）
+- **含官方素材的包如实收录，但必须标注清楚**（见 [NOTICE.md](NOTICE.md) 与 [SKILL.md](SKILL.md) §14 素材口径）
 
 > 非官方同人作品，**禁止商业使用**。《明日方舟》及其素材版权归**鹰角网络**所有。
 
