@@ -1,0 +1,8 @@
+{
+  "decision": "approved",
+  "reason": null,
+  "at": "2026-10-11T17:46:42.906Z",
+  "by": "admin",
+  "displayName": "健康与构建只读接口（/healthz 扩展 + /client-build 字段契约）",
+  "acknowledgedSuspected": false
+}

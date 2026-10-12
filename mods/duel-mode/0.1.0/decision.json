@@ -1,0 +1,8 @@
+{
+  "decision": "approved",
+  "reason": "批准上线（真功能 mod）。核心生效面三条：① matchClass 叠加层 —— super.settle 之后按席位算争锋分，记进封顶 50 局的历史（本包内异常被吞掉，不改结算返回值）；② GET /mod/duel-mode/standings.json —— 现算榜单，no-store，走引擎已合并的动态路由面；③ /healthz 两个只读字段（modHealth[\"duel-mode\"]）。另有 screen.game.aside 只读面板。本期不提供：玩家主动命令（下注 / 借干员 / 表情）—— 需要 server.modules[].channels 与 Match.handlePackMsg，属引擎能力面，不在本包内。署名与许可按包自己声明的原样记：原作者 jingjiangze · AGPL-3.0-or-later，站点不代填不编造。素材：本包美术字节 = 0，不含官方素材；同批的素材容器另有两条投稿（d19511bd5485 / 05c6dd5c5844），站侧未上线（其 pack.json 自述内含从官方客户端导出的素材）。核验：干净 workshop 根单独装载 packsLoaded:[\"duel-mode\"]、errors=0；api \">=1 <2\" 与 MOD_API_VERSION 1 相容。",
+  "at": "2026-10-12T04:30:39.317Z",
+  "by": "admin",
+  "displayName": "争锋频道 · 玩法叠加层（服务端驱动）",
+  "acknowledgedSuspected": false
+}

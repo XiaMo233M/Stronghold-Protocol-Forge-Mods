@@ -1,0 +1,60 @@
+{
+  "id": "4958f9c84f9a",
+  "area": "normal",
+  "name": "争锋频道 · 玩法叠加层（服务端驱动）",
+  "note": "=== 源件与授权 ===\n源：Cloudnyco/Duel-Channel main@4d3b33be6c08b9c93e0c847b69e70e8bffbd2b77（本机 pristine vendor 树，304 文件）。\n作者：Duel Channel 的贡献者（不是我）。许可：代码 AGPL-3.0-or-later。\n该仓 NOTICE §2：assets/** 与 data/duelcfg.json、data/fighters.json 是官方客户端导出/官方数据表的产物，不是他们可授权的物件；整仓限非商业。\n本包美术字节 = 0。zip 只有 5 个文件：pack.json、server/core.mjs、client/duelMode.js、client/duelMode.css、test/mode.test.mjs。\n计分规则是把 Duel 侧两张表以**数字**形式内联（10 档基础分 30..50、两种模式的名次区间 → tokenNum），不是官方文件本身。\n\n=== 本包确实改变游戏行为（不是资料面板） ===\n1) matchClass 叠加层：super.settle 走完之后，按席位算一份「争锋分」，记进一张**封顶 50 局**的历史；本包内任何异常都被吞掉，不改结算返回值。\n2) GET /mod/duel-mode/standings.json：现算榜单（累计、降序、同分按 id），走已合并的动态路由面（DESIGN §28.35），Cache-Control: no-store。\n3) /healthz 两个只读字段（引擎挂在 modHealth[\"duel-mode\"] 下）：duelModeRounds、duelModeLeader。\n4) 只读面板挂 screen.game.aside：只渲染上面那条路由的结果，不 fetch 别的、不起定时器、不 send。\n刻意不做：APPLY_TO_REWARDS=false —— 把争锋分并进正式奖励（钱/资源）是数值裁决，不随包默认生效，代码里就是一个常量开关。\n\n=== 哪里不兼容（装不进的格子，逐条点名） ===\nA 玩家主动命令（下注、借干员、表情）：要 server.modules[].channels + Match.handlePackMsg = 上游 PR #2，未合并。0.15.1 校验器对未知字段报 MODULES_UNKNOWN_FIELD，所以本包**根本不写** channels。\nB 独立协议入口（/lobby、/match）：包不能注册 WebSocket 升级路径、收不到 POST（非 GET/HEAD 一律 405）、不能起子进程。对应 §28.38（PR #4）与 §28.39（PR #5），两支在审。\nC 实时对局事件：ctx.net 只有 on/send/sendResourceMessage；Duel 的 round/secret/battle/result/finish/bets 不在引擎消息表里 ⇒ 本包只读「引擎已经算完的结算结果」，不订阅 Duel 自己的事件流。\nD 座位模型：引擎 mode 只有 solo|coop；Duel 的 8 人礼物对决 / 30 人竞猜是「参与者 ≠ 玩家席」的玩法侧问题，不由本包冒充。\nE 客户端导出素材（约 44 MB）不在本包：同批 duel-assets（编号 05c6dd5c5844）单独承载 —— 容器 45,278,897 B、清单 218 条、verify=sha256。\nF 原实现的卫生问题：hist 无上限、DUEL_DEBUG 泄 seed ⇒ 本包用封顶 50 局的历史替代，且没有 debug 开关。\n\n=== 投稿前实测（本机可复现） ===\n· 单元：node --test test/mode.test.mjs ⇒ tests 6 / pass 6 / fail 0（查表命中与区间外、下标越界归 0、榜单聚合不随历史线性膨胀、三个挂载点都登记、结算取不到形状时记 0 条且不抛、两条纪律常量）。\n· 单独一根干净工坊根（只装本包）跑 tools/workshop-validate.mjs ⇒ \"VALID: the engine accepts this content.\"（0 error / 0 warning）。\n· 真服务器 startServer：boot 日志 applied 1 pack(s): 争锋频道 · 玩法叠加层（服务端驱动）(duel-mode) + 1 dynamic route(s) mounted by packs: \"/mod/duel-mode/standings.json\"；\n  该路由 → 200 · cache=no-store · 键=pack,appliedToRewards,rounds,scoring,standings · rounds=0 · appliedToRewards=false · basicScoresWaves=10 · extraScore 模式数=2；\n  /healthz → duelModeRounds=0 · duelModeLeader=null；\n  面板模块 /workshop-panels/duel-mode/client/duelMode.js → 200 · text/javascript; charset=utf-8 · 1762 B。\n\n=== 未实测（如实标出，别当已通过） ===\n· 真跑一局对局看它落进榜单：**没做**。上面 rounds=0 正是「还没打过一局」；记账路径只有单元级的假 Base 覆盖，引擎内真 Match 子类的 settle 席位形状未验。\n· wave → BASIC_SCORES 下标这条映射是我推断的（Duel 侧只给数组、没给键），代码与测试里都标了 [ASSUMED]。\n· 与同批其余 4 包（duel-data / duel-fighter / duel-copy / duel-panel）合装的综合验证没做；本包单独装载即可工作，不依赖它们。\n\n=== 站侧维护说明（2026-10-12 批准上线时**追加**，提交人原文在上、一字未改）===\n· 判定：**真功能 mod**（packKind=functional）。核验=干净 workshop 根单独装载 packsLoaded:[\"duel-mode\"]、errors=0；api \">=1 <2\" 与 MOD_API_VERSION 1 相容。\n· 核心生效面（三条，与 pack.json 声明一一对应）：① matchClass 叠加层 —— super.settle 之后按席位算争锋分，记进**封顶 50 局**的历史（本包内异常被吞掉，**不改结算返回值**）；② GET /mod/duel-mode/standings.json —— 现算榜单（累计、降序、同分按 id），no-store，走引擎已合并的动态路由面；③ /healthz 两个只读字段（modHealth[\"duel-mode\"]：duelModeRounds / duelModeLeader）。另有 screen.game.aside 只读面板。\n· **本期不提供**：**玩家主动命令（下注 / 借干员 / 表情）** —— 需要引擎的 server.modules[].channels 与 Match.handlePackMsg，属**引擎能力面**，不在本包内（其余不兼容格子见上「哪里不兼容」逐条）。\n· 署名与许可：**按包自己声明的原样记** —— 原作者 **jingjiangze** · **AGPL-3.0-or-later**。站点不代填、不编造。\n· 素材：本包**美术字节 = 0**，不含官方素材。同一批的素材容器另有两条投稿（d19511bd5485 / 05c6dd5c5844），站侧**未上线**（其 pack.json 自述内含从官方客户端导出的素材）。\n· gameVersion=0.15.1 **照原样保留**（引擎不对 game 做版本比对；上游版本是 0.2.4）。\n\n\n=== 站侧更正（2026-10-12 追加；提交人原文与上一条站侧说明均一字未改）===\n⚠️ **更正上一条站侧说明里的一句错话**：本记录确实在 `decision.json.reason` 与上一条说明里写了\n「需要 `server.modules[].channels` 与 `Match.handlePackMsg`，属**引擎能力面**」——**这句与事实不符**。\n\n· 引擎 **0.16.0 已实现并可用**的是 **`Match.handlePackMsg`**（`server/lobby.js:770`、\n  `shared/modSurface.js:167`，DESIGN §28.14；引擎自带测试 `test/packMatchMsg.test.js` **9/9 pass**）。\n· **正确的声明方式是 `client.panels[].messages`** —— 名字是**开放判据** `^[a-z][a-z0-9_-]{0,63}$`、\n  **上限 8 个**，**不是闭枚举**；它配合 `handlePackMsg` 用。\n· **不存在的只是那个拼写：`server.modules[].channels`。**\n· 阳性对照（引擎装载器实测）：写 `messages:[\"bets\",\"borrow\"]` ⇒ **errors 0 / VALID**。\n\n⇒ **「下注 / 借干员 / 表情」在本站未实现，原因是包侧没有做，不是引擎缺失。**\n\n仍然如实的两条：\n1. **争锋频道本体确实需要\"独立协议入口\"**（WebSocket 升级路径 / 接收 POST / 起子进程），\n   **工坊包确实没有这个面** —— 这一点包自己写对了。\n2. **本包的结算叠加层尚未做对局级验证**：`/healthz` 实测 `duelModeRounds: 0`、榜单为空\n   ⇒「争锋分真的记上了」属**未验证**（作者也如实标了）。\n\n更正的完整版见站侧更正记录 **`5a8f399c75a2`**（站侧更正说明 · 争锋频道引擎能力陈述 / duel-assets 同 id / compatNote 计数）。",
+  "homepage": "https://github.com/Cloudnyco/Duel-Channel",
+  "size": 7481,
+  "sha256": "8bfeb25a4b4ebe00408e624ee792d3cbaf296d8abe9e57aa63fa700f92b12559",
+  "uploadedAt": "2026-10-12T02:59:21.103Z",
+  "ip": "119.181.30.24",
+  "receipt": "c546a29615d69d501fb2c3cd2ee25d85",
+  "entries": 5,
+  "unpackedBytes": 13254,
+  "flags": [
+    {
+      "level": "info",
+      "code": "SIZE",
+      "text": "5 个文件 · 解压后约 0.01 MB"
+    },
+    {
+      "level": "info",
+      "code": "HAS_PACK_JSON",
+      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
+    },
+    {
+      "level": "info",
+      "code": "PACK_ID_HINT",
+      "text": "上传时填的名字：争锋频道 · 玩法叠加层（服务端驱动）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
+    }
+  ],
+  "suspected": false,
+  "suspectedReasons": [],
+  "packKind": "functional",
+  "revisions": [
+    {
+      "at": "2026-10-12T04:30:39.397Z",
+      "by": "admin",
+      "changed": {
+        "packKind": null,
+        "note": "（提交人原文，2581 字）"
+      },
+      "to": {
+        "packKind": "functional",
+        "note": "（同上 + 追加一段站侧维护说明）"
+      },
+      "why": "父裁定：4958f9c84f9a「争锋频道 · 玩法叠加层（服务端驱动）」批准上线，按真功能 mod 归类（packKind=functional）。核验：干净 workshop 根单独装载 packsLoaded:[\"duel-mode\"]、errors=0；pack.json 在 ZIP 根；api \">=1 <2\" 与 MOD_API_VERSION 1 相容。署名按包自己声明的原样记（jingjiangze · AGPL-3.0-or-later）。备注只**追加**一段站侧维护说明，提交人原文一字未改。"
+    },
+    {
+      "at": "2026-10-12T05:01:39.462Z",
+      "by": "admin",
+      "changed": {
+        "note": "（原 3445 字）"
+      },
+      "to": {
+        "note": "（同上 + 追加一段）"
+      },
+      "why": "业主巡检发现：本记录 decision.json.reason 与备注把「引擎不支持消息通道」当成理由，与事实不符 —— 引擎 0.16.0 已实现 Match.handlePackMsg（server/lobby.js:770、shared/modSurface.js:167；test/packMatchMsg.test.js 9/9），正确声明方式是 client.panels[].messages（开放判据、上限 8）；不存在的是拼写 server.modules[].channels。「下注/借干员」未实现的原因是包侧未做。按只增纪律：只追加更正段，提交人原文与上一条站侧说明一字未改。完整更正见记录 5a8f399c75a2。"
+    }
+  ]
+}

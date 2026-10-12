@@ -1,0 +1,16 @@
+# PROVENANCE — WS 压缩参考（协商参数 / 档位 / 实测）
+
+本文件由 `tools/build-index.mjs` 从站侧记录**机械生成**（事实来源：站点记录与包内 `pack.json`）。
+**没有的事实写「未声明」，不编造。** 人工增补请直接改本文件并在提交信息里说明。
+
+| 项 | 值 |
+|---|---|
+| ① 包 id / 版本 | `ws-compression-reference` · 1.0.0 |
+| ② 原作者 | Stronghold-Protocol（本包作者；对应仓库 jingjiangze/stronghold-ws-compression）（来源：pack.json） |
+| ③ 原件许可 | MIT |
+| ④ 兼容改写者 | Mo233 |
+| ⑤ 来源 | 站上记录 `f3711c357e20` · 由原件 `20a46941c219` 改写 |
+| ⑥ 改了什么 | **未声明** |
+
+- 本站/本仓库**不主张**包内任何第三方内容的权利；许可与署名以原件为准。
+- 收录闸门与素材红线见 [AGENTS.md](../AGENTS.md) §3 / §4。
