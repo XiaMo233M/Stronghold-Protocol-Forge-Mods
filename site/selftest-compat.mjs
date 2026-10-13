@@ -1394,8 +1394,12 @@ try {
     check(stripRev(m1b) === stripRev(m1Before)
       && Array.isArray(m1b.revisions) && m1b.revisions.length === ((m1Before.revisions || []).length) + 1
       && m1b.revisions[m1b.revisions.length - 1].to?.replacedBy === 'aa1100000002'
+      && m1b.revisions[m1b.revisions.length - 1].decisionSnapshot?.decision === 'approved'
+      && m1b.revisions[m1b.revisions.length - 1].decisionSnapshot?.displayName === '夹具甲·旧版'
       && shaOf(join(dataDir, 'submissions', 'aa1100000001', 'mod.zip')) === z1,
-      '6h-7 旧的 meta.json **只多一笔 revisions**（其余键、mod.zip 一字未动）', `revisions=${m1b.revisions?.length}`);
+      '6h-7 旧的 meta.json **只多一笔 revisions**（其余键、mod.zip 一字未动；'
+      + '`decisionSnapshot` 把上一份 decision.json 原样留档 —— `markReplacedBy` 是整份覆盖，不留档就等于丢字）',
+      `revisions=${m1b.revisions?.length}`);
     const mA1 = shaOf(join(dataDir, 'submissions', 'aa1100000001', 'meta.json'));
     const dA1 = shaOf(join(dataDir, 'submissions', 'aa1100000001', 'decision.json'));
     const r1b = await post(`${ADMIN}/supersede`, { newId: 'aa1100000002', oldId: 'aa1100000001' });

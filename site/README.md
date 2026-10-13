@@ -152,6 +152,9 @@ curl -sX POST http://127.0.0.1:25570/api/<ADMIN_PATH>/supersede \
 
 只有两处落盘、都是**追加**：旧记录的 `decision.json`（`markReplacedBy` 写）与
 旧记录 `meta.json` 的**一笔 `revisions`**；其余键、其余文件一个字节不动。
+⚠️ `markReplacedBy` 是**整份覆盖** `decision.json` 的，所以那一笔 `revisions` 里另外带一份
+**`decisionSnapshot`（上一份 `decision.json` 原样留档）** —— 旧记录里原来那段 reason
+（往往很长、写着两条的关系与取证）**一个字都不会丢**（与 `clearDecision` 同一个形状）。
 
 ### 四条硬要求落在哪
 

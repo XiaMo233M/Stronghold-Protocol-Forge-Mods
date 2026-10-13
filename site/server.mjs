@@ -2595,7 +2595,9 @@ const server = createServer(async (req, res) => {
       //
       // 落盘只两处（都是**追加**，零删除）：
       //   · 旧记录的 `decision.json` —— 由**同一个** `markReplacedBy` 写（superseded + replacedBy）；
-      //   · 旧记录的 `meta.json` —— **只追加**一笔 `revisions`（谁取代的、从什么变成什么、为什么）；
+      //     ⚠️ 它是**整份覆盖**的，所以旧记录原来那段 reason 会在这里被换掉 ——
+      //   · 旧记录的 `meta.json` —— **只追加**一笔 `revisions`（谁取代的、从什么变成什么、为什么，
+      //     外加 `decisionSnapshot`：**上一份 `decision.json` 原样留档**，一个字都没丢）；
       //     其余键一个不动；`mod.zip` / `orig.zip` / `pack-json.orig.json` **一个字节都不动**。
       //
       // ⚠️ 与既有三个调用点（`compat-submit?publish=1` / `/compat/decide` / `/compat/link`）的差别：
@@ -2639,6 +2641,10 @@ const server = createServer(async (req, res) => {
             error: `取代没落成（${oldId} 的 meta.json 读不出来？）—— 磁盘上什么都没改。` });
         }
         // 只追加一笔 revisions（旧记录的 meta.json；其余键、其余文件一个字节不动）。
+        // ⚠️ `decisionSnapshot` 是**零删除的关键那一笔**：`markReplacedBy` 是整份覆盖 `decision.json`
+        //    的，旧记录里原来那段 reason（可能很长、写着两条的关系与取证）会被换掉 ——
+        //    所以在这里把**上一份决定原样留档**，日后翻记录能逐字看到它原先是怎么判的。
+        //    （与 `clearDecision` 的 `decisionSnapshot` 同一个形状、同一个理由。）
         const om = readJson(metaPath(oldId)) || {};
         const hist = Array.isArray(om.revisions) ? om.revisions : [];
         const why = String(inObj.reason || '').trim()
@@ -2651,6 +2657,8 @@ const server = createServer(async (req, res) => {
             changed: { decision: oldDec ? oldDec.decision : 'pending', replacedBy: (oldDec && oldDec.replacedBy) || null },
             to: { decision: 'superseded', replacedBy: newId },
             why,
+            // 上一次判定**原样**留一份（没有 decision.json 就是 null：那本来就没什么可留的）。
+            decisionSnapshot: oldDec || null,
           }],
         });
         audit('supersede', {
