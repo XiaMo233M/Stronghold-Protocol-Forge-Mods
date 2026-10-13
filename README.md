@@ -111,7 +111,12 @@ mods/
 
    > 上面这条是**本地安装 / 仓库收录**的形状。**要投到审核站（上传）时反过来**：站点只读 **zip 根**的
    > `pack.json`，套了顶层目录即 400 —— 见 [`SKILL.md`](SKILL.md) §3 与 [`AGENTS.md`](AGENTS.md) §6 ⑧。
-3. 装好后包落在 `app/workshop/<包 id>/`，在游戏的工坊界面能看到它
+3. 装好后包落在 `app/workshop/<包 id>/`。⚠ **游戏里没有「工坊界面」**（`public/js/screens/` 的 24 个屏里没有
+   这样一个屏），所以它**不会**出现在任何界面上；要确认装上了，看启动日志那一行
+   `[workshop] applied <n> pack(s): …`，以及游戏内容本身变没变（换的立绘、加的内容）。
+   **改完包必须重启服务器** —— 引擎没有热重载。
+   第一次做包 / 第一次装包，先看 [`BEGINNER.md`](BEGINNER.md)（引擎包内那一份是 `app/docs/START-HERE.md`，
+   两份同源、要一起改）。
 
 **目录名必须等于 `pack.json` 的 `id`**，否则装载器整包跳过（引擎会报 `PACK_ID_MISMATCH`）。
 
