@@ -119,6 +119,30 @@ async function api(path, init = {}, withToken = true) {
 }
 const apiJson = (path, obj) => api(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(obj) });
 
+// ⭐⭐ 上传失败的分类文案（2026-10-14「大包传一半就断」修复；与 pages/index.html 同一套口径）。
+// 为什么这里也要有：这一页的「换包体」也是往服务端灌一个整包，改之前失败只 alert 一句
+// 「没成：<服务端原话 或 HTTP 码>」—— 408（服务端等超时）与 413（包太大）都被折叠成一句干巴巴的
+// 状态码，作者看不出该换网络还是该缩小包。判据（site/selftest.mjs ⑲）会逐页扫，别只改 index。
+const MAX_MB = Number('__MAX_MB__') || 100;   // 服务端注入（MAX_MB），不在这里写死
+const MAX_BYTES = MAX_MB * 1048576;
+const LIMIT_MIN = 15;                          // 与 server.mjs 的 requestTimeout 是同一个数
+// 由时限推出的用户判据：包大小 ÷ 上行速度 < 时限 ⇒「多少 KB/s 才传得完」。
+const kbpsFor = (mb) => Math.ceil(mb * 1024 / (LIMIT_MIN * 60));
+function failText(status, body) {
+  if (status === 408) {
+    return `上传超时（超过服务端 ${LIMIT_MIN} 分钟时限）：25 MB 的包需要上行快于约 ${kbpsFor(25)} KB/s，请换网络或缩小包体。`;
+  }
+  if (status === 413) {
+    return `文件太大（上限 ${(body && body.maxMB) || MAX_MB} MB）：${(body && body.error) || '请缩小包体再传。'}`;
+  }
+  if (status === 429) return `操作太频繁，请等 ${(body && body.retryAfterMin) || 10} 分钟再来。`;
+  if (status >= 500) return `服务端出错（HTTP ${status}）：${(body && body.error) || '稍后再试'}`;
+  if (status === 0) {
+    return '网络断了（没拿到服务端的任何响应）—— 若总是传到一半就断，多半是上行太慢撞上了服务端时限，或链路被中间设备断开，请换网络或缩小包体。';
+  }
+  return '没成：' + ((body && body.error) || ('HTTP ' + status));
+}
+
 // ---- ① 换令牌
 $('claimgo').onclick = async () => {
   const id = $('cid').value.trim();
@@ -229,15 +253,40 @@ function card(m) {
     const f = fileI.files[0];
     if (!f) { alert('先选一个 zip。'); return; }
     if (!/\.zip$/i.test(f.name)) { alert('只收 zip。'); return; }
+    // ⭐ 本地体积预检（2026-10-14）：超过上限就**不发请求** —— 原来是传到一半才被 413 掐，白等一次。
+    if (f.size > MAX_BYTES) {
+      alert('文件太大：' + (f.size / 1048576).toFixed(1) + ' MB，上限 ' + MAX_MB + ' MB —— 没发请求，请缩小包体再来。');
+      return;
+    }
     if (!confirm('这会把新包体存成**候选**：公开列表在维护者批准前**照旧是旧的包**。继续吗？')) return;
+    // ⭐ 兜底时限 + 走秒进度（2026-10-14）：这条上传原来**没有任何超时**，链路被中间设备断开时
+    //    会一直停在「上传中…」，分不清是断了还是只是慢；失败又只 alert 一句状态码，看不出下一步。
+    const AC = new AbortController();
+    const hardStop = setTimeout(() => AC.abort(), (LIMIT_MIN + 2) * 60000);
+    const t0 = Date.now();
     upB.disabled = true; upB.textContent = '上传中…';
-    const r = await api(`/api/publisher/blob?id=${encodeURIComponent(m.id)}`, {
-      method: 'POST', headers: { 'content-type': 'application/zip', 'x-filename': encodeURIComponent(f.name) }, body: f,
-    });
-    upB.disabled = false; upB.textContent = '上传新包体（先存为候选）';
-    alert(r.ok ? (r.body.changed ? '候选包体已收下。公开面照旧是旧包，等维护者批准。' : '这一份与现在公开的包逐字节相同，没有留候选。')
-      : ('没成：' + (r.body?.error || r.status)));
-    if (r.ok) loadMine();
+    const tick = setInterval(() => {
+      upB.textContent = `上传中… 已用 ${Math.round((Date.now() - t0) / 1000)} 秒（服务端 ${LIMIT_MIN} 分钟内要传完）`;
+    }, 1000);
+    try {
+      const r = await api(`/api/publisher/blob?id=${encodeURIComponent(m.id)}`, {
+        method: 'POST', headers: { 'content-type': 'application/zip', 'x-filename': encodeURIComponent(f.name) },
+        body: f, signal: AC.signal,
+      });
+      alert(r.ok
+        ? (r.body.changed ? '候选包体已收下。公开面照旧是旧包，等维护者批准。' : '这一份与现在公开的包逐字节相同，没有留候选。')
+        : failText(r.status, r.body));
+      if (r.ok) loadMine();
+    } catch (e) {
+      // `fetch` 抛错 = **没拿到任何 HTTP 响应**：关页面 / 隧道被中间设备 reset / 兜底时限到点。
+      alert(e.name === 'AbortError'
+        ? `已中止：超过 ${LIMIT_MIN + 2} 分钟还没传完（客户端兜底时限到了）。多半是链路太慢，或隧道被中间设备 reset；请改用更小的包或换更快的网络（服务端给一次上传 ${LIMIT_MIN} 分钟）。`
+        : `出错（${e.name || 'Error'}）：${e.message}，**没拿到 HTTP 响应** —— 连接被中间设备断开 / 隧道掉了 / 服务端不可达。`);
+    } finally {
+      clearInterval(tick);
+      clearTimeout(hardStop);
+      upB.disabled = false; upB.textContent = '上传新包体（先存为候选）';
+    }
   };
   blobRow.append(fileI, upB);
 

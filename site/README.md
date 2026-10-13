@@ -705,13 +705,19 @@ cp -a /opt/sp-modsite.bak-<时间戳>/. /opt/sp-modsite/ && systemctl restart sp
    所以这时只剩日志 —— 实测确认不会写出第二个响应；页面靠状态码 408 分类，不依赖响应体）；
 ② `413` 的响应体写清**上限多少 MB**，并带机器可读的 `code: "TOO_LARGE"` / `maxMB`；
    `429` 带 `retryAfterMin` 与 `retry-after` 头（窗口长度只有 `RATE_WINDOW_MS` 一份）；
-③ 上传页按**真实状态码**分类提示（408 超时 / 413 太大 / 429 太频繁 / 其余才是「网络断了」），
-   并在**发请求之前**本地判一次体积；管理台那条 `fetch` 加了 `AbortController` 兜底时限与走秒进度。
+③ **有上传动作的页面一律按真实状态码分类提示**（408 超时 / 413 太大 / 429 太频繁 / 其余才是「网络断了」），
+   并在**发请求之前**本地判一次体积；三处**同一套口径**：`pages/index.html`（投稿，`xhr.timeout` 兜底）、
+   `pages/mine.html`（「我的投稿」的换包体，`AbortController` 兜底）、`pages/admin.html`（管理台的
+   「上传并发布」，`AbortController` 兜底）。
+   ⚠️ **判据不是只扫 index**：`selftest.mjs` 的 ⑲ 有一张 `UPLOAD_PAGES` 表**逐页扫**，加新上传页就往表里加一行；
+   表里的 `region` 把「上传那一段」框出来 —— 不框的话，「没成：<原话>」这种折叠写法会命中同一页里
+   **非上传**的小报文处理器（实测踩过：`mine.html` 的 `/update` 正好也是那种一行写法，判据会变成假红）。
 
-**判据**：`site/selftest.mjs` 最后一节「⑲ 上传断连修复」—— 静态读 `server.mjs` 与 `pages/index.html`，
+**判据**：`site/selftest.mjs` 最后一节「⑲ 上传断连修复」—— 静态读 `server.mjs` 与 `pages/*.html`，
 断言三个超时都有显式赋值、`requestTimeout >= 600000`、`!= 0`、`headersTimeout > keepAliveTimeout`，
-以及上传页里 408/413/429 三个分支真的存在（注释不算）。**在改前的文件上这一节必须全红**（10 条），
-改后必须全绿；`site/selftest-admin.mjs` 的 DOM 桩也必须提供 `AbortController`（否则页面点上传会 ReferenceError）。
+以及**每个上传页**里 408/413/429 三个分支真的存在（注释不算）、有本地体积预检、有兜底时限、
+失败路径真的走分类函数。**在改前的文件上这一节必须红**（index 10 条 + mine 8 条），改后必须全绿；
+`site/selftest-admin.mjs` 的 DOM 桩也必须提供 `AbortController`（否则页面点上传会 ReferenceError）。
 
 ### 改完必跑的**四个**自测（2026-10-13 起）
 
