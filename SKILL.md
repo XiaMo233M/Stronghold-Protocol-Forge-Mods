@@ -103,7 +103,7 @@ target, dependencies, conflicts
 | 写法 | 是什么 | 形状与判据 |
 |---|---|---|
 | `content: ["chess", …]` | **新增**：声明本包要读哪几个内容文件，加载器把它们**叠加**到官方数据上 | 名单是引擎固定的 **14** 个文件（§20.2）；声明了却缺文件会被点名 |
-| `overrides: ["chess:chess_char_1_01_a", …]` | **覆盖官方记录的所有权声明**：`"<文件>:<官方 id>"` —— 「这条官方记录由本包重新定义」。**装载器不按名字前缀猜归属**，没有这条声明就想顶掉官方 / 别的包的记录会被点名拒 | 形状 `shared/workshop.js:194`、归一化 `:1853-1856`；读取点 `server/workshop.js:1172-1178`、`:1243`；拒绝码 `KIT_OFFICIAL_OVERRIDE_UNDECLARED`（`:1292-1299`） |
+| `overrides: ["chess:chess_char_1_01_a", …]` | **覆盖官方记录**：`"<文件>:<官方 id>"`。它先是一条**所有权声明**（「这条官方记录由本包重新定义」，装载器**不按名字前缀猜归属**），而覆盖本身是**字段级补丁** —— 只写你要改的字段，其余字段从官方记录**递归逐字段**合并过来；**数组类字段整块替换**，另有 11 个键（`skill` / `skills` / `trait` / `traitBase` / `traitOverride` / `modules` / `rangeGrid` / `attackRangeGrid` / `assets` / `diy` / `bonds`）也整块取；`talents` 这类**按身份键逐条**合并 | 形状 `shared/workshop.js:194`、归一化 `:1853-1856`；**字段级合并** `shared/workshop.js:2990-3000`（`mergeRecord`）；**数组整块替换 + 11 键例外** `docs/design/mod-layer.md:238-258`（§A2）；读取点 `server/workshop.js:1172-1178`、`:1243`；拒绝码 `KIT_OFFICIAL_OVERRIDE_UNDECLARED`（`:1292-1299`） |
 | `server.modules[].uses: ["matchClass", …]` | **挂载点**：这个服务端模块拿到哪几种能力。`matchClass` 是**唯一能改对局结果**的那一种 ⇒ 声明它**必须 `combat: true`** | 闭枚举 `shared/workshop.js:529`；`combat` 硬闸门 `:977` |
 
 **③ `api` 与 `game` 是两回事** ——
@@ -598,7 +598,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | `assets.mirrors` / `client.panels[].messages` / `server.modules[]` 字段闭集 | `shared/workshop.js:310`、`:787-799`、`:531-539`（模块的字段闭集与控制码在 `:958-978`）、`:2257-2270`（模块通道必须被本包面板声明过） |
 | `server.modules[].channels` 声明面（§19.8） | `shared/workshop.js:531`（字段闭集）、`:539`（每题上限 8）、`:960-978`（四条形状判据 + `MODULES_CHANNELS_NEED_MATCH`）、`:2257-2270`（`MODULES_UNKNOWN_CHANNEL`）；设计稿 §28.23（`docs/design/mod-layer.md:1998`） |
 | `pack.json.enabled`（§19.9） | `shared/enabled.js:33`（`ENABLED_BAD_SHAPE`）、`:36`（`ENABLED_FALSE`）、`:39`（键名）、`:48`/`:64`（两个判据函数）；设计稿 §28.50 |
-| `overrides`（覆盖官方记录的所有权声明） | `shared/workshop.js:194`（形状）、`:1853-1856`（归一化）；读取点 `server/workshop.js:1172-1178`、`:1243`、`:1292-1299`（`KIT_OFFICIAL_OVERRIDE_UNDECLARED`） |
+| `overrides`（所有权声明 ＋ **字段级补丁**） | `shared/workshop.js:194`（形状）、`:1853-1856`（归一化）、**`:2990-3000`（`mergeRecord`：号码 / 字符串 / 布尔与承载它们的普通对象**递归逐字段**合并）**；**数组整块替换 ＋ `OVERRIDE_REPLACE_KEYS` 11 键整块取 ＋ `talents` 按身份键** `docs/design/mod-layer.md:238-258`（§A2）；读取点 `server/workshop.js:1172-1178`、`:1243`、`:1292-1299`（`KIT_OFFICIAL_OVERRIDE_UNDECLARED`） |
 | `variants` 三轴 | `shared/variants.js:57`（`training`）、`:72`（`form`）、`:87`（`deploy`） |
 | 面板 ctx 的键 | `public/js/ui/extensions.js:798-805` |
 | `net` 成员与两格新读数 | `public/js/ui/extensions.js:667-768`；`docs/design/mod-layer.md:1928-2013` |
