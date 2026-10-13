@@ -531,6 +531,23 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 - 令牌存在发布者**自己的浏览器**里（`localStorage` 键 `sp-modsite-publisher-token`）；
   站点只存哈希 —— 丢了让管理员重发一枚即可，**旧令牌不回收**。
 
+### 老记录的**功能类目**迁移：`site/migrate-funkind.mjs`（默认干跑）
+
+```
+node site/migrate-funkind.mjs --data /var/lib/sp-modsite            # 站上：干跑，打印「将写清单」
+node site/migrate-funkind.mjs --mirror <仓库>/mods                  # 本机：拿仓库镜像干跑（离线）
+ADMIN_TOKEN=… node site/migrate-funkind.mjs --data … --write --base http://127.0.0.1:25570
+```
+
+- **只写一条明确无误的判据**：`packKind === 'documentation'` ⇒ `funcKind = 'documentation'`
+  （技术维度的直接翻译，不需要猜）。⚠️ 从 `packKind === 'functional'` **推不出**「玩法 / 拓展 / 工具 / 素材」，
+  所以那些**一条都不写**，逐条标「留未分类，待人工过」。
+- 「不写」那批**不需要任何动作**：站点读 `funcKind` 缺省就是 `uncategorized`（未分类），
+  它们现在就已经落在公开面的「未分类」区里；要改由维护者在审核详情页一条一条过。
+- **绝不用批量形状**：`--write` 是一条**一个**请求打 `POST /api/<ADMIN_PATH>/funkind`，走站点自己的 revisions + audit。
+- ⚠️ 凭据纪律：`ADMIN_TOKEN` **只从环境变量读**，不进 argv、不进日志、连长度都不打印。
+- ⚠️ 管理口只允许回环地址 ⇒ `--base` 要走 **SSH 隧道**（`ssh sp-tunnel`）后的 `http://127.0.0.1:<端口>`。
+
 ### 三档下架：软删 / 恢复 / 硬删（⚠️ 硬删是**零删除的唯一例外**）
 
 发布者在 `/mine` 上有**三条**下架路，另外还有一条管理员确认的自撤路。前三条的差别只是
