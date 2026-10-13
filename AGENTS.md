@@ -32,7 +32,7 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）与维护者在本仓库
 | [`incoming/SOURCE.template.md`](incoming/SOURCE.template.md) | 投稿人 | `SOURCE.md` 的填空模板（五件事） |
 | [site/README.md](site/README.md) | **维护者** | 上传站 / 审核台的整套用法（部署、环境变量、三视图、兼容包发布、备份与更新） |
 | [NOTICE.md](NOTICE.md) | 所有人 | 每个包的来源、署名与许可；非商业声明 |
-| 引擎文档（本仓库只索引） | **所有人** | `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（全部表面）、`docs/design/mod-layer.md`（边界；§28.43–§28.49 是这一版新加的面，其中 **§28.49 `trait.grantsBonds` 已合入 0.17.0、今天能用**，写法与边界见 [SKILL.md](SKILL.md) §19.7） |
+| 引擎文档（本仓库只索引） | **所有人** | `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（全部表面）、`docs/design/mod-layer.md`（边界；**§28.23** 是 `server.modules[].channels` 通道声明面，**§28.43–§28.50** 是这几版新加的面 —— 其中 **§28.49 `trait.grantsBonds` 已合入、今天能用**（[SKILL.md](SKILL.md) §19.7）、**§28.50 `pack.json.enabled`**（§19.9）） |
 
 ## 3. 硬规则
 
@@ -65,6 +65,13 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）与维护者在本仓库
   **不加** `Co-Authored-By:` / `Generated with …` 这类署名尾巴。
 - **不许碰服务器**：本仓库的 agent **不要 `ssh`**、不要直连服务器做操作。站点上的动作走
   [site/README.md](site/README.md) 里的管理 API 与隧道，交给人或专门那一路去做。
+- **四条红线**（与 [SKILL.md](SKILL.md) §14.1 是同一份，审核时逐条看）：
+  ① **不许整份覆盖引擎文件** —— `install.mjs` + `payload/**`（整份覆盖 `data/**`、`server/**`）那种**安装器形态判「非标准」**，
+  引擎侧定级见 `docs/STANDARD-PACK.md:20`、`:95`；
+  ② **不许夹带可执行物** —— `.bat` / `.cmd` / `.exe` / `.dll` / `.ps1` **不是包内容**；
+  ⚠️ 引擎**没有**「扫到可执行就拒包」的闸门，所以**这条只能靠审核兜住**（闸门判不了它）；
+  ③ **不许静默改对局外行为** —— 会改对局结果就写 `combat: true` 并在包自述里讲明（§5.1）；
+  ④ **素材版权** —— 官方素材**仅本地、不随源码分发**，包里带了就必须标注（§3「素材口径」）。
 
 ## 4. 收录闸门（一个包能不能进 `packs/`）
 
@@ -76,6 +83,9 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）与维护者在本仓库
 4. **素材已标注**：含游戏素材的包**可以收录**，但 `PROVENANCE.md`（机械清点 + 来源授权）
    与站上备注必须写明「**含官方素材**」（见 §3「素材口径」）—— **未标注才是问题**
 5. **带上真实功能**（业主 2026-10-11 口径：「documentation-only 不放，有功能我们再放」）
+
+> ⚠️ **数字别混**：这里是**五条**闸门，其中第 3 条的 `PROVENANCE.md` 是**六项**；
+> 而 `mods/` 那一侧是**四道**入库闸门（见 [`mods/README.md`](mods/README.md)）—— 三组数字说的是三件不同的事。
 
 **第 5 条的判据**：装上之后**会改变某项游戏内行为**（数据 / 界面 / 服务端任一层）才算「有功能」。
 一眼判的反例 —— 命中所列任一条即**不上架**（**处理方式是「留在待审」，不是「打回」**）：
@@ -146,6 +156,44 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
   也就是说：**要贴在站上，当前只能写进「兼容说明」**；想让它成为独立的一栏，需要改站点代码 ——
   那件事**不在本文档的改动范围里**，列为待裁决。
 
+### 5.2 AI agent 的可执行工作流：读什么 → 怎么验 → 怎么自检 → 什么时候停下
+
+**① 动手前读什么（只读，别猜）**
+
+| 要判的事 | 读哪里 |
+|---|---|
+| 这个包能声明哪些字段 | 引擎 `shared/workshop.js` 的 `PACK_FIELDS`（**闭集，36 键**）；`content` 名单另有一份 |
+| 「这一版能不能用」的通道面 | 本仓 [SKILL.md](SKILL.md) §19 / §20（每条带 `文件:行号`）—— **核不到就回引擎复一遍**，那张「在途」表会过期 |
+| 站上某条记录现在是什么状态 | 审核台三个视图（§7）；**不要**拿 `mods/index.json` 反推站上状态（镜像只是采集时刻的快照） |
+| 站侧到底怎么判的 | `site/server.mjs` —— 拒绝码是**机器可读**的，按 `code` 直接搜 |
+
+**② 怎么验（三条命令，缺一条都不算验过）**
+
+```bash
+# 1) 本仓闸门：packs/ 与 demo/ 里的包必须全部 ✓（退出码 0）
+node tools/check-packs.mjs --engine <引擎检出> --json
+
+# 2) 作者侧分层校验：干净临时工坊根，errors 必须是 0
+SP_WORKSHOP=/tmp/agent-shop node <引擎检出>/tools/workshop-validate.mjs --workshop /tmp/agent-shop --json
+
+# 3) 动过镜像 / 索引之后：先重新导出 staging，再让工具重算（默认只报不写盘）
+node tools/build-index.mjs --stage <staging> --engine <引擎检出>
+```
+
+**③ 怎么自检（每条都要能回答「凭什么是这样」）**
+
+- 写进文档的每一个数字与结论，**要么有命令输出，要么有 `文件:行号`**；核不到的写「**待核**」，不写印象；
+- 改完**重跑**②里的前两条；动过镜像再跑 `--assert-only` 核「应 live 的一条没掉」；
+- 提交前 `git status --porcelain` **只应看到你自己改的那几个文件**（`site/**` 功能代码与包内容不在同一次改动里碰）。
+
+**④ 什么情况必须停下问人（不要自己决定）**
+
+- 要动**服务器**（`ssh` / 直连 / 改站上盘上的文件）—— 本仓 agent 一律不做（§3）；
+- 要对**一批**记录做批准 / 决定 —— 先把命中的 id 列出来给人看（§8.1）；
+- 要**硬删**一条有引用的记录（409）—— 报人；
+- **素材标注够不够**、某个原件能不能收、样板要不要退 —— 写进「待裁决」（§9）；
+- 文档与代码冲突 —— **以代码为准改文档**，并把这条冲突写进交付说明。
+
 ## 6. 发布工作流（本轮实际做的）
 
 ```
@@ -164,6 +212,10 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 
 > ①⑤ 与 ⑧ 是**两个落点的两套形状**，不是矛盾：装载器只认 `<工坊根>/<包 id>/pack.json`（包装成 zip 时
 > `pack.json` 在根或在唯一顶层目录里**都收**，引擎 `tools/workshop-pack.mjs:191-200`），而**站点上传只认 zip 根**。
+
+> ⭐ **新版要上线时，多做一步**：**站点不按 `pack.id` 去重**（公开面按记录列，见 §7.8 与 §8.6 第 5 条）
+> —— 所以「新的上线、旧的下架」要**显式**做：`POST /api/<ADMIN_PATH>/supersede`（一对、强制同 `pack.id`），
+> 或走投稿详情页的「上传并发布兼容包…」（§7.1，原投稿按 B 口径自动置 `superseded`）。
 
 **多 mod 时：一个 mod 一个子 agent 并行。** 包之间不共享状态；要共享的只有「引擎通道怎么用」这条知识。
 
@@ -223,6 +275,71 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 （`site/server.mjs:748` 的 `existsSync`）—— 没留档就**不派发这个入口**，
 不要用一个 404 去假装它存在。
 
+### 7.7 用途分类（`funcKind`）：六类，与 `packKind` 是**两个维度、两个键**
+
+- **六类闭枚举**（`FUNC_KINDS`，`site/server.mjs:172`）：**游戏玩法** `gameplay` · **拓展包** `expansion` ·
+  **实用工具** `utility` · **素材替换** `assets` · **说明文档** `documentation` · **未分类** `uncategorized`。
+  这是**业主真正要的那个分类**（「这包是干什么的」）。
+- **`packKind` 是另一个维度**（`:160`）：`functional` / `documentation` / `unknown` ——「**装上到底会不会生效**」。
+  两个键**故意不复用**（`:1441`）；`uncategorized` **不是** `unknown`：老记录**没有** `funcKind` 这一栏 ⇒ 落未分类（`:646`）。
+- ⭐ **一致性判据 `packKindFor(funcKind)`**（`:650`、`:656`）：功能类目一旦落库，**技术维度照着它派生** ——
+  `documentation` ⇒ `documentation`；`FUNC_KINDS_FUNCTIONAL`（`gameplay` / `expansion` / `utility` / `assets`，`:178`）
+  ⇒ `functional`。所以两栏**不可能各说各话**，除非同一次报文里又**显式**给了 `packKind`（那就以显式值为准，`:1864`）。
+- **归类端点**：`POST /api/<ADMIN_PATH>/funkind`，**一次一个明确写出的 id**（与 `/note`、`/hide`、`/packkind` 同一条铁律，`:1817`）。
+- **筛选**：`GET /mods?func=…` 与 `GET /api/mods?func=…`（可多值；写了不在闭枚举里的类目会被拒，`:658-663`）；
+  技术维度仍是 `?kind=…`（`:69-70`）。
+- **老记录的迁移**：`site/migrate-funkind.mjs`，**默认干跑**。它只写一条明确无误的判据
+  （`packKind=documentation ⇒ funcKind=documentation`），其余一律标「**留未分类，待人工过**」且**不写盘**；
+  真写盘时才一次一条 id 打 `/funkind`，凭据只从环境变量读。
+- ⚠️ **`funcKind` 不进镜像索引**：本仓 `mods/index.json` 只有技术维度的 `category`；31 份 `meta.json` 快照里
+  **一份都没有** `funcKind`（那是站侧 2026-10-13 之后才加的维度）。要它进镜像，得**重新导出 staging** 再重跑
+  `tools/build-index.mjs` —— 工具不会从别处补这一栏。
+
+### 7.8 ⭐ 「以新为准」：新版上线 = 一次 `/supersede`（业主 2026-10-13 总政策）
+
+原话是「**以后所有 mod 以新为准**：新的上线、旧的下架但**不删除**」。
+
+- **端点**：`POST /api/<ADMIN_PATH>/supersede`，**一次一对**（`newId` + `oldId`）；**强制同 `pack.id`**，
+  并要求**新的那条已在公开面**（`site/server.mjs:1112`）。
+- **判据只有一份**：`checkSupersede()`（`:1109-1124`），**先算不写** —— 任何一道不过就返回错误对象，
+  **磁盘上什么都不改**。错误码是机器可读的：`SUPERSEDE_OLD_ID_SHAPE` / `SUPERSEDE_NEW_ID_SHAPE` /
+  `SUPERSEDE_SELF`（自己取代自己）/ `SUPERSEDE_OLD_NOT_FOUND` / `SUPERSEDE_NEW_NOT_FOUND` /
+  `SUPERSEDE_PACK_ID_UNREADABLE`（**读不出 `pack.id` 就不猜、不动它**）/
+  `SUPERSEDE_PACK_ID_MISMATCH`（只有这个入口核这一道）/ `SUPERSEDE_CYCLE`（会构成取代环，`chain` 给出整条链）。
+- **旧的那条怎么处置**：`markReplacedBy`（`:1050-1068`）写 `decision = superseded` +
+  `replacedBy { id, name, area, at }` —— 理由原文就是「**不再单独上线，避免公网出现两份**」。
+  **旧的 `meta.json` 与 `mod.zip` 一个字节都不动**；`decision.json` 是整份覆盖，所以新版补了一笔
+  `decisionSnapshot` 留档（`:2644-2661`），上一份决定**逐字保留**。
+- **旧的可以是兼容包**：那道 `area === 'compat'` 的硬拦**已删除**（`:1037-1041`）。
+- **另一条入口**：`POST /api/<ADMIN_PATH>/decide` 的 `superseded` 分支 —— 管理员的**明确指令**，
+  历史用法允许跨 id（人工纠正 / 合并），所以**不核 `pack.id`**（`:1113`）。
+- ⚠️ **公开面按「记录」列，不按 `pack.id` 去重**（可见性只读 `state === 'approved'` 与 `withdrawRequested`，`:289`）
+  ⇒ 同一个 `pack.id` 的两条会**同时公开**。这就是为什么「新版上线」必须**显式做一次** `supersede`，
+  不能指望站点自己发现重名。
+
+### 7.9 发布者自助删除：三档，**只有一档会真删**
+
+| 档 | 端点 | 落成什么 | 门槛 |
+|---|---|---|---|
+| **档 1 软删** | `POST /api/publisher/delete`（`:59`） | 转 `superseded` 终态（`replacedBy: null` / `reason: publisher-delete`），**一按即生效、不经管理员**；留 `revisions` + `audit` | 发布者**自己的发布者令牌** |
+| **自撤** | `POST /api/publisher/withdraw`（`:58`）＋ 管理员 `POST /api/<ADMIN_PATH>/withdraw-decide`（`:62`） | **公开面立刻不再列出**（`withdrawRequested`）；**落终态要管理员确认** | 令牌 ＋ 管理员 |
+| **档 3 硬删（物理）** | `POST /api/publisher/delete-hard`（`:61`） | ⚠️ 必须**两次调用二次确认**，且**先落墓碑**（`tombstones/`，`:111`）**再**物理删 | 令牌 ＋ 二次确认 |
+
+- 站上「**零删除**」是默认，**唯一例外就是档 3**（授权注释在 `:44-46`）。
+- **恢复口只有一条**：只有**发布者自助删除**造成的那种 `superseded` 能自助恢复（标志 `decision.publisherDelete`）；
+  被**别的版本取代**的**不在这条通道里**，要找维护者（`:451`、`:467-472`）。
+- 删除撞上**引用**（比如它已被某条取代链指着）⇒ **409 先报人**，不自行处理。
+
+### 7.10 管理口口径：**两道防线 + 绝不写凭据**
+
+- `ADMIN_IPS`（**只认回环**）＋ 令牌两道（`site/server.mjs:122`、`:133`）；审核动作全部要 `x-admin-token`，
+  比对用 `timingSafeEqual`（`:16`）。
+- `ADMIN_TOKEN` **至少 16 位**，没设就直接不启动（`:195-197`）。
+- `ADMIN_PATH` 换名字**只减少扫描噪音，不是安全屏障**（`:135-140`）。
+- ⚠️ **绝不把凭据写进任何文件 / 命令行 / 输出**：认领码、发布者令牌、`ADMIN_TOKEN`、Basic 头
+  **一个字节都不落盘**（`:337`）。写文档时一律**不写凭据**，也不要贴带 token 的命令行。
+- 批准 / 决定类端点**绝不批量调**（§8.1）。
+
 ## 8. 纪律与坑（每条都有依据）
 
 ### 8.1 ⚠️ **批准 / 决定类端点绝不批量调**
@@ -271,6 +388,17 @@ node tools/check-packs.mjs --engine /path/to/Stronghold-Protocol-Forge --json   
 - 本文档层要改的是 markdown；**功能代码（`site/*.mjs`、`site/pages/*.html`）与包内容不在同一次改动里碰**；
 - 临时产物放仓库**外**（`_up/` 之类），不要留在工作树里；
 - 提交用**明确路径** `git add <路径>`，不要 `-A`（免得把 `_scratch*`、`*.env`、凭据类顺进版本库）。
+
+### 8.6 本轮实测撞到的坑（照抄进来，别再撞一次）
+
+| # | 坑 | 症状 | 判据 / 怎么绕 |
+|---|---|---|---|
+| 1 | **zip 成员名带反斜杠** | 站点读条目名失败：它按 **`/` 精确匹配** `pack.json` | 压包时**条目名一律正斜杠 `/`**（`site/server.mjs:180-185`、`site/zip.mjs:110`）；Windows 上别用会把成员名写成 `\` 的工具 |
+| 2 | **PowerShell 写文件吃掉行尾** | Git 里整文件显示成改动 / 脚本第一行失效 | 写文件用 **UTF-8 无 BOM + LF**；`Out-File` / `Set-Content` 的默认行为是 **CRLF + 尾随换行**（§8.3） |
+| 3 | **`packKind` 不由「通过」写** | 发布成功却**不进镜像**：记录的 `packKind` 停在 `unknown` | 提交时缺省落 `unknown`（`site/server.mjs:1439`），`/decide` **只读不写**（`:1784`）；要 `functional` 得走 `/packkind`（`:1856-1861`）或写 `funcKind` 让它派生（`:1864`、§7.7） |
+| 4 | **`unknown` 不进镜像** | 站上「已通过」却不在 `mods/` 里 | 站侧采集的选择口径是 `state === 'approved'` **且** `meta.packKind === 'functional'`（`tools/collect-station.mjs:119`、`:197`）⇒ 先把它归成 functional 再重跑采集 |
+| 5 | **同 `pack.id` 两条会同时公开** | 公网出现两份 | 公开面按**记录**列、不按 `pack.id` 去重（`site/server.mjs:289`）⇒ 新版上线要**显式** `POST /supersede`（§7.8） |
+| 6 | **`hidden` 对公开面无效** | 勾了「不再显示」，公网还在 | `hidden` 只是**审核页的显示开关**（§7.5）：`/api/mods`、`/mods`、`/api/file/*` 都不读它 ⇒ 下架要用**打回**或 `/supersede` |
 
 ## 9. 拿不准时怎么办
 
