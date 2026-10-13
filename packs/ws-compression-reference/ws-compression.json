@@ -1,0 +1,89 @@
+{
+  "what": "卫戍协议 WebSocket 链路层：传输压缩（permessage-deflate）的可核对事实。",
+  "upstream": "https://github.com/jingjiangze/stronghold-ws-compression",
+  "modes": [
+    {
+      "mode": "off",
+      "summary": "不压缩，帧原样上线",
+      "use": "默认值；链路够宽时不必付这份 CPU"
+    },
+    {
+      "mode": "on",
+      "summary": "上下文保持 + zlib 默认 15 位窗口；两个选项都不声明",
+      "use": "发布默认",
+      "expectedNegotiated": "permessage-deflate; client_no_context_takeover",
+      "mustNotContain": [
+        "server_no_context_takeover",
+        "server_max_window_bits"
+      ],
+      "whyNoDeclaration": "ws 把「不可接受的协商」变成 HTTP 400 —— 是**连不上**，不是降级。显式写 serverNoContextTakeover:false 等于「要求」上下文保持，会拒绝要求 server_no_context_takeover 的客户端；显式写窗口值则会拒绝声明了更小窗口的客户端。不声明 = 交给协商，谁都不会被拒。"
+    },
+    {
+      "mode": "safe",
+      "summary": "关掉上下文保持，窗口仍协商",
+      "use": "一个词的回退档"
+    }
+  ],
+  "thresholdBytes": 64,
+  "thresholdNote": "ws 把 threshold 当硬开关：低于它的帧以 rsv1=0 发出，即**完全不压**（只多约 2 字节帧头）。旧值 512 配上帧瘦身后让 61% 的热帧静默失去压缩。",
+  "measured": {
+    "note": "真实服务器 / 真实 socket / 整局逐字节 / 回读字节校验通过；线上盒子的前后对照",
+    "hotStreamsRatio": "9.57x（m.private + m.public，线上真实链路）",
+    "perSeatBytesPerSec": 57.5,
+    "perSeatBeforeStartCompression": 125.3,
+    "perSeatMeasurementNote": "线上盒子实测：同一套探针、同一个座位打一局。加 b.start 之前 125.3 B/s，之后 57.5 B/s（−54.1%）。整局逐字节：应用层 70,626 B -> 在线 8,610 B（8.20×）。",
+    "tenMegabitCapacity": "约 21,000 并发（57.5 B/s/席，留 20% 余量约 17,000）",
+    "coldStartBytesPerNewPlayer": 5662310,
+    "coldStartNote": "客户端 js 2.5 MB + vendor 2.9 MB 仍由服务器自己发（Cloudflare 实测 cf-cache-status: MISS）。按 60 分钟会话摊薄是 1,573 B/s/人 —— 比对局流量贵 15 倍。"
+  },
+  "selfCheck": {
+    "how": "浏览器开发者工具 → Network → 选那条 ws 连接 → Response Headers → 看 Sec-WebSocket-Extensions",
+    "reading": {
+      "permessage-deflate; client_no_context_takeover": "压缩开，且上下文保持生效",
+      "permessage-deflate; server_no_context_takeover": "压缩开，但是关上下文保持的旧档（少拿约 3/4 的收益）",
+      "（没有 Sec-WebSocket-Extensions）": "这台服务器没开压缩"
+    }
+  },
+  "readonlyEndpoints": [
+    {
+      "path": "/ws-compression/status",
+      "what": "生效档位 + 实际会到线上的选项"
+    },
+    {
+      "path": "/ws-compression/stats",
+      "what": "发帧/跳过/字节/被终止的 socket"
+    }
+  ],
+  "notSupported": [
+    "工坊包**不能启用**传输层压缩：它是 WebSocketServer 的启动选项，而包的 server 侧只有 preDispatch（拦入站消息）与 routes（只读 JSON）；preDispatch 拿到消息时握手早已完成。",
+    "包**不能**注入服务端代码去改压缩：server.modules 的白名单与装载器不允许，且 .js 在 routes 通道被拒（那是代码执行面）。",
+    "面板**读不到** WebSocket 的协商结果：ctx 只有会话态（ctx.me），不含网络层 —— 所以「面板显示本机实时协商参数」做不到，只能给出自查步骤。",
+    "类型表（含 b.start）与档位、阈值都是服务端启动配置，本包只能**记录**它们，不能改。"
+  ],
+  "compressibleTypes": {
+    "base": [
+      "b.snap",
+      "b.ev",
+      "m.field",
+      "m.public",
+      "m.private",
+      "m.result"
+    ],
+    "extraDefault": [
+      "b.start"
+    ],
+    "switch": "WS_COMPRESS_EXTRA：不设 = 默认（含 b.start）；`none` = 只留基础集（一词回退）；`a,b` = 指定额外类型",
+    "whySwitch": "档位可以一个词回退，而类型表原本是代码 —— 回退要 revert + 重新部署（盒子上最多一小时）。b.start 不可丢、又在开打的关键路径上，所以这个开关必须存在。基础集不随开关移动：回退只收回额外类型，不是重置。异常值全部拒绝（未识别即抛错），不静默降级。"
+  },
+  "verifiedOnLiveBox": {
+    "build": "8dc03d15fddc",
+    "when": "2026-10-11",
+    "checks": [
+      "协商串仍是 permessage-deflate; client_no_context_takeover（两个限制项都没有）",
+      "逐帧校验：36 帧全部解出，解析/结构失败 0；b.start / m.public / m.private 结构完整",
+      "整局逐字节：125.3 -> 57.5 B/s（−54.1%）",
+      "契约自检通过（更新器在翻槽前跑的）"
+    ],
+    "rollback": "ws-extra.txt 写 none + 重启该槽（一个词，不用重新部署）"
+  }
+}

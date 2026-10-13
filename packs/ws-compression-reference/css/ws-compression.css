@@ -1,0 +1,44 @@
+/* css/ws-compression.css —— 面板样式。引擎只给挂载点，不给样子，所以定位与外观都在这里。 */
+/* 默认 pointer-events: none（引擎的规则）：这个面板是纯阅读的，不需要吃掉任何点击。 */
+
+.wsc {
+  max-width: 42rem;
+  padding: 10px 12px;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #d7e3df;
+  background: rgba(12, 15, 14, 0.92);
+  border: 1px solid #24413a;
+  border-radius: 8px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.wsc-title { font-size: 13px; font-weight: 700; color: #4ed8af; margin-bottom: 6px; }
+.wsc-h { margin-top: 10px; font-weight: 700; color: #8fd8c4; }
+.wsc-h:first-child { margin-top: 0; }
+
+.wsc-list { margin: 4px 0 0; padding-left: 18px; }
+.wsc-list li { margin: 3px 0; }
+.wsc-list-warn li { color: #e8c07a; }
+
+.wsc-row { display: flex; gap: 8px; align-items: baseline; margin: 3px 0; flex-wrap: wrap; }
+.wsc-k { flex: 0 0 8.5rem; color: #7f9c94; }
+.wsc-v { flex: 1 1 12rem; }
+
+.wsc-dim { color: #7f9c94; }
+.wsc-note { margin-top: 6px; color: #9fb3ac; }
+.wsc-warn { color: #e8c07a; }
+
+.wsc-code {
+  display: inline-block;
+  padding: 1px 5px;
+  margin-left: 6px;
+  background: #101a17;
+  border: 1px solid #24413a;
+  border-radius: 4px;
+  color: #b8e6d6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.wsc-src { display: inline-block; margin-top: 8px; color: #4ed8af; }
