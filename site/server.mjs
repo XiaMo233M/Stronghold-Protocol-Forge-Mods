@@ -49,7 +49,8 @@
 //   GET  /api/publisher/mine              ← 「我的投稿」（凭发布者令牌）
 //   POST /api/publisher/update            ← 改元数据（name/note/homepage/packKind）⇒ 强制回待审
 //   POST /api/publisher/blob              ← 换包体 / 上新版本 ⇒ 写成**候选**，公开面照旧展示旧包
-//   POST /api/publisher/withdraw          ← 自撤申请 ⇒ 公开面**立刻**不再列出
+//   POST /api/publisher/withdraw          ← 自撤申请 ⇒ 公开面**立刻**不再列出（落终态要管理员确认）
+//   POST /api/publisher/delete            ← 发布者**自助删除** ⇒ superseded 软删，**一按即生效、不经管理员**
 //   POST ${ADMIN_API}/withdraw-decide     ← 管理员确认 / 拒绝自撤
 //   POST ${ADMIN_API}/promote-blob        ← 管理员批准候选包体（切换公开包体）
 //   POST ${ADMIN_API}/issue-claim         ← 管理员手工发认领码（老记录 / 找回令牌）
@@ -253,6 +254,14 @@ const TOKEN_MAX = 8;
 const CLAIM_TTL_DAYS = 30;
 /** 自撤申请原因为空时用的兜底文案；**不是**替发布者编理由，只是给审核台一行可读的字。 */
 const WITHDRAW_DEFAULT_REASON = '发布者自撤（未填理由）';
+/**
+ * ⭐ **发布者自助删除**的缺省理由字面量（业主 2026-10-12 二次裁定）。
+ *
+ * 为什么是英文的机器可读字面量、而不是一句中文：它要能被**机械判据**认出来
+ * （「这条是被发布者自己删的」），手写中文理由会让每个消费者各写一套正则。
+ * 发布者自己填了理由时，那一句原样进 `reason`；没填才是这个缺省值。
+ */
+const PUBLISHER_DELETE_REASON = 'publisher-delete';
 
 /**
  * ⭐ **极简追加式审计日志**（裁定 ⑧ ①）。
@@ -324,28 +333,46 @@ function clearDecision(id, why, by) {
  *
  * 只写它自己的 `decision.json`，**不动 meta.json、不删任何文件**。
  */
-function markSelfWithdrawn(id, { reason = WITHDRAW_DEFAULT_REASON, by = 'admin', ip = null, at = null } = {}) {
+function markSelfWithdrawn(id, { reason = WITHDRAW_DEFAULT_REASON, by = 'admin', ip = null, at = null, direct = false } = {}) {
   const q = dirOf(id);
   if (!q || q.area === 'compat') return null;           // 兼容包不来自发布者，不走自撤
   const m = readJson(join(q.dir, 'meta.json'));
   if (!m) return null;
   const when = at || nowIso();
   const prev = readJson(join(q.dir, 'decision.json'));
+  // ⚠️ 两条路**合用一个函数**（判据只有一份），差别只在「谁点的」与留痕块的名字：
+  //    · direct=false ← `withdraw-decide` 的 confirm：管理员确认发布者的自撤申请；
+  //    · direct=true  ← `POST /api/publisher/delete`：发布者凭自己的令牌**自助删除**，
+  //      **不经管理员** —— 理由缺省就是这个机器可读字面量（业主口径 `reason:"publisher-delete"`）。
+  const why = String(reason || (direct ? PUBLISHER_DELETE_REASON : WITHDRAW_DEFAULT_REASON));
+  const trace = direct
+    ? {
+      publisherDelete: {                              // 自助删除专用的留痕块（与 publisherWithdraw 同层）
+        reason: why,
+        at: when, by, ip: ip || null,
+        requestedAt: m.withdrawRequestedAt || null,
+        note: '发布者凭自己的发布者令牌**自助删除**（不经管理员确认）：这一条转为 superseded 终态、'
+          + '公开面与下载口立刻不再提供。**软删** —— 记录、包体、留档与全部留痕一个都没删（零删除，可恢复）。',
+      },
+    }
+    : {
+      publisherWithdraw: {
+        reason: why,
+        requestedAt: m.withdrawRequestedAt || null,
+        confirmedAt: when,
+        by,
+        ip: ip || null,
+        note: '发布者自撤并经管理员确认：这一条不再单独上线。记录、包体、留档一个都没删（零删除）。',
+      },
+    };
   writeJson(join(q.dir, 'decision.json'), {
     decision: 'superseded',
-    reason: String(reason || WITHDRAW_DEFAULT_REASON),
+    reason: why,
     at: when, by,
     displayName: m.name || null,
-    // ⭐ 自撤：**没有取代者**。这一栏照给（值为 null），免得前端「有键/无键」两种读法。
+    // ⭐ 自撤 / 自助删除：**没有取代者**。这一栏照给（值为 null），免得前端「有键/无键」两种读法。
     replacedBy: null,
-    publisherWithdraw: {
-      reason: String(reason || WITHDRAW_DEFAULT_REASON),
-      requestedAt: m.withdrawRequestedAt || null,
-      confirmedAt: when,
-      by,
-      ip: ip || null,
-      note: '发布者自撤并经管理员确认：这一条不再单独上线。记录、包体、留档一个都没删（零删除）。',
-    },
+    ...trace,
     reasonBeforeSupersede: prev ? (prev.reason ?? null) : null,
   });
   return when;
@@ -1667,6 +1694,101 @@ const server = createServer(async (req, res) => {
           note: '撤下申请已收到：**公开列表与下载口立刻不再显示这一条**（这是「想删掉就立刻见效」那一半）。'
             + '管理员确认后转为 `superseded`（自撤终态，`replacedBy: null`）；管理员拒绝则恢复公开。'
             + '记录、包体与全部留痕一个都不会删。',
+        });
+      }
+
+      // ---- ⑥ 发布者**自助删除**：一按即生效，**不经管理员**（业主 2026-10-12 二次裁定）
+      //
+      // 为什么还要这一个（⑤ 已经有自撤了）：⑤ 只做到「**申请** + 公开面先消失」，
+      // 落终态要管理员点一次 `withdraw-decide`。业主的原话是「**他想删掉**」——
+      // 那就是发布者自己说了算，不该卡在一个人的确认上。两条路的差别**只有这一条**：
+      // 谁来落那个终态。公开面判据、终态语义、零删除口径**完全一样**。
+      //
+      //   ① **只动自己那条**：归属判据是「令牌对得上这条记录 `publisherTokens` 里的哈希」
+      //      （`isPublisher`），**不看、也不接受客户端传来的任何归属字段**；
+      //   ② 一按即生效：`/api/mods`、`/mods` 不再列出，`/api/file/<id>` 立即 403；
+      //   ③ **软删**：记录、包体、留档**全部保留** —— 落既有「已撤下」语义
+      //      `decision=superseded` + `replacedBy: null` + `reason: "publisher-delete"`，
+      //      并各留一笔 `revisions` / `audit`。⚠️ **不做物理删除**（零删除是本站主判据；
+      //      要连文件一起真删，得业主另行授权）；
+      //   ④ 幂等：已经是 superseded 就不再写盘（重复点不会重复留痕）。
+      // ⚠️ 与全站同一条铁律：只认**一个明确写出的 id**（`ids`/`batch`/`items`/`list` 一律 400）。
+      if (req.method === 'POST' && p === '/api/publisher/delete') {
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，不收「一批」（多了这些键：${batchKeys.join(' / ')}）。要删 N 条就发 N 次，每条单独核对。`,
+          });
+        }
+        const id = typeof inObj.id === 'string' ? inObj.id.trim() : '';
+        if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6–32 位小写字母/数字）' });
+        if (inObj.reason != null && typeof inObj.reason !== 'string') {
+          return sendJson(res, 400, { error: 'reason 形状不对（必须是字符串）' });
+        }
+        // ⚠️ 无令牌 ⇒ 401。**先看令牌、再看记录**，而且记录不存在时也照比一次哈希
+        //    （`publisherTokenOk({}, …)`，与 `/api/publisher/claim` 同一个手法）——
+        //    不给「报 id 探记录存在性」留任何口子。
+        if (!pubToken) return sendJson(res, 401, { error: '需要发布者令牌（x-publisher-token 头，或 Authorization: Bearer）' });
+        const metaD = readJson(metaPath(id));
+        if (!metaD) { publisherTokenOk({}, pubToken); return sendJson(res, 404, { error: '没有这条记录' }); }
+        // ⚠️ **删别人的 ⇒ 403**（不是 404：编号在 `/api/mods` 上本来就公开可见，
+        //    403 更诚实 —— 「这条存在，只是不是你的」）。
+        if (!isPublisher(metaD, pubToken)) {
+          return sendJson(res, 403, { error: '这枚发布者令牌不是这一条的（只能删自己认领过的投稿）' });
+        }
+        if (dirOf(id)?.area === 'compat') return sendJson(res, 400, { error: '兼容包不在发布者自助范围内（它是维护者侧的改写成品）' });
+        const decBefore = readJson(decisionPath(id));
+        if (decBefore?.decision === 'superseded') {
+          return sendJson(res, 200, {
+            ok: true, id, changed: false, state: 'superseded', replacedBy: decBefore.replacedBy ?? null,
+            at: decBefore.at ?? nowIso(), publicVisible: false, softDelete: true, recoverable: true,
+            note: '这条已经是「已撤下」终态（superseded），没有重复写盘（幂等）。记录与包体依旧保留。',
+          });
+        }
+        const reason = String(inObj.reason || '').trim().slice(0, 1000);
+        const at = markSelfWithdrawn(id, {
+          reason: reason || PUBLISHER_DELETE_REASON,
+          by: 'publisher', ip, direct: true,
+        });
+        if (!at) return sendJson(res, 400, { error: '这条记录不能这样删除（兼容包不在自助范围内，或 meta.json 读不出来，不动它）' });
+        // 终态已落 ⇒ 清掉可能挂着的「待确认自撤」标志位（那次申请已被本次自助删除消化），
+        // 收尾口径与 `withdraw-decide` 的 confirm **逐字一致**（同一处语义只写一遍）。
+        const m3 = readJson(metaPath(id)) || metaD;
+        const hist = Array.isArray(m3.revisions) ? m3.revisions : [];
+        const wh = Array.isArray(m3.withdrawHistory) ? m3.withdrawHistory : [];
+        writeJson(metaPath(id), {
+          ...m3,
+          withdrawRequested: false,
+          withdrawHistory: [...wh, { at, by: 'publisher', action: 'deleted', reason: reason || null, ip }],
+          revisions: [...hist, {
+            at, by: 'publisher',
+            changed: {
+              decision: decBefore?.decision ?? 'pending（文件缺省：decision.json 不存在）',
+              withdrawRequested: m3.withdrawRequested === true,
+            },
+            to: { decision: 'superseded（replacedBy: null，发布者自助删除）', withdrawRequested: false },
+            why: '发布者凭自己的发布者令牌**自助删除**（不经管理员）：公开列表与下载口立刻不再提供这一条。'
+              + '**软删** —— 记录、包体、留档与全部留痕一个都没删（零删除，可恢复）。',
+          }],
+        });
+        audit('publisherDeleted', {
+          id, ip, actor: 'publisher',
+          detail: { reason: reason || PUBLISHER_DELETE_REASON, softDelete: true, stateBefore: decBefore?.decision ?? 'pending' },
+        });
+        return sendJson(res, 200, {
+          ok: true, id, changed: true, at, state: 'superseded', replacedBy: null,
+          reason: reason || PUBLISHER_DELETE_REASON,
+          publicVisible: false, softDelete: true, recoverable: true,
+          note: '已删除，**立即生效**（不需要管理员确认）：公开列表与下载口现在都不再提供这一条。'
+            + '这是**软删** —— 记录、包体与全部留痕都保留、可恢复；'
+            + '要连文件一起物理删除需另行授权（「零删除」是本站在用的主判据）。',
         });
       }
 

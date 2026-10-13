@@ -17,6 +17,8 @@
 //   ⑦  审计日志有对应条目、**不含令牌明文**
 //   ⑧  发布者令牌**只能碰自己那条**（拿 A 的令牌改 B ⇒ 403）
 //   ⑨  零删除：跑完全部用例后**记录与文件数只增不减**
+//   ⑫  **发布者自助删除**：删自己的 ⇒ 公开面立刻消失 + 下载 403 + 落 superseded/replacedBy:null/
+//       reason:publisher-delete 软删；删别人的 ⇒ 403；无令牌 ⇒ 401；幂等；零删除
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, statSync } from 'node:fs';
@@ -536,6 +538,83 @@ try {
     'C 的令牌只看到 C 那一条（不串味）', JSON.stringify(mineC.body?.mine?.map((m) => m.id)));
   const stray2 = listFiles().filter((rel) => !rel.includes('/') && rel !== 'audit.jsonl');
   check(stray2.length === 0, '全程跑完，数据目录根下依旧干净', stray2.join('、') || '（0 个）');
+
+  // ================================================================
+  console.log('⑫ 发布者**自助删除**：一按即生效、不经管理员（三条牙 + 幂等 + 零删除）');
+  // 业主硬要求：发布者凭自己的 publisherToken 一按即生效 —— 公开面立刻消失、下载立刻 403，
+  // **不经过管理员那一次确认**。落库是**软删**：状态落既有的「已撤下」语义
+  // （`decision=superseded` + `replacedBy: null` + `reason:"publisher-delete"`），记录与包体全保留。
+  //
+  // 这一节的三条断言（缺一条这条牙就是假的）：
+  //   ① 发布者删**自己**的 ⇒ 立刻从公开面消失 + 下载 403 + 落库形状正确；
+  //   ② 删**别人**的 ⇒ 403（且对方一个字节都没被写）；
+  //   ③ **无令牌** ⇒ 401。
+  // ⚠️ 另外用「去牙」跑一遍证明它真的会红：把 `isPublisher` 那道判据改成恒真，
+  //    本节 ② 的那几条断言必然失败 —— 原始输出见交付报告（不靠嘴说）。
+  const beforeDel = { records: countRecords(), files: listFiles().length };
+  check((await publicIds()).includes(idC), '（基准）C 现在在公开面上', idC);
+
+  // —— ① 删自己的
+  const delNoTok = await postJsonRead('/api/publisher/delete', { id: idC });                       // 无令牌
+  check(delNoTok.status === 401, '③ **无令牌** ⇒ 401（连记录都不读）', String(delNoTok.status));
+  const delCross = await postJsonRead('/api/publisher/delete', { id: idB, reason: '删别人的' }, tokC);  // 别人的
+  check(delCross.status === 403, '② 拿 C 的令牌删 B ⇒ **403**（只能删自己那条）', String(delCross.status));
+  check((await publicIds()).includes(idB), '② 越权那一次对 B **没有任何影响**（B 照旧公开）');
+  const metaBAfterDel = readFileSync(join(dataDir, 'submissions', idB, 'meta.json'), 'utf8');
+  check(!metaBAfterDel.includes('删别人的') && !existsSync(join(dataDir, 'submissions', idB, 'decision.json.publisherDelete')),
+    '② 越权那一次对 B 的 meta.json / 判定**一个字节都没写**');
+
+  const delOwn = await postJsonRead('/api/publisher/delete', { id: idC }, tokC);                   // 自己的
+  check(delOwn.status === 200 && delOwn.body?.changed === true, '① 发布者删自己的 ⇒ 200', String(delOwn.status));
+  check(delOwn.body?.state === 'superseded' && delOwn.body?.replacedBy === null,
+    '① 落 superseded 且 **replacedBy: null**（自撤/自助删除没有取代者）', JSON.stringify(delOwn.body?.state));
+  check(delOwn.body?.reason === 'publisher-delete' && delOwn.body?.softDelete === true && delOwn.body?.recoverable === true,
+    '① 理由是机器可读的 `publisher-delete`，且明确自报「软删 / 可恢复」', String(delOwn.body?.reason));
+  check(delOwn.body?.publicVisible === false, '① 响应里明确写了 publicVisible=false');
+  check(!(await publicIds()).includes(idC), '① **公开面立即不再列出**它（不需要管理员点任何东西）');
+  const dlDeleted = await fetch(`${BASE}/api/file/${idC}`);
+  check(dlDeleted.status === 403, '① 下载口也**立即 403**（「删了还能下」是假删除）', String(dlDeleted.status));
+  const pageModsRes = await fetch(`${BASE}/mods`);
+  const pageMods = await pageModsRes.text();
+  check(pageModsRes.status === 200 && pageMods.includes('data-kinds=') && !pageMods.includes('__KINDS__'),
+    '① 公开列表页照旧正常渲染（占位符已替换，没有因为这条删除而坏掉）', String(pageModsRes.status));
+
+  // 落库形状：decision.json **逐字**核（不是只看响应）
+  const decC = JSON.parse(readFileSync(join(dataDir, 'submissions', idC, 'decision.json'), 'utf8'));
+  check(decC.decision === 'superseded' && decC.replacedBy === null && decC.reason === 'publisher-delete'
+    && decC.by === 'publisher' && decC.publisherDelete && decC.publisherDelete.reason === 'publisher-delete',
+    '① decision.json 逐字正确：superseded / replacedBy:null / reason:publisher-delete / by:publisher / publisherDelete 留痕块');
+  const metaC2 = JSON.parse(readFileSync(join(dataDir, 'submissions', idC, 'meta.json'), 'utf8'));
+  check(Array.isArray(metaC2.revisions) && metaC2.revisions.some((r) => r.by === 'publisher' && r.to
+    && String(r.to.decision || '').includes('superseded')), '① meta.revisions 里留了一笔（谁删的、删成什么，翻记录就看得到）');
+  check(metaC2.withdrawRequested === false, '① 收尾：待确认自撤标志位已清（与管理员确认那条路同一口径）');
+  check(metaC2.publisherTokens.length === 1 && metaC2.withdrawHistory.some((h) => h.action === 'deleted'),
+    '① withdrawHistory 里留了 action=deleted 一笔');
+
+  // 幂等：再删一次不重复写盘
+  const delAgain = await postJsonRead('/api/publisher/delete', { id: idC }, tokC);
+  check(delAgain.status === 200 && delAgain.body?.changed === false,
+    '① 重复点 ⇒ changed:false（幂等，不重复留痕）', String(delAgain.body?.changed));
+
+  // 与全站同一条铁律：不收「一批」
+  const delBatch = await postJsonRead('/api/publisher/delete', { ids: [idC], id: idC }, tokC);
+  check(delBatch.status === 400, '「一批」的形状 ⇒ 400（一次只动一个明确 id）', String(delBatch.status));
+  const delBadId = await postJsonRead('/api/publisher/delete', { id: '../../etc' }, tokC);
+  check(delBadId.status === 400, 'id 形状不对 ⇒ 400', String(delBadId.status));
+  const delGhost = await postJsonRead('/api/publisher/delete', { id: 'ffffffffffff' }, tokC);
+  check(delGhost.status === 404, '不存在的编号 ⇒ 404（且照比一次哈希，不泄露存在性）', String(delGhost.status));
+
+  // —— 零删除：删完这条，记录与文件**一个都没少**
+  const afterDel = { records: countRecords(), files: listFiles().length };
+  check(existsSync(join(dataDir, 'submissions', idC, 'meta.json')) && existsSync(join(dataDir, 'submissions', idC, 'mod.zip')),
+    '① **零删除**：C 的 meta.json 与 mod.zip 原样都在（软删，不是物理删除）');
+  check(afterDel.records >= beforeDel.records && afterDel.files >= beforeDel.files,
+    '① 记录与文件数只增不减（自助删除**没有**删掉任何东西）', `${beforeDel.records}/${beforeDel.files} → ${afterDel.records}/${afterDel.files}`);
+  const dlAdminStill = await admin(`/api/file/${idC}`);
+  check(dlAdminStill.status === 200, '① 维护者照旧能下（删除挡的是公开面，不是把文件锁死）', String(dlAdminStill.status));
+  const auditDel = auditLines().filter((l) => l.action === 'publisherDeleted');
+  check(auditDel.length >= 1 && auditDel.every((l) => l.actor === 'publisher'), '① 审计里有 publisherDeleted 这一笔（actor=publisher）');
+  check(!readFileSync(join(dataDir, 'audit.jsonl'), 'utf8').includes(tokC), '① 审计里**没有**发布者令牌明文');
 } catch (e) {
   failures++;
   console.log(`  ✗ 自测自己抛了异常：${e.stack || e.message}`);
@@ -552,4 +631,4 @@ if (failures) {
   console.log('—— 服务端日志（尾部）——\n' + serverLog.slice(-2000));
   process.exit(1);
 }
-console.log('✔ 发布者自助（认领 / 改元数据 / 换包体 / 自撤）＋ 管理员确认 ＋ 分类筛选 ＋ 审计日志：整条链通过');
+console.log('✔ 发布者自助（认领 / 改元数据 / 换包体 / 自撤 / 自助删除）＋ 管理员确认 ＋ 分类筛选 ＋ 审计日志：整条链通过');

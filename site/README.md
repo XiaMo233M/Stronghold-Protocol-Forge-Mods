@@ -167,7 +167,7 @@ compat/<编号>/decision.json          ← 审核决定（写清发布了哪个�
 node site/selftest.mjs             # ① 公网投稿链（上传 → 下载 → 审核 → 上线）
 node site/selftest-admin.mjs       # ② 审核台 / 公网列表**页面**跑不跑得起来（见下）
 node site/selftest-compat.mjs      # ③ 兼容包整条链 + 反例（临时数据目录，不碰你的数据，不联网）
-node site/selftest-publisher.mjs   # ④ 发布者自助（认领 / 改元数据 / 换包体 / 自撤）+ 管理员确认 + 分类筛选 + 审计日志
+node site/selftest-publisher.mjs   # ④ 发布者自助（认领 / 改元数据 / 换包体 / 自撤 / 自助删除）+ 管理员确认 + 分类筛选 + 审计日志
 ```
 
 ⚠️ **四个必须串行跑**：`selftest-compat.mjs` 与 `selftest-publisher.mjs` 同用 `PORT 8807`
@@ -426,6 +426,7 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 | 改元数据 | `POST /api/publisher/update` | `name` / `note` / `homepage` / `packKind` 四栏 ⇒ **强制回待审** |
 | 换包体 | `POST /api/publisher/blob` | 新包写成**候选**（`candidate`）；公开面**照旧展示旧包**，等管理员批准 |
 | 自撤 | `POST /api/publisher/withdraw` | `withdrawRequested: true` ⇒ 公开列表与下载口**立刻**不再列它；等管理员确认 |
+| **自助删除** | `POST /api/publisher/delete` | **一按即生效、不经管理员**：落 `superseded` + `replacedBy: null` + `reason: "publisher-delete"`（**软删**，记录与包体全留） |
 
 共同边界：**自助写不得直改公开面**。「改元数据 ⇒ 回待审」走的是 `clearDecision()` ——
 把那一份 `decision.json` **逐字搬进 `meta.revisions`**（含 `decisionSnapshot`），文件不再存在 ⇒
@@ -493,18 +494,24 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 - 令牌存在发布者**自己的浏览器**里（`localStorage` 键 `sp-modsite-publisher-token`）；
   站点只存哈希 —— 丢了让管理员重发一枚即可，**旧令牌不回收**。
 
-### 零删除：自助「删除」= 自撤 + 管理员确认 → `superseded`
+### 零删除：自助「删除」= 一按即落 `superseded`（**软删**）
 
-发布者在 `/mine` 上点的是**申请撤下**，不是删除。整条链上**没有任何一处删数据**：
+发布者在 `/mine` 上有两条下架路：**申请撤下**（要管理员点一次确认）与**删除这一条**
+（`POST /api/publisher/delete`，**一按即生效、不经管理员**）。两条路的**终态与零删除口径完全一样**，
+差别只在「谁来落那个终态」。整条链上**没有任何一处删数据**：
 
 | 环节 | 盘上发生什么 |
 |---|---|
 | 发布者申请自撤 | 加 `withdrawRequested: true` + `withdrawReason` + `withdrawRequestedAt` + 一笔 `withdrawHistory`；`meta.json` / `mod.zip` / `decision.json` **全在** |
-| 管理员确认 | `decision.json` 写成 `decision = superseded` 且 `replacedBy: null`；**记录与文件全留** |
+| 发布者自助删除 | `decision.json` 写成 `decision = superseded` + `replacedBy: null` + `reason: "publisher-delete"`（发布者填了理由就用他那一句）+ `publisherDelete` 留痕块；`meta.json` 加一笔 `revisions` 与 `withdrawHistory.action = "deleted"`；**记录、包体、留档全留** |
+| 管理员确认自撤 | 同上形状，留痕块是 `publisherWithdraw`（`by: "admin"`）；**记录与文件全留** |
 | 管理员拒绝 | 清 `withdrawRequested`、恢复公开；申请照样进 `withdrawHistory` |
 | 换包体 | 旧 `mod.zip` **改名留档** `mod.superseded-<时间戳>.zip`，**不删** |
 | 改元数据 ⇒ 回待审 | 原 `decision.json` 逐字进 `revisions.decisionSnapshot` 再移除该文件 —— 这是**唯一**会移除它的地方，且内容一字未丢 |
 | 令牌轮换 | `publisherTokens` 只保留最近 8 枚（`TOKEN_MAX = 8`），换发**不删记录** |
+
+⚠️ 「删除」是**软删**：要连 `mod.zip` 一起**物理删除**，站点**没有**这条路 —— 那要业主另行授权，
+且与「零删除」这条主判据冲突，须单独裁定。
 
 公开面的可见性判据只有一条：`isPubliclyVisible = state === 'approved' && withdrawRequested !== true`。
 

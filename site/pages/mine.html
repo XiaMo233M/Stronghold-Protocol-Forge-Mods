@@ -20,10 +20,13 @@
 
 <h1>我的投稿</h1>
 <p class="sub">
-  这一页给<b>投稿的人</b>自己管自己那条：改名称 / 备注 / 分类、换包体（上新版本）、<b>申请撤下</b>。<br>
+  这一页给<b>投稿的人</b>自己管自己那条：改名称 / 备注 / 分类、换包体（上新版本）、<b>申请撤下</b>、
+  <b>删除这一条</b>。<br>
   <b>规矩写在这儿</b>：你改完的东西<b>不会直接上公开列表</b> —— 每一次改动都会把这条<b>打回待审</b>，
   由维护者复审通过后才重新上线。<b>撤下申请则立刻生效</b>：公开列表与下载口马上不再显示它，
   维护者确认后转为终态（记录与文件都不会被删）。<br>
+  <b>删除这一条不用等维护者</b>：按下就立刻从公开列表与下载口消失（状态落成「已撤下」）。
+  它是<b>软删</b> —— 记录、包体与留痕全部保留、可以恢复；想连文件一起物理删掉要找维护者。
   想投稿请去 <a href="/">上传页</a>。
 </p>
 
@@ -234,7 +237,26 @@ function card(m) {
   };
   wdRow.append(whyI, wdB);
 
-  body.append(edit, blobRow, wdRow);
+  // ---- 自助删除（**一按即生效，不需要维护者确认**）
+  // 与上面「申请撤下」的区别只有一条：那个要等维护者点一次，这个不用。
+  // 结果都是「已撤下」，记录与包体都保留（软删、可恢复）。
+  const delRow = el('div', 'flex');
+  delRow.style.marginTop = '6px';
+  const delB = el('button', 'btn btn--danger btn--sm', '删除这一条（立即生效）');
+  delB.onclick = async () => {
+    if (!confirm('删除这一条：**立刻**从公开列表与下载口消失，**不需要维护者确认**。\n'
+      + '记录与包体仍会保留（软删、可恢复），但公开面不会再显示它。\n继续吗？')) return;
+    delB.disabled = true;
+    const r = await apiJson('/api/publisher/delete', { id: m.id, reason: whyI.value });
+    delB.disabled = false;
+    alert(r.ok ? ('已删除，公开面立刻不再提供这一条。'
+      + (r.body?.changed === false ? '（它本来就已经是「已撤下」状态）' : '（软删：记录可恢复）'))
+      : ('没成：' + (r.body?.error || r.status)));
+    if (r.ok) loadMine();
+  };
+  delRow.append(el('span', 'kv dim', '一按即生效、不经维护者确认'), delB);
+
+  body.append(edit, blobRow, delRow, wdRow);
   c.append(body);
   return c;
 }
