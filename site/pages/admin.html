@@ -963,10 +963,36 @@ function compatFormFor(meta) {
       compatOf: iOf.value.trim(), originUrl: iUrl.value.trim(), compatNote: iNote.value.trim(),
       publish: '1',
     });
+    // ⭐ 上传断连修复（2026-10-14）—— 管理口这一条原来**没有任何超时**，失败又只显示 `出错：<消息>`：
+    //    · 跨境 SSH 隧道被公网 reset（实测 `Connection timed out` / `Connection reset`）时，
+    //      页面会一直停在「上传并发布中…」，维护者看不出是断了还是只是慢；
+    //    · 真实状态码（408 超时 / 413 太大 / 429 太频繁）**一个都看不到**，全被折叠成一句 message。
+    //    现在补三样：① AbortController 兜底时限（比服务端 15 分钟多 2 分钟）；
+    //    ② 走秒进度提示 + 「慢于约 N KB/s 就别传大包」这条判据；③ 失败时显示**真实 HTTP 状态码与原因**。
+    const ADMIN_LIMIT_MIN = 15;                    // 与 server.mjs 的 requestTimeout 是同一个数
+    const clientLimitMin = ADMIN_LIMIT_MIN + 2;
+    const kbpsFor = (mb) => Math.ceil(mb * 1024 / (ADMIN_LIMIT_MIN * 60));
+    // 状态码 → 一句可行动的话（408/413/429 都有明确含义；其余回落到服务端原话）。
+    const say = (status, j, fallback) => {
+      if (status === 408) return `上传超时（超过服务端 ${ADMIN_LIMIT_MIN} 分钟时限）：`
+        + `25 MB 的包需要上行快于约 ${kbpsFor(25)} KB/s，请换网络或缩小包体。`;
+      if (status === 413) return `文件太大（上限 ${(j && j.maxMB) || '见服务端提示'}）：${(j && j.error) || ''}`;
+      if (status === 429) return `太频繁，请等 ${(j && j.retryAfterMin) || 10} 分钟再来。`;
+      if (status >= 500) return `服务端出错（HTTP ${status}）：${(j && j.error) || '稍后再试'}`;
+      return fallback;
+    };
+    const AC = new AbortController();
+    const hardStop = setTimeout(() => AC.abort(), clientLimitMin * 60000);
+    const t0 = Date.now();
     go.disabled = true; out.textContent = '上传并发布中…';
+    const tick = setInterval(() => {
+      out.textContent = `上传并发布中… 已用 ${Math.round((Date.now() - t0) / 1000)} 秒`
+        + `（服务端 ${ADMIN_LIMIT_MIN} 分钟内要传完；上行慢于约 ${kbpsFor(25)} KB/s 时 25 MB 的包会超时）`;
+    }, 1000);
     try {
       const r = await fetch(API + '/compat-submit?' + q.toString(), {
         method: 'POST', headers: { 'x-admin-token': TOKEN, 'content-type': 'application/zip', 'x-filename': encodeURIComponent(f.name) }, body: f,
+        signal: AC.signal,
       });
       const j = await r.json().catch(() => null);
       // 把预填到的原作者回填给维护者看一眼（可核对、可改写）。
@@ -987,7 +1013,8 @@ function compatFormFor(meta) {
         out.textContent = `已收到，但**没有发布**，停在待审区。编号 ${j.id}\n${j.message || ''}`;
         $('load').click();
       } else {
-        out.textContent = '没发布成功：' + (j && j.error ? j.error : ('HTTP ' + r.status))
+        // 真实状态码（408 / 413 / 429 / 5xx）在这里被翻译成可行动的一句话；服务端原话照旧附在后面。
+        out.textContent = '没发布成功：' + say(r.status, j, (j && j.error ? j.error : ('HTTP ' + r.status)))
           + ((j && j.changed) ? '\n\n被改动的栏：' + Object.keys(j.changed).join('、') : '')
           + ((j && j.flags) ? '\n' + j.flags.map((x) => `${x.level.toUpperCase()} ${x.code} — ${x.text}`).join('\n') : '')
           + ((r.status === 409 && j && j.state === 'pending')
@@ -995,8 +1022,18 @@ function compatFormFor(meta) {
         $('load').click();
       }
     } catch (e) {
-      out.textContent = '出错：' + e.message;
+      // 从前无论什么原因都只写 `出错：<e.message>`。现在把**没有 HTTP 响应**这件事本身说清楚：
+      // 「连接被中间设备断开 / 隧道掉了」与「服务端回了 500」是两件完全不同的事，处置办法也不同。
+      out.textContent = e.name === 'AbortError'
+        ? `已中止：超过 ${clientLimitMin} 分钟还没传完（客户端兜底时限到了）。\n`
+          + `真实原因：AbortController 主动中止 —— 没有 HTTP 响应可读，多半是链路太慢，或隧道被中间设备 reset。\n`
+          + `请改用更小的包，或换更快的网络（服务端给一次上传 ${ADMIN_LIMIT_MIN} 分钟）。`
+        : `出错（${e.name || 'Error'}）：${e.message}\n`
+          + `**没拿到 HTTP 响应** —— 连接被中间设备断开 / 隧道掉了 / 服务端不可达。`
+          + `若反复出现，请缩小包体或换网络再试（管理口只走回环，跨境隧道本身也会被 reset）。`;
     } finally {
+      clearInterval(tick);
+      clearTimeout(hardStop);
       go.disabled = false;
     }
   };

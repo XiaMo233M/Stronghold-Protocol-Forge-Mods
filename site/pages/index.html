@@ -49,10 +49,12 @@
     <div class="field">
       <label class="field__label" for="file">zip 文件 <span class="field__hint">只收 zip；包内文件直接放 zip 根，不要套一层文件夹</span></label>
       <input id="file" type="file" accept=".zip,application/zip">
+      <p class="sub" id="limit"></p>
     </div>
 
     <button id="go" class="btn btn--primary btn--block">上传</button>
     <div class="bar" id="bar"><i></i></div>
+    <div class="sub" id="rate"></div>
     <div class="out" id="out"></div>
   </div>
 </section>
@@ -80,6 +82,51 @@ function renderFlags(flags) {
     esc(f.code) + ' — ' + esc(f.text) + '</div>').join('');
 }
 
+// ⭐⭐ 上传失败的分类提示（2026-10-14「传一半就断」修复的前端那一半）。
+//
+// 改之前的写法是：`xhr.onerror = () => { … out.textContent = '网络断了，再试一次。'; }` ——
+// **无论真实原因是什么，都只写这一句**。于是：
+//   · 服务端等超时回的 408 ⇒ 显示「网络断了」；
+//   · 包超过上限回的 413 ⇒ 显示「网络断了」；
+//   · 限流回的 429     ⇒ 显示「网络断了」。
+// 用户照着「再试一次」重传，结果一模一样地再断一次 —— 真话被这句一律性文案吞掉了。
+// 现在按**真实状态码**分类，每种给一个可行动的下一步。
+const MAX_MB = Number('__MAX_MB__') || 100;          // 服务端注入（MAX_MB），不在这里写死
+const MAX_BYTES = MAX_MB * 1048576;
+const LIMIT_MIN = 15;                                 // 与 server.mjs 的 requestTimeout 同一个数
+// 由时限推出的用户判据：包大小 ÷ 上行速度 < 时限 ⇒ 「多少 KB/s 才传得完」。
+const kbpsFor = (mb) => Math.ceil(mb * 1024 / (LIMIT_MIN * 60));
+
+function failText(status, r) {
+  if (status === 408) {
+    return '上传超时：这次上传超过了服务端的 ' + LIMIT_MIN + ' 分钟时限。多半是上行太慢 —— '
+      + '25 MB 的包需要上行快于约 ' + kbpsFor(25) + ' KB/s。请换更快的网络，或缩小包体。';
+  }
+  if (status === 413) {
+    return '文件太大（上限 ' + ((r && r.maxMB) || MAX_MB) + ' MB）：'
+      + ((r && r.error) || '请缩小包体再传。');
+  }
+  if (status === 429) {
+    return '传得太频繁了，请等 ' + ((r && r.retryAfterMin) || 10) + ' 分钟再传。';
+  }
+  if (status >= 500) return '服务端出错（HTTP ' + status + '）：' + ((r && r.error) || '稍后再试');
+  if (status === 0) {
+    return '网络断了（没拿到服务端的任何响应），再试一次。若总是传到一半就断：'
+      + '多半是上行太慢撞上了服务端时限，或链路（代理 / 隧道）被中间设备断开 —— 请换网络或缩小包体。';
+  }
+  return '没传上（HTTP ' + status + '）：' + ((r && r.error) || '再试一次');
+}
+function showFail(status, r) {
+  $('rate').textContent = '';
+  $('out').innerHTML = '<p style="color:var(--red-premium)">没传上：' + esc(failText(status, r)) + '</p>'
+    + renderFlags(r && r.flags);
+}
+
+// 上传前就把「多久算安全」摆出来（原来页面上一个字都没有，用户只能靠猜）。
+$('limit').innerHTML = '上限 ' + MAX_MB + ' MB。服务端给一次上传 ' + LIMIT_MIN + ' 分钟 —— '
+  + '<b>上行慢于约 ' + kbpsFor(25) + ' KB/s 时，25 MB 的包就会超过这个时限被判超时</b>；'
+  + '请先测一下上行，或改用更小的包。';
+
 $('go').onclick = () => {
   const name = $('name').value.trim();
   const file = $('file').files[0];
@@ -87,24 +134,48 @@ $('go').onclick = () => {
   if (!name) { out.textContent = '先填 mod 名。'; return; }
   if (!file) { out.textContent = '先选一个 zip。'; return; }
   if (!/\.zip$/i.test(file.name)) { out.textContent = '只收 zip。'; return; }
+  // ⭐ 本地体积预检：超过上限就不发请求（原来是传到一半才被 413 掐，用户白等一次）。
+  if (file.size > MAX_BYTES) {
+    out.textContent = '文件太大：' + (file.size / 1048576).toFixed(1) + ' MB，上限 ' + MAX_MB
+      + ' MB —— 没发请求，请缩小包体再来。';
+    return;
+  }
 
   const q = new URLSearchParams({ name, note: $('note').value.trim(), homepage: $('homepage').value.trim() });
   const xhr = new XMLHttpRequest();
   xhr.open('POST', '/api/submit?' + q.toString());
   xhr.setRequestHeader('content-type', 'application/zip');
   xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
+  // 客户端也设一道兜底时限（比服务端多 2 分钟）：链路整个挂住时，至少能给出「超时」这句真话，
+  // 而不是一直停在「上传中…」。服务端那道 15 分钟才是判定上传是否被接受的那一道。
+  xhr.timeout = (LIMIT_MIN + 2) * 60000;
   $('go').disabled = true;
   $('bar').style.display = 'block';
+  $('rate').textContent = '';
   out.textContent = '上传中…';
 
+  const t0 = Date.now();
   xhr.upload.onprogress = (e) => {
-    if (e.lengthComputable) $('bar').firstElementChild.style.width = (e.loaded / e.total * 100).toFixed(1) + '%';
+    if (!e.lengthComputable) return;
+    // 进度条结构（2026-10-14 实测核对）：`#bar` 的第一个元素子节点就是样式表 `.bar > i` 命中的
+    // 那个 `<i>`，两者**是匹配的** —— 所以这里不改结构，只把宽度写进去（原来这一段没问题）。
+    const bar = $('bar').firstElementChild;
+    if (bar) bar.style.width = (e.loaded / e.total * 100).toFixed(1) + '%';
+    const sec = (Date.now() - t0) / 1000;
+    // 头几秒的瞬时速度没有意义（第一个 progress 事件可能在 0.1 秒内就到，算出来是个天文数字），
+    // 所以满 3 秒才显示速度；在那之前只报百分比。
+    $('rate').textContent = '已传 ' + (e.loaded / e.total * 100).toFixed(1) + '%'
+      + (sec >= 3
+        ? ' · 约 ' + Math.round(e.loaded / 1024 / sec) + ' KB/s（25 MB 的包需要上行快于约 ' + kbpsFor(25)
+          + ' KB/s；慢于此会被服务端的 ' + LIMIT_MIN + ' 分钟时限掐断）'
+        : '（正在估算上行速度…）');
   };
   xhr.onload = () => {
     $('go').disabled = false;
     let r = null;
     try { r = JSON.parse(xhr.responseText); } catch { /* 非 JSON */ }
     if (xhr.status === 201 && r) {
+      $('rate').textContent = '';
       out.innerHTML =
         '<p><b>收到了。</b></p>' +
         '<p class="kv">编号：' + esc(r.id) + '<br>回执令牌：' + esc(r.receipt) + '</p>' +
@@ -112,10 +183,12 @@ $('go').onclick = () => {
         claimBox(r) +
         '<p>' + esc(r.message) + '</p>' + renderFlags(r.flags);
     } else {
-      out.innerHTML = '<p style="color:var(--red-premium)">没传上：' + esc(r && r.error ? r.error : ('HTTP ' + xhr.status)) + '</p>' + renderFlags(r && r.flags);
+      // 服务端只要把话说完（含 408 / 413 / 429），就一定走这里 —— 按真实状态码分类说人话。
+      showFail(xhr.status, r);
     }
   };
-  xhr.onerror = () => { $('go').disabled = false; out.textContent = '网络断了，再试一次。'; };
+  xhr.onerror = () => { $('go').disabled = false; showFail(xhr.status, null); };
+  xhr.ontimeout = () => { $('go').disabled = false; showFail(408, null); };
   xhr.send(file);
 };
 </script>

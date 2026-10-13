@@ -1234,6 +1234,8 @@ const ADMIN_VIEWS = ['main', 'approved', 'rejected'];
  * 两个替换放在一处，页面上就不会漏掉谁 —— 审核前缀是环境变量决定的，漏了就会打到不存在的地址。
  * 审核页还多一个 __VIEW__（当前在哪一页），同样是**白名单校验过**的值。
  * 列表页多一个 __KINDS__（当前分类筛选，同样白名单校验过；只填进 data 属性，不拼 HTML）。
+ * ⭐ __MAX_MB__（2026-10-14 上传断连修复）：上传页要**在本地先判体积**、并把「上限多少 MB」
+ *    写进 413 的提示里，所以这个数必须由服务端注入 —— 前端自己写死 100 就会与 `MAX_MB` 漂移。
  */
 const renderPage = (res, name, opts = {}) => {
   const p = join(PAGES, name);
@@ -1248,7 +1250,9 @@ const renderPage = (res, name, opts = {}) => {
     .split('__VIEW__').join(view)
     // __KINDS__ 只注入**闭集里过滤过**的值（逗号分隔）；不传就是空串（= 现状）。
     .split('__KINDS__').join(kinds.join(','))
-    .split('__FUNCS__').join(funcs.join(','));
+    .split('__FUNCS__').join(funcs.join(','))
+    // 上传上限（MB）：整数。只注入数字，别的什么都不拼。
+    .split('__MAX_MB__').join(String(MAX_BYTES / 1048576));
   send(res, 200, html, { 'content-type': 'text/html; charset=utf-8' });
 };
 /** 审核页要告诉前端「管理 API 现在挂在哪个前缀下、当前是哪一页」，所以把占位符换掉再发。 */
@@ -1312,10 +1316,14 @@ const askForLogin = (res) =>
     { 'www-authenticate': 'Basic realm="sp-modsite admin", charset="UTF-8"' });
 
 // 简单的按 IP 限流：每 10 分钟最多 10 次上传。
+// ⚠️ 窗口长度**只有这一份**（`RATE_WINDOW_MS`）：两套桶都用它，429 的 `retry-after` 也从它算 —— 
+// 三处各写一个 600000 的话，改一处就会让「等 N 分钟」这句话开始骗人。
+const RATE_WINDOW_MS = 600000;
+const RATE_WINDOW_MIN = RATE_WINDOW_MS / 60000;
 const hits = new Map();
 const rateLimited = (ip) => {
   const t = Date.now();
-  const arr = (hits.get(ip) || []).filter((x) => t - x < 600000);
+  const arr = (hits.get(ip) || []).filter((x) => t - x < RATE_WINDOW_MS);
   arr.push(t);
   hits.set(ip, arr);
   return arr.length > 10;
@@ -1334,7 +1342,7 @@ const rateLimited = (ip) => {
 const pubHits = new Map();
 const publisherRateLimited = (ip) => {
   const t = Date.now();
-  const arr = (pubHits.get(ip) || []).filter((x) => t - x < 600000);
+  const arr = (pubHits.get(ip) || []).filter((x) => t - x < RATE_WINDOW_MS);
   arr.push(t);
   pubHits.set(ip, arr);
   return arr.length > 60;
@@ -1603,7 +1611,7 @@ const server = createServer(async (req, res) => {
 
     // ---- 上传
     if (req.method === 'POST' && p === '/api/submit') {
-      if (rateLimited(ip)) return sendJson(res, 429, { error: '传得太频繁了，过一会儿再来' });
+      if (rateLimited(ip)) return sendJson(res, 429, { error: `传得太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再传`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
       const name = (url.searchParams.get('name') || '').trim();
       const note = (url.searchParams.get('note') || '').trim();
       const homepage = (url.searchParams.get('homepage') || '').trim().slice(0, 300);
@@ -1617,7 +1625,12 @@ const server = createServer(async (req, res) => {
       // （XHR / fetch 传 Buffer 或 File 时一定会带这个头；没有的走下面的边收边判。）
       const declared = Number(req.headers['content-length'] || 0);
       if (declared && declared > MAX_BYTES) {
-        return sendJson(res, 413, { error: `文件 ${(declared / 1048576).toFixed(1)} MB，超过上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB` });
+        // `code` / `maxMB`：前端据此显示「文件太大（上限 X MB）」，不用去猜 HTTP 码的含义。
+        return sendJson(res, 413, {
+          error: `文件 ${(declared / 1048576).toFixed(1)} MB，超过上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB`,
+          code: 'TOO_LARGE',
+          maxMB: MAX_BYTES / 1048576,
+        });
       }
 
       const body = await readBody(req, MAX_BYTES);
@@ -1717,7 +1730,7 @@ const server = createServer(async (req, res) => {
 
       // ---- ① 认领码 → 发布者令牌（一次性）
       if (req.method === 'POST' && p === '/api/publisher/claim') {
-        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: `操作太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再来`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
         const raw = await readBody(req, 16 * 1024);
         let inObj = null;
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
@@ -1807,7 +1820,7 @@ const server = createServer(async (req, res) => {
 
       // ---- ③ 改元数据（name / note / homepage / packKind）⇒ **强制回待审**
       if (req.method === 'POST' && p === '/api/publisher/update') {
-        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: `操作太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再来`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
         const raw = await readBody(req, NOTE_BODY_MAX);
         let inObj = null;
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
@@ -1912,7 +1925,7 @@ const server = createServer(async (req, res) => {
 
       // ---- ④ 换包体 / 上新版本 ⇒ 写成**候选**，公开面照旧展示旧包（裁定 ⑦）
       if (req.method === 'POST' && p === '/api/publisher/blob') {
-        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: `操作太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再来`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
         const id = (url.searchParams.get('id') || '').trim();
         if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6–32 位小写字母/数字，放在查询串 ?id=）' });
         if (!pubToken) return sendJson(res, 401, { error: '需要发布者令牌（x-publisher-token 头）' });
@@ -1922,7 +1935,11 @@ const server = createServer(async (req, res) => {
         if (dirOf(id)?.area === 'compat') return sendJson(res, 400, { error: '兼容包不在发布者自助范围内' });
         const declared = Number(req.headers['content-length'] || 0);
         if (declared && declared > MAX_BYTES) {
-          return sendJson(res, 413, { error: `文件 ${(declared / 1048576).toFixed(1)} MB，超过上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB` });
+          return sendJson(res, 413, {
+            error: `文件 ${(declared / 1048576).toFixed(1)} MB，超过上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB`,
+            code: 'TOO_LARGE',
+            maxMB: MAX_BYTES / 1048576,
+          });
         }
         const body = await readBody(req, MAX_BYTES);
         if (!body.length) return sendJson(res, 400, { error: '没有收到文件' });
@@ -2012,7 +2029,7 @@ const server = createServer(async (req, res) => {
 
       // ---- ⑤ 自撤（裁定 ②）⇒ `withdrawRequested`，**公开面立刻不再列出**
       if (req.method === 'POST' && p === '/api/publisher/withdraw') {
-        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: `操作太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再来`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
         const raw = await readBody(req, 16 * 1024);
         let inObj = null;
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
@@ -2088,7 +2105,7 @@ const server = createServer(async (req, res) => {
       //   ④ 幂等：已经是 superseded 就不再写盘（重复点不会重复留痕）。
       // ⚠️ 与全站同一条铁律：只认**一个明确写出的 id**（`ids`/`batch`/`items`/`list` 一律 400）。
       if (req.method === 'POST' && p === '/api/publisher/delete') {
-        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: `操作太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再来`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
         const raw = await readBody(req, 16 * 1024);
         let inObj = null;
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
@@ -2173,7 +2190,7 @@ const server = createServer(async (req, res) => {
       // ⚠️ 只能恢复**自己被软删**的那条；**被物理删过**的恢复不了（文件已经不在）⇒ 明确 410。
       // ⚠️ 只认一个明确 id、只认自己的令牌（`isPublisher`）。
       if (req.method === 'POST' && p === '/api/publisher/restore') {
-        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: `操作太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再来`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
         const raw = await readBody(req, 4 * 1024);
         let inObj = null;
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
@@ -2231,7 +2248,7 @@ const server = createServer(async (req, res) => {
       //   ⑥ **仓库那边一律不动**：站点看不见 `mods/` 镜像，只在响应里写 `mirrorWarning` 交给人核。
       // 除这一条路之外，全站一切照旧**零删除**。
       if (req.method === 'POST' && p === '/api/publisher/delete-hard') {
-        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: `操作太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再来`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
         const raw = await readBody(req, 16 * 1024);
         let inObj = null;
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
@@ -2912,7 +2929,7 @@ const server = createServer(async (req, res) => {
       // ================================================================
 
       if (req.method === 'POST' && p === `${ADMIN_API}/compat-submit`) {
-        if (rateLimited(ip)) return sendJson(res, 429, { error: '传得太频繁了，过一会儿再来' });
+        if (rateLimited(ip)) return sendJson(res, 429, { error: `传得太频繁了，请等 ${RATE_WINDOW_MIN} 分钟再传`, code: 'TOO_FREQUENT', retryAfterMin: RATE_WINDOW_MIN }, { 'retry-after': String(RATE_WINDOW_MS / 1000) });
 
         const name = (url.searchParams.get('name') || '').trim();
         // 「兼容者」是必填字段：**字段必须在报文里**（缺 ⇒ 拒），但**值可以为空**。
@@ -2980,7 +2997,11 @@ const server = createServer(async (req, res) => {
 
         const declared = Number(req.headers['content-length'] || 0);
         if (declared && declared > MAX_BYTES) {
-          return sendJson(res, 413, { error: `文件 ${(declared / 1048576).toFixed(1)} MB，超过上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB` });
+          return sendJson(res, 413, {
+            error: `文件 ${(declared / 1048576).toFixed(1)} MB，超过上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB`,
+            code: 'TOO_LARGE',
+            maxMB: MAX_BYTES / 1048576,
+          });
         }
         const body = await readBody(req, MAX_BYTES);
         if (!body.length) return sendJson(res, 400, { error: '没有收到文件' });
@@ -3860,9 +3881,40 @@ const server = createServer(async (req, res) => {
     if (e?.code === 'TOO_LARGE') {
       // 先把 413 发出去，响应发完再把这条连接收掉（没有 content-length 的客户端还在灌数据）
       res.on('finish', () => req.destroy());
-      return sendJson(res, 413, { error: `文件超过上限（${(MAX_BYTES / 1048576).toFixed(0)} MB）` });
+      // 413 的响应体**必须写清上限是多少**：客户端（上传页 / 管理台）要能直接把这句话显示给用户，
+      // 而不是把 413 说成「网络断了」。`code` / `maxMB` 是给前端分类用的机器可读字段。
+      return sendJson(res, 413, {
+        error: `文件超过上限（${(MAX_BYTES / 1048576).toFixed(0)} MB）—— 请缩小包体再传`,
+        code: 'TOO_LARGE',
+        maxMB: MAX_BYTES / 1048576,
+      });
     }
     console.error('[error]', e);
+    // ⭐ 「传一半就断」这件事，服务端**原来一个字都不回**（只留一行日志，客户端什么都收不到）——
+    //    上传页的 onerror 于是只能写死一句「网络断了」，用户拿不到任何可行动的判据。
+    //    现在：连接**还能写**的时候尽量回一个可读的 408；确实写不进去（socket 已经断了）
+    //    就只留日志，绝不再抛一个新异常出来盖掉原因。
+    //    判据：Node 掐断请求时抛的就是 `Error: aborted`（`code` 为 `ECONNRESET`）；客户端自己
+    //    关页面 / 隧道掉线走的是同一条路径，所以两者都落进这个分支 —— 文案里如实写两种可能。
+    const aborted = e?.code === 'ECONNRESET' || e?.code === 'ABORT_ERR'
+      || /aborted/i.test(String(e?.message || ''));
+    if (aborted) {
+      const got = req.socket?.bytesRead ?? 0;
+      const limitMin = server.requestTimeout / 60000;
+      try {
+        if (!res.headersSent && !res.writableEnded && res.socket && !res.socket.destroyed) {
+          return sendJson(res, 408, {
+            error: `上传在传完之前中断了（服务端收到 ${got} 字节）。`
+              + `服务端给一次上传 ${limitMin} 分钟；若是上行太慢用满了这个时限，请换更快的网络或缩小包体；`
+              + `若是客户端 / 中间链路主动断开（关页面、隧道被 reset），重试即可。`,
+            code: 'UPLOAD_ABORTED',
+            receivedBytes: got,
+            requestTimeoutMin: limitMin,
+          });
+        }
+      } catch { /* 连接已经不能写了：只剩上面那行日志，不影响别的请求 */ }
+      return;
+    }
     return sendJson(res, 500, { error: '服务端出错：' + e.message });
   } finally {
     // 兜底：这次请求留下的临时文件（还没被 rename 成正式文件的那一份）在这里清掉。
@@ -3873,6 +3925,35 @@ const server = createServer(async (req, res) => {
     }
   }
 });
+
+/**
+ * ⭐⭐ 请求超时：**必须显式写死**（2026-10-14「上传传一半就断」的治本那一条）。
+ *
+ * 为什么非写不可：Node v22 的 `server.requestTimeout` 默认值是 **300000 ms（300 秒）**，而它判的是
+ * 「**整个请求**从收到第一个字节到响应写完的**总时长**」，不是「空闲多久」。所以慢速大包必被掐：
+ * 25 MB 的包在 50 KB/s 的上行上要约 500 秒 ⇒ 第 300 秒被 Node 主动断开（回 408 + 断连），
+ * 服务端只留下一行 `[error] Error: aborted` + `at abortIncoming (node:_http_server:805:17)` + `ECONNRESET`。
+ * 这就是看起来很像是「20 MB 体积门」的真相 —— **判据是耗时，不是体积**：同一个 25 MB 的包，
+ * 200 KB/s（约 128 秒）能过、50 KB/s（约 500 秒）必断；也解释了「挂梯子反而更容易断」——
+ * 跨境上行更慢 ⇒ 总时长更长 ⇒ 更容易撞上这道时限，而这道时限跟客户端出口 IP 毫无关系。
+ *
+ * ⚠️ 位置说明：这三个属性只能在 `createServer()` **返回之后**赋（Node 不提供对应的 createServer 选项），
+ *    所以紧贴在上面这个 `});` 之后、`listen()` 之前 —— 这是「一处集中」，别再散落到别处去设。
+ *
+ * 三个值的取法：
+ *   · `requestTimeout = 900_000`（**15 分钟**）：给慢上行留足余量。
+ *     ⚠️ **不要设 0**：0 的含义是「关掉这道保护」，慢连接可以永远挂着不放，等于把防线拆了；
+ *     给一个大而有限的值才对 —— 既容纳慢速大包，又保证僵尸连接最终会被收掉。
+ *     时限换算给用户看的判据：包大小 ÷ 上行带宽 < 900 秒。⇒ 25 MB 要约 **29 KB/s** 以上、
+ *     100 MB 要约 114 KB/s 以上。（旧时限 300 秒时 25 MB 的判据是 85 KB/s，那个数已随修复作废。）
+ *   · `headersTimeout = 60_000`：把头传完的时限。必须**大于** `keepAliveTimeout`（Node 的建议），
+ *     且不大于 `requestTimeout`；60 秒对任何正常客户端都足够。
+ *   · `keepAliveTimeout = 10_000`：空闲长连接的回收时限（默认 5 秒偏短，跨境链路上浏览器与
+ *     服务器容易抢跑，日志里看着像「随机断连」）。
+ */
+server.requestTimeout = 900_000;
+server.headersTimeout = 60_000;
+server.keepAliveTimeout = 10_000;
 
 server.listen(PORT, HOST, () => {
   console.log(`工坊包上传站已起：${BASE_URL}`);

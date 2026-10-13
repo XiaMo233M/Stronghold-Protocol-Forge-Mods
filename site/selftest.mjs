@@ -421,6 +421,59 @@ try {
     check(r7.body?.suspected === false, '真实包没有被标疑似', JSON.stringify(r7.body?.suspectedReasons || []));
   }
 
+  // ---------------------------------------------------------------- ⑲ 上传断连修复：超时显式写死 + 上传页按真实状态码分类
+  // 背景（2026-10-14）：服务端**从不设** `server.requestTimeout` ⇒ 吃 Node v22 默认的 300000 ms，
+  // 而它判的是「整个请求的总时长」⇒「上传总耗时 > 300 秒」的请求在第 300 秒被掐
+  // （回 408 + 断连，只传上去一部分）。25 MB @50 KB/s ≈ 500 秒，所以必断；@200 KB/s ≈ 128 秒，能过。
+  // ⚠️ 这一组判据是**静态读文件**，所以它能在「改前的文件」上直接跑红 —— 有牙齿，不是只跟着代码走。
+  console.log('⑲ 上传断连修复：三个超时显式写死 + 上传页按真实状态码分类');
+  {
+    const serverSrc = readFileSync(join(HERE, 'server.mjs'), 'utf8');
+    // 只认 `server.<名字> = <数字>` 这种**显式赋值**，且 `server` 前面不能是标识符字符
+    // （免得 `myserver.requestTimeout = 1` 也被算成设置过）。
+    const timeoutOf = (n) => {
+      const m = serverSrc.match(new RegExp(`(?:^|[^\\w.])server\\.${n}\\s*=\\s*([0-9][0-9_]*)`, 'm'));
+      return m ? Number(m[1].replace(/_/g, '')) : null;
+    };
+    const rt = timeoutOf('requestTimeout');
+    const ht = timeoutOf('headersTimeout');
+    const kt = timeoutOf('keepAliveTimeout');
+    check(rt !== null && ht !== null && kt !== null,
+      'server.mjs 显式写死了三个超时（requestTimeout / headersTimeout / keepAliveTimeout 三处都有 `server.x = 数字`）',
+      `requestTimeout=${rt} headersTimeout=${ht} keepAliveTimeout=${kt}`);
+    check(rt !== null && rt >= 600000,
+      'requestTimeout ≥ 600000 ms（Node 默认的 300 秒会掐掉慢速大包：25 MB @50 KB/s ≈ 500 秒）',
+      `${rt} ms`);
+    check(rt !== null && rt > 0,
+      'requestTimeout **不是 0**（0 = 关掉这道保护、慢连接能永远挂着；要大而有限的值）', `${rt} ms`);
+    check(ht !== null && kt !== null && ht > kt,
+      'headersTimeout > keepAliveTimeout（Node 的建议；否则长连接复用会莫名超时）', `${ht} > ${kt}`);
+
+    const idx = readFileSync(join(HERE, 'pages', 'index.html'), 'utf8');
+    // ⚠️ 只认**真代码**：把整行的 `//` 注释剥掉再匹配。为什么必须有这一步 ——
+    // 页面里那段「改之前写的是 `xhr.onerror = () => { … out.textContent = '网络断了…' }`」的
+    // 解释性注释本身就会被下面的正则命中，于是**改后的文件反而红**（实测踩过一次）。
+    // 判据要防的是「代码里还有这句话」，不是「注释里提过这句话」。
+    const idxCode = idx.replace(/^\s*\/\/.*$/gm, '');
+    check(/408/.test(idxCode) && /413/.test(idxCode) && /429/.test(idxCode),
+      'index.html 的**代码**里有 408 / 413 / 429 三个真实状态码（上传失败按状态分类，不再一律一句「网络断了」）',
+      ['408', '413', '429'].map((c) => `${c}:${idxCode.includes(c) ? '有' : '无'}`).join(' '));
+    check(!/xhr\.onerror\s*=\s*\(\)\s*=>\s*\{[^\n]*out\.textContent\s*=\s*'网络断了/.test(idxCode),
+      '`xhr.onerror` 不再把「网络断了」**无条件**写死成唯一文案（那一句现在只在「真没拿到任何响应」那一支里）');
+    check(/status\s*===\s*408/.test(idxCode) && /status\s*===\s*413/.test(idxCode) && /status\s*===\s*429/.test(idxCode),
+      '按状态分类是**真的分支**（408 / 413 / 429 各有一条 `status === N` 比较），不是只把数字写进注释');
+    check(/__MAX_MB__/.test(idxCode),
+      '上传页用服务端注入的 __MAX_MB__ 判上限（本地体积预检与 413 提示不会跟 MAX_MB 漂移）');
+    check(/xhr\.timeout\s*=/.test(idxCode),
+      '上传页也设了客户端兜底时限（xhr.timeout）：链路整个挂住时给出「超时」，而不是一直转圈');
+
+    // 服务端真的把占位符换掉了 —— 原样漏到浏览器里就等于「本地体积预检」失效。
+    const served = await (await fetch(`${BASE}/`)).text();
+    check(!served.includes('__MAX_MB__') && /const MAX_MB = Number\('\d+'\)/.test(served),
+      '服务端发出来的上传页已把 __MAX_MB__ 换成真实数字（占位符没漏到浏览器里）',
+      (served.match(/const MAX_MB = Number\('[^']*'\)/) || ['(没找到那一行)'])[0]);
+  }
+
   // 管理白名单：只有 HTTP 时这是保护令牌的主要手段。用第二个实例测，顺带证明
   // 「默认不信 x-forwarded-for」这件事 —— 只有 TRUST_PROXY=1 时它才被当真。
   console.log('⑯ HTTP Basic 登录（浏览器弹框那种）');

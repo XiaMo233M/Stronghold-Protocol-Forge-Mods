@@ -99,7 +99,11 @@ function bootInline(html, { fetchImpl, beforeAsync }) {
     sessionStorage: { getItem: () => '', setItem() {}, removeItem() {} },
     location: { href: `${BASE}/${ADMIN_PATH}` },
     fetch: fetchImpl,
-    alert() {}, URL, URLSearchParams, setTimeout, clearTimeout,
+    alert() {}, URL, URLSearchParams, setTimeout, clearTimeout, setInterval, clearInterval,
+    // ⭐ 2026-10-14：admin.html 的上传那一路新增了 `AbortController` 兜底时限与走秒进度
+    //    （浏览器自带这两个东西）。桩也必须提供，否则「点上传并发布」会 ReferenceError ——
+    //    那不是页面坏了，是**桩缺件**。（实测踩过：没加这一行，selftest-admin 红在 AbortController。）
+    AbortController,
     Blob: class {}, TextDecoder, TextEncoder,
   };
   sandbox.window = sandbox;
