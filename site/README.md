@@ -436,8 +436,15 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 
 1. **自撤要管理员确认** —— `POST /api/<ADMIN_PATH>/withdraw-decide`，
    报文 `{ "id": "<编号>", "action": "confirm" | "reject", "note": "…" }`。
-   - `confirm` ⇒ `decision = superseded` 且 **`replacedBy: null`**（这是全站**唯一**允许
-     `superseded` 不带 `replacedBy` 的例外，标志是 `reason: 'publisher-withdraw'`）；理由取发布者填的 `withdrawReason`。
+   - `confirm` ⇒ `decision = superseded` 且 **`replacedBy: null`**；理由取发布者填的 `withdrawReason`
+     （没填就是缺省中文串「发布者自撤（未填理由）」）。落盘代码在 `server.mjs` 的 `markSelfWithdrawn()`
+     （`direct` 未给 = 管理员确认那条路）。
+   - ⚠️ 容易记错的一处：`reason: 'publisher-withdraw'` **不是**这条路的参数，也**从不落盘**。
+     它是**另一个端点** `POST /api/<ADMIN_PATH>/decide` 的**入参标志**（`server.mjs:1898`）——
+     意思是「管理员替发布者落一次自撤终态」，只有带了它 `/decide` 才允许 `superseded` 不带 `replacedBy`
+     （`server.mjs:1894-1913`）。业务侧下架用上面的 `withdraw-decide` 就好。
+   - 落盘后**机器可读的标志**是这三样（不是上面那个字面量）：`replacedBy: null`、`by`（`admin` / `publisher`）、
+     以及留痕块 `publisherWithdraw`（管理员确认）/ `publisherDelete`（发布者自助删除）。
    - `reject` ⇒ 清掉 `withdrawRequested`，这条**恢复公开** —— 它本来就没被改动过（自撤申请只影响「列不列出来」）。申请照样进 `withdrawHistory` 留痕。
    - 审核台首页的响应里就带一个 **`withdrawQueue`**（自撤待确认队列；只数数、不改盘）。
 2. **换包体要管理员批准才切换** —— `POST /api/<ADMIN_PATH>/promote-blob`，
