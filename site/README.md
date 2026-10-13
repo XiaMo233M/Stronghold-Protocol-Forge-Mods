@@ -170,6 +170,10 @@ node site/selftest-compat.mjs      # ③ 兼容包整条链 + 反例（临时数
 node site/selftest-publisher.mjs   # ④ 发布者自助（认领 / 改元数据 / 换包体 / 自撤）+ 管理员确认 + 分类筛选 + 审计日志
 ```
 
+⚠️ **四个必须串行跑**：`selftest-compat.mjs` 与 `selftest-publisher.mjs` 同用 `PORT 8807`
+（另外两个各用 8799/8801 与 8809），同时跑会互相抢端口、结果不可信。
+服务器上的绝对路径写法见下面「改完必跑的**四个**自测」。
+
 `selftest-admin.mjs` 专治一类「接口全好、页面却是死的」故障：审核台是一整个内联 `<script>`，
 它只要在**顶层抛一次错**，后面所有 `onclick` 与自动载入就全都不执行 —— 页面不报错也不崩，
 就是永远停在 HTML 里那句「还没载入。」。所以它把**服务器实际发出来的 HTML**里的脚本，
@@ -307,7 +311,10 @@ sudo bash deploy.sh --uninstall
 ### 只有 HTTP，所以管理口要额外保护
 
 这台机器 **443 没开**、也只给了 IP（没有域名，Let's Encrypt 签不了纯 IP），所以**没有 HTTPS**：
-令牌会以明文过网。**审核入口默认只认回环**（`ADMIN_IPS=127.0.0.1`），走公网 IP 直接 403：
+令牌会以明文过网。**要只认回环 / 白名单，必须显式设 `ADMIN_IPS`** —— `deploy.sh` 的 `--admin-ips`
+默认是**空**，而 `ADMIN_IPS` 为空时 `adminAllowed()` **直接放行**（`site/server.mjs:920-923`），
+那时管理口**只靠令牌**保护，任何来源都能拿令牌来试。设了白名单之后（本机回环始终放行），
+走公网 IP 才会 403：
 
 ```bash
 # 审核页必须走隧道（把本机的 25570 接到服务器的回环 25570）
@@ -554,6 +561,8 @@ cd /opt/sp-modsite
 ```
 
 **四个全绿才算改完**（`selftest-publisher.mjs` 是 2026-10-13 新增的那一个，专测本次这条链）。
+⚠️ **四个必须串行跑**：`selftest-compat.mjs` 与 `selftest-publisher.mjs` 同用 `PORT 8807`，
+**同时跑会互相抢端口**（`EADDRINUSE`，或更糟 —— 一个连到另一个的实例上，结果不可信）。
 四个都跑在**临时数据目录**（`/tmp/...`）上，**不碰** `/var/lib/sp-modsite`，不联网。
 服务器上 `node` 不在 `PATH` 里，用单元文件里那个绝对路径（`/opt/sp-modsite/runtime/node/bin/node`）。
 

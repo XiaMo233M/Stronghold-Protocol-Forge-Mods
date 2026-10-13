@@ -272,6 +272,22 @@ fi
 say "8. 自测"
 if curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null; then ok "本机 /healthz 通（$PORT）"
 else die "本机访问 $PORT 不通"; fi
+
+# 「起来了」不等于「改对了」：真正的回归判据是 site/README.md「改完必跑」那四个自测。
+# 脚本**不代跑**（每一个都自己起临时实例，四个串着跑要一会儿），只按本机实际路径把命令打出来。
+# ⚠️ 四个必须**串行**：selftest-compat 与 selftest-publisher 同用 PORT 8807，同时跑会互相抢端口。
+warn "改完请再跑四个自测（本脚本不代跑；⚠️ 必须串行）"
+cat <<EOF
+       cd $DIR
+       $NODE_BIN selftest.mjs             # ① 公网投稿链（上传 → 下载 → 审核 → 上线）
+       $NODE_BIN selftest-admin.mjs       # ② 审核台 / 公网列表跑不跑得起来
+       $NODE_BIN selftest-compat.mjs      # ③ 兼容包整条链 + 反例
+       $NODE_BIN selftest-publisher.mjs   # ④ 发布者自助 + 管理员确认 + 审计日志
+       四个全绿才算改完。⚠️ 必须串行：compat 与 publisher 同用 PORT 8807。
+       （$NODE_BIN 是本脚本刚选定的 Node：系统 Node ≥18 时就是它，
+         否则是 $DIR/runtime/node/bin/node。）
+EOF
+
 if [ -n "$ADMIN_IPS" ]; then
   CODE="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/admin/list")"
   [ "$CODE" = "401" ] && ok "管理口要令牌（无令牌得 401）" || warn "管理口无令牌返回 $CODE（预期 401）"
