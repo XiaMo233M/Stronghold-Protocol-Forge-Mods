@@ -167,7 +167,7 @@ compat/<编号>/decision.json          ← 审核决定（写清发布了哪个�
 node site/selftest.mjs             # ① 公网投稿链（上传 → 下载 → 审核 → 上线）
 node site/selftest-admin.mjs       # ② 审核台 / 公网列表**页面**跑不跑得起来（见下）
 node site/selftest-compat.mjs      # ③ 兼容包整条链 + 反例（临时数据目录，不碰你的数据，不联网）
-node site/selftest-publisher.mjs   # ④ 发布者自助（认领 / 改元数据 / 换包体 / 自撤 / 自助删除）+ 管理员确认 + 分类筛选 + 审计日志
+node site/selftest-publisher.mjs   # ④ 发布者自助（认领 / 改元数据 / 换包体 / 自撤 / 三档删除 / 功能类目 6 类）+ 管理员确认 + 筛选 + 审计日志
 ```
 
 ⚠️ **四个必须串行跑**：`selftest-compat.mjs` 与 `selftest-publisher.mjs` 同用 `PORT 8807`
@@ -423,10 +423,12 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 |---|---|---|
 | 换令牌 | `POST /api/publisher/claim` | 认领码**只生效一次**：换完就从 `pendingClaim` 里划掉，往 `publisherTokens` 落一枚**哈希** |
 | 看自己那条 | `GET /api/publisher/mine` | 凭令牌（`x-publisher-token` 头或 `Authorization: Bearer`）列出；**只读、不限流** |
-| 改元数据 | `POST /api/publisher/update` | `name` / `note` / `homepage` / `packKind` 四栏 ⇒ **强制回待审** |
+| 改元数据 | `POST /api/publisher/update` | `name` / `note` / `homepage` / `packKind` / `funcKind` 五栏 ⇒ **强制回待审** |
 | 换包体 | `POST /api/publisher/blob` | 新包写成**候选**（`candidate`）；公开面**照旧展示旧包**，等管理员批准 |
 | 自撤 | `POST /api/publisher/withdraw` | `withdrawRequested: true` ⇒ 公开列表与下载口**立刻**不再列它；等管理员确认 |
-| **自助删除** | `POST /api/publisher/delete` | **一按即生效、不经管理员**：落 `superseded` + `replacedBy: null` + `reason: "publisher-delete"`（**软删**，记录与包体全留） |
+| **档 1 · 软删** | `POST /api/publisher/delete` | **一按即生效、不经管理员**：落 `superseded` + `replacedBy: null` + `reason: "publisher-delete"`（**软删**，记录与包体全留） |
+| **档 2 · 恢复** | `POST /api/publisher/restore` | 撤回自己那次软删 ⇒ 判定回到 `approved`（**重新公开**）；只对自己软删过的那条有效 |
+| **档 3 · 硬删** | `POST /api/publisher/delete-hard` | ⚠️ **物理删除**，**必须两次调用**：第一次只预检发凭据，第二次凭据 + 逐字包名才真删；**先落墓碑**再删 |
 
 共同边界：**自助写不得直改公开面**。「改元数据 ⇒ 回待审」走的是 `clearDecision()` ——
 把那一份 `decision.json` **逐字搬进 `meta.revisions`**（含 `decisionSnapshot`），文件不再存在 ⇒
@@ -458,7 +460,7 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 要让原作者自助管理，或者发布者把令牌弄丢了（盘上只有哈希，**找不回明文**），都由管理员
 `POST /api/<ADMIN_PATH>/issue-claim` 手工发一枚认领码，**带外**（群里/微信）交给本人。
 
-### 分类筛选：`/mods?kind=…`（URL 可分享）
+### 分类筛选：`/mods?kind=…`（技术维度，**一字未改**）
 
 复用既有的 `packKind` 闭集，**不新增字段、不回填老记录**：
 
@@ -471,6 +473,34 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 - 单个：`/mods?kind=functional`；多选：`/mods?kind=functional,documentation`（逗号分隔，服务端去重）。
 - **不传 = 现状**（三个分区、两份数据、一条判据全不变）。`?kind=`、`?kind=,` 这种空值也按不传算。
 - 值不在闭集里 ⇒ **400**，**不悄悄忽略** —— 否则「我筛了但列表没变」会变成查不出来的误会。
+
+### ⭐ 功能类目：`/mods?func=…`（业主 2026-10-14 裁定的 6 类）
+
+**这是另一个维度**，与上面那个 `packKind` **并存、不互相顶替**（所以是两个字段、两个 query 参数）：
+
+| `funcKind` | 中文 | 什么算这一类 |
+|---|---|---|
+| `gameplay` | 游戏玩法 | 改玩法本身：回合流程、对局规则、角色/技能判定 |
+| `expansion` | 拓展包 | 往里加东西：新角色、新卡、新关卡、整合式扩充 |
+| `utility` | 实用工具 | 只办事不改玩法：面板、查询、设置、批量操作 |
+| `assets` | 素材替换 | 换立绘 / 图标 / 音效 / 字体 / 皮肤，逻辑不动 |
+| `documentation` | 说明文档 | 装上**不会启用任何功能**（参考 / 资料） |
+| `uncategorized` | 未分类 | **缺省就是它**；老记录一律落这里，等维护者**人工**过 —— **系统绝不猜** |
+
+- 单个：`/mods?func=utility`；多选：`/mods?func=gameplay,utility`；**可与 `kind` 叠加**：
+  `/mods?kind=functional&func=utility` = 既装得上、又是实用工具。值不在闭集里 ⇒ **400**。
+- 公开面每一张卡片上**两个徽标并排画**（技术维度 + 功能维度），谁都不吞掉谁；
+  `/api/mods` 的每一条同时给 `packKind` / `funcKind` / `funcKindTitle`，
+  `counts`（技术，老字段一字未改）之外多一个 `counts.func`（功能那 6 类的计数）。
+- ⭐ **两栏的一致性判据只有一份**（`server.mjs` 的 `packKindFor()`）：写 `funcKind` 时技术维度
+  **自动归位**（四个真功能类 ⇒ `functional`；`documentation` ⇒ `documentation`；`uncategorized` ⇒ `unknown`）。
+  想让它不派生，就在**同一次报文**里再显式给一个 `packKind`（显式值优先）。两栏因此不可能各说各话。
+- ⚠️ **老记录一个都没回填**：87 条没有 `funcKind` 的记录**读出来就是「未分类」**，
+  由维护者在审核详情页的「功能类目」下拉里**一条一条**归类（`POST /api/<ADMIN_PATH>/funkind`，
+  一次一个 id、闭枚举、写 `revisions` + `audit`）。**系统不替任何人猜分类。**
+- ⚠️ 这条改造**只碰站点**：`tools/collect-station.mjs` 的镜像入选判据（`approved && packKind==='functional'`）
+  与 `tools/build-index.mjs` 的四道闸门**都没有动**（要动得先经业主点头）。
+
 - 筛选在**服务端**做（不是前端把数据藏起来）：页面把当前档位交给 `GET /api/mods?kind=…`。
 - 每枚按钮都是**真链接**（`<a href>`）：**没有 JS 也能用**，**URL 复制给别人照样显示同一批**；
   别人发来一个多选地址，页面会如实写明「当前只显示：真功能包 + 说明包」。
@@ -501,26 +531,38 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 - 令牌存在发布者**自己的浏览器**里（`localStorage` 键 `sp-modsite-publisher-token`）；
   站点只存哈希 —— 丢了让管理员重发一枚即可，**旧令牌不回收**。
 
-### 零删除：自助「删除」= 一按即落 `superseded`（**软删**）
+### 三档下架：软删 / 恢复 / 硬删（⚠️ 硬删是**零删除的唯一例外**）
 
-发布者在 `/mine` 上有两条下架路：**申请撤下**（要管理员点一次确认）与**删除这一条**
-（`POST /api/publisher/delete`，**一按即生效、不经管理员**）。两条路的**终态与零删除口径完全一样**，
-差别只在「谁来落那个终态」。整条链上**没有任何一处删数据**：
+发布者在 `/mine` 上有**三条**下架路，另外还有一条管理员确认的自撤路。前三条的差别只是
+「谁来落终态」，**盘上发生什么**逐档写在下面：
 
-| 环节 | 盘上发生什么 |
-|---|---|
-| 发布者申请自撤 | 加 `withdrawRequested: true` + `withdrawReason` + `withdrawRequestedAt` + 一笔 `withdrawHistory`；`meta.json` / `mod.zip` / `decision.json` **全在** |
-| 发布者自助删除 | `decision.json` 写成 `decision = superseded` + `replacedBy: null` + `reason: "publisher-delete"`（发布者填了理由就用他那一句）+ `publisherDelete` 留痕块；`meta.json` 加一笔 `revisions` 与 `withdrawHistory.action = "deleted"`；**记录、包体、留档全留** |
-| 管理员确认自撤 | 同上形状，留痕块是 `publisherWithdraw`（`by: "admin"`）；**记录与文件全留** |
-| 管理员拒绝 | 清 `withdrawRequested`、恢复公开；申请照样进 `withdrawHistory` |
-| 换包体 | 旧 `mod.zip` **改名留档** `mod.superseded-<时间戳>.zip`，**不删** |
-| 改元数据 ⇒ 回待审 | 原 `decision.json` 逐字进 `revisions.decisionSnapshot` 再移除该文件 —— 这是**唯一**会移除它的地方，且内容一字未丢 |
+| 档 | 端点 | 盘上发生什么 |
+|---|---|---|
+| 申请自撤（要管理员确认） | `POST /api/publisher/withdraw` | 加 `withdrawRequested: true` + `withdrawReason` + `withdrawRequestedAt` + 一笔 `withdrawHistory`；`meta.json` / `mod.zip` / `decision.json` **全在** |
+| 管理员确认自撤 | `POST /api/<ADMIN_PATH>/withdraw-decide`（`confirm`） | `decision.json` 写成 `superseded` + `replacedBy: null` + 留痕块 `publisherWithdraw`（`by: "admin"`）；**记录与文件全留** |
+| 管理员拒绝 | 同上（`reject`） | 清 `withdrawRequested`、恢复公开；申请照样进 `withdrawHistory` |
+| **档 1 · 软删** | `POST /api/publisher/delete` | `decision.json` 写成 `superseded` + `replacedBy: null` + `reason: "publisher-delete"`（发布者填了理由就用他那一句）+ 留痕块 `publisherDelete`；`meta.json` 加一笔 `revisions` 与 `withdrawHistory.action = "deleted"`；**记录、包体、留档全留** |
+| **档 2 · 恢复** | `POST /api/publisher/restore` | 判定换回 `approved`（重新公开）+ `withdrawHistory.action = "restored"` + 一笔 `revisions`；原判定逐字留在 `decision.restoredFrom` 里；**文件一个都没动过**（它本来就在） |
+| **档 3 · 硬删** | `POST /api/publisher/delete-hard` | ⚠️ **唯一的物理删除**：先往 `tombstones/<编号>.json` 写墓碑 + 一笔 `audit`，**然后**才 `rm -rf` 记录目录（含 `mod.zip` / `meta.json` / `decision.json`）。返回 `hardDeleted: true` / `recoverable: false` |
+| 换包体 | 管理员 `promote-blob` | 旧 `mod.zip` **改名留档** `mod.superseded-<时间戳>.zip`，**不删** |
+| 改元数据 ⇒ 回待审 | `clearDecision()` | 原 `decision.json` 逐字进 `revisions.decisionSnapshot` 再移除该文件 —— 这是**另一处**会移除文件的地方，且内容一字未丢 |
 | 令牌轮换 | `publisherTokens` 只保留最近 8 枚（`TOKEN_MAX = 8`），换发**不删记录** |
 
-⚠️ 「删除」是**软删**：要连 `mod.zip` 一起**物理删除**，站点**没有**这条路 —— 那要业主另行授权，
-且与「零删除」这条主判据冲突，须单独裁定。
+**档 3 的边界（业主 2026-10-14 明确授权，改之前先问业主）**：
+
+1. **只删自己那条** —— 令牌对得上记录里的 `publisherTokens` 哈希才动（`isPublisher` 不过 ⇒ **403**）；
+2. **一次一个 id** —— `ids`/`batch`/`items`/`list` 一律 400；
+3. **必须两次调用** —— 第一次**只预检**并返回一枚一次性 `confirmToken`（盘上**只存哈希**、10 分钟有效），
+   第二次必须同时给 `confirmToken` **与逐字相同的包名** `confirmName`；少一个、错一个都**一个字节都不删**（409）；
+4. **先审计后删** —— 墓碑落在**独立目录** `tombstones/`，所以删掉记录目录也带不走它；
+5. **有引用就先报人** —— 别人的 `replacedBy` 指向它、或别人用**同一个包内 `pack.json` id**（判据与
+   `/api/mods` 同一份 `signatureOf`）⇒ **409 不删**，把引用清单交给人看；
+6. **仓库一律不动** —— 站点看不见 `mods/` 镜像，只在响应里给 `mirrorWarning`，要不要清仓库交给人判断。
+
+⚠️ 除此以外，**全站一切照旧零删除**。`server.mjs` 里唯一一处 `rmSync` 就在档 3 那一段。
 
 公开面的可见性判据只有一条：`isPubliclyVisible = state === 'approved' && withdrawRequested !== true`。
+
 
 ## 数据与备份
 
@@ -528,6 +570,9 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
   - `submissions/<编号>/{mod.zip, meta.json, decision.json}` —— 普通投稿
   - `flagged/<编号>/{mod.zip, meta.json, decision.json}` —— **疑似素材**的投稿
   - `compat/<编号>/{mod.zip, orig.zip, pack-json.orig.json, meta.json, decision.json}` —— 维护者侧的**兼容包**（`mod.zip` 是要发布的改写版，`orig.zip` 是留档不发布的原件）
+  - `tombstones/<编号>.json` —— ⚠️ **只给硬删（档 3）用**：物理删除前先落的墓碑（id / 包名 / 包内 id / sha256 / 大小 / 删掉的文件清单 / 时间 / actor / ip / 理由）。
+    **它不参与任何业务读**（公开面、审核台都不读），只有两个用途：事后查、以及让 `/restore` 能区分「被物理删过（410）」与「压根没这条（404）」
+  - `audit.jsonl` —— 只追加的跨记录事件流
 - **备份就备份这一个目录**；没有数据库
 - 想清掉一条投稿：删掉对应目录即可（公开列表会立刻少一条）
 - 想**一次清掉所有疑似素材**：`rm -rf <DATA_DIR>/flagged`（它们本来就是为了便于整体处理才分开存的）
@@ -571,7 +616,7 @@ cd /opt/sp-modsite
 /opt/sp-modsite/runtime/node/bin/node selftest.mjs             # ① 公网投稿链
 /opt/sp-modsite/runtime/node/bin/node selftest-admin.mjs       # ② 审核台 / 公网列表**页面**跑不跑得起来
 /opt/sp-modsite/runtime/node/bin/node selftest-compat.mjs      # ③ 兼容包整条链 + 反例
-/opt/sp-modsite/runtime/node/bin/node selftest-publisher.mjs   # ④ 发布者自助 + 管理员确认 + 分类筛选 + 审计日志
+/opt/sp-modsite/runtime/node/bin/node selftest-publisher.mjs   # ④ 发布者自助（三档删除 / 功能类目）+ 管理员确认 + 筛选 + 审计日志
 ```
 
 **四个全绿才算改完**（`selftest-publisher.mjs` 是 2026-10-13 新增的那一个，专测本次这条链）。

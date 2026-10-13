@@ -19,6 +19,10 @@
 //   ⑨  零删除：跑完全部用例后**记录与文件数只增不减**
 //   ⑫  **发布者自助删除**：删自己的 ⇒ 公开面立刻消失 + 下载 403 + 落 superseded/replacedBy:null/
 //       reason:publisher-delete 软删；删别人的 ⇒ 403；无令牌 ⇒ 401；幂等；零删除
+//   ⑬  **功能类目**（6 类）：写入 / 闭枚举 / 一次一个 / 幂等 / 只动分类 / 两栏一致 / ?func= 筛选
+//   ⑭  **档 2 恢复**：撤自己的软删 ⇒ 200 且重新公开；别人的 ⇒ 403；不是软删来的 ⇒ 409
+//   ⑮  **档 3 硬删**（物理，全站唯一会删数据的路）：一次调用不删 · 凭据/包名少一个都不删 ·
+//       有引用 ⇒ 409 先报人 · 二次确认后真删 + 墓碑在位 + 记录确实不在 + 再删/恢复 ⇒ 410
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, statSync } from 'node:fs';
@@ -97,6 +101,16 @@ function makeZip(files) {
 const goodPack = (author, ver) => makeZip([{
   name: 'pack.json',
   data: JSON.stringify({ id: 'mine-test', name: '我的包', author, version: ver, api: 1, game: '0.16.0' }),
+}]);
+/**
+ * 同上，但**包内 id 由调用方指定**。
+ * 为什么需要它：硬删有「**有引用就拒绝**」这条纪律，而站点判「同 pack.json id」用的就是包内 id
+ * （`signatureOf`）。上面那个 `goodPack` 所有记录共用 `mine-test` ⇒ 它们**互相引用**，
+ * 硬删必然被拒 —— 要测「能删成功」就必须有一条**独有 id** 的记录。
+ */
+const goodPackWith = (packId, author, ver) => makeZip([{
+  name: 'pack.json',
+  data: JSON.stringify({ id: packId, name: '我的包', author, version: ver, api: 1, game: '0.16.0' }),
 }]);
 
 // ---------------------------------------------------------------- 起服务
@@ -615,6 +629,205 @@ try {
   const auditDel = auditLines().filter((l) => l.action === 'publisherDeleted');
   check(auditDel.length >= 1 && auditDel.every((l) => l.actor === 'publisher'), '① 审计里有 publisherDeleted 这一笔（actor=publisher）');
   check(!readFileSync(join(dataDir, 'audit.jsonl'), 'utf8').includes(tokC), '① 审计里**没有**发布者令牌明文');
+
+  // ================================================================
+  console.log('⑬ 功能类目（6 类）：写入 / 闭枚举 / 一次一个 / 幂等 / 只动分类 / 两栏一致');
+  // 业主 2026-10-14：「现在分类不对，要按功能分」—— 6 类：游戏玩法 / 拓展包 / 实用工具 /
+  // 素材替换 / 说明文档 / 未分类。它与 `packKind`（技术维度）**是两个字段、两个维度**。
+  const adminJson = (p, obj) => admin(p, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(obj),
+  });
+  const pub1 = await (await fetch(`${BASE}/api/mods`)).json();
+  const mB = pub1.mods.find((m) => m.id === idB);
+  check(!!mB && mB.funcKind === 'uncategorized',
+    '老记录**没有** funcKind ⇒ 读作「未分类」（**绝不猜**成某个真功能类）', String(mB && mB.funcKind));
+  check(!!mB && mB.packKind === 'functional', '同一批次里技术维度照旧 functional（两个维度各说各的）');
+  check(!!pub1.counts && pub1.counts.func && pub1.counts.func.uncategorized >= 1,
+    '`/api/mods` 的 counts 里多了功能维度那套（counts.func），老 counts 字段一字未动');
+  check(typeof mB.funcKindTitle === 'string' && mB.funcKindTitle === '未分类', '带中文名给页面用', String(mB.funcKindTitle));
+
+  const badFk = await adminJson('/api/admin/funkind', { id: idB, funcKind: 'beautify' });
+  check(badFk.status === 400, '拼错的类目 ⇒ 400（闭枚举，拼错的值不许落进记录）', String(badFk.status));
+  const batchFk = await adminJson('/api/admin/funkind', { ids: [idB], funcKind: 'utility' });
+  check(batchFk.status === 400, '「一批」的形状 ⇒ 400（一次一个明确 id）', String(batchFk.status));
+  const noIdFk = await adminJson('/api/admin/funkind', { funcKind: 'utility' });
+  check(noIdFk.status === 400, '没给 id ⇒ 400', String(noIdFk.status));
+  const ghostFk = await adminJson('/api/admin/funkind', { id: 'ffffffffffff', funcKind: 'utility' });
+  check(ghostFk.status === 404, '编号不存在 ⇒ 404（不瞎写）', String(ghostFk.status));
+
+  const metaB0 = JSON.parse(readFileSync(join(dataDir, 'submissions', idB, 'meta.json'), 'utf8'));
+  const fk1 = await adminJson('/api/admin/funkind', { id: idB, funcKind: 'utility' });
+  const fk1b = await fk1.json();
+  check(fk1.status === 200 && fk1b.changed === true && fk1b.funcKind === 'utility',
+    '归类成功（utility = 实用工具）', String(fk1.status));
+  check(fk1b.packKind === 'functional', '⭐ 两栏一致：真功能类目 ⇒ 技术维度自动归位 functional', String(fk1b.packKind));
+  const metaB1 = JSON.parse(readFileSync(join(dataDir, 'submissions', idB, 'meta.json'), 'utf8'));
+  check(metaB1.funcKind === 'utility' && metaB1.packKind === 'functional', '记录里两栏都落了');
+  const stripFk = (o) => { const c = { ...o }; delete c.funcKind; delete c.packKind; delete c.revisions; return JSON.stringify(c); };
+  check(stripFk(metaB0) === stripFk(metaB1), '**除 funcKind / packKind / revisions 外其余键值逐字未变**（只动分类）');
+  check(Array.isArray(metaB1.revisions) && metaB1.revisions.some((r) => r.by === 'admin' && r.to && r.to.funcKind === 'utility'),
+    '归类进 revisions（谁改的、从什么改成什么）');
+  const fk2 = await (await adminJson('/api/admin/funkind', { id: idB, funcKind: 'utility' })).json();
+  check(fk2.changed === false, '重复归同一个类 ⇒ changed:false（幂等，不重复写盘）', String(fk2.changed));
+  const fkDoc = await (await adminJson('/api/admin/funkind', { id: idB, funcKind: 'documentation' })).json();
+  check(fkDoc.packKind === 'documentation', '说明文档 ⇒ 技术维度归位 documentation（两栏不打架）', String(fkDoc.packKind));
+  const fkUnc = await (await adminJson('/api/admin/funkind', { id: idB, funcKind: 'uncategorized' })).json();
+  check(fkUnc.packKind === 'unknown', '未分类 ⇒ 技术维度归位 unknown（**不猜**成 functional）', String(fkUnc.packKind));
+  const fkExpl = await (await adminJson('/api/admin/funkind', { id: idB, funcKind: 'gameplay', packKind: 'unknown' })).json();
+  check(fkExpl.funcKind === 'gameplay' && fkExpl.packKind === 'unknown',
+    '同一次报文里显式给的 packKind 优先（派生不覆盖显式）', `${fkExpl.funcKind}/${fkExpl.packKind}`);
+  // 显式 packKind 在记录里也真的是那个值 —— 不是只有响应说说
+  const metaBfk2 = JSON.parse(readFileSync(join(dataDir, 'submissions', idB, 'meta.json'), 'utf8'));
+  check(metaBfk2.funcKind === 'gameplay' && metaBfk2.packKind === 'unknown', '显式值确实落盘（响应与磁盘一致）');
+
+  // ---- 公开面的功能筛选
+  await adminJson('/api/admin/funkind', { id: idB, funcKind: 'gameplay' });
+  const fSel = await (await fetch(`${BASE}/api/mods?func=gameplay`)).json();
+  check(fSel.mods.every((m) => m.funcKind === 'gameplay') && fSel.mods.some((m) => m.id === idB),
+    '?func=gameplay ⇒ 只剩游戏玩法那几条', `${fSel.mods.length} 条`);
+  const fMul = await (await fetch(`${BASE}/api/mods?func=gameplay,utility`)).json();
+  check(fMul.mods.every((m) => m.funcKind === 'gameplay' || m.funcKind === 'utility'), '?func=a,b ⇒ 多选', `${fMul.mods.length} 条`);
+  const fUnc2 = await (await fetch(`${BASE}/api/mods?func=uncategorized`)).json();
+  check(fUnc2.mods.every((m) => m.funcKind === 'uncategorized'), '?func=uncategorized ⇒ 未分类自成一处（老记录落这里）', `${fUnc2.mods.length} 条`);
+  const fBad = await fetch(`${BASE}/api/mods?func=beautify`);
+  check(fBad.status === 400, '非法 ?func= ⇒ 400（不悄悄忽略）', String(fBad.status));
+  const fEmpty = await (await fetch(`${BASE}/api/mods?func=`)).json();
+  check(fEmpty.funcs === null, '空的 func= 按「不传」处理（等价现状）', JSON.stringify(fEmpty.funcs));
+  // 两个维度**可以叠加**
+  const fBoth = await (await fetch(`${BASE}/api/mods?kind=functional&func=gameplay`)).json();
+  check(fBoth.mods.every((m) => m.packKind === 'functional' && m.funcKind === 'gameplay'),
+    '?kind=…&func=… **叠加**（既装得上、又是游戏玩法）', `${fBoth.mods.length} 条`);
+  // 老的那条筛选**一字未改**
+  const kOld = await (await fetch(`${BASE}/api/mods?kind=functional`)).json();
+  check(kOld.kinds && kOld.kinds[0] === 'functional' && kOld.mods.every((m) => m.packKind === 'functional'),
+    '老判据 `?kind=functional` 行为一字未改（向后兼容）', `${kOld.mods.length} 条`);
+
+  // ---- 列表页：两组占位符都注入、非法值 400
+  const pgF = await (await fetch(`${BASE}/mods?func=utility`)).text();
+  check(pgF.includes('data-funcs="utility"') && !pgF.includes('__FUNCS__'), '列表页注入了功能筛选值（占位符已替换）');
+  const pgFBad = await fetch(`${BASE}/mods?func=nope`);
+  check(pgFBad.status === 400, '列表页非法 func ⇒ 400', String(pgFBad.status));
+  const pgBoth = await (await fetch(`${BASE}/mods?kind=documentation&func=assets%2Cutility`)).text();
+  check(pgBoth.includes('data-kinds="documentation"') && pgBoth.includes('data-funcs="assets,utility"'),
+    '两条筛选**各自保留**：kind 没被 func 顶掉、func 也没被 kind 顶掉');
+  const pgNone = await (await fetch(`${BASE}/mods`)).text();
+  check(pgNone.includes('data-kinds=""') && pgNone.includes('data-funcs=""'), '不筛时两个都是空（走现状那条路）');
+
+  // ---- 发布者自己填功能类目（走 /api/publisher/update，改完回待审）
+  const pubFk = await postJsonRead('/api/publisher/update', { id: idB, funcKind: 'expansion' }, tokB);
+  check(pubFk.status === 200 && pubFk.body.forcedPending === true, '发布者能填自己的功能类目，且**强制回待审**', String(pubFk.status));
+  const metaBfk3 = JSON.parse(readFileSync(join(dataDir, 'submissions', idB, 'meta.json'), 'utf8'));
+  check(metaBfk3.funcKind === 'expansion' && metaBfk3.packKind === 'functional',
+    '发布者填的那一栏落盘、技术维度跟着归位', `${metaBfk3.funcKind}/${metaBfk3.packKind}`);
+  check(!(await publicIds()).includes(idB), '改分类也照旧「回待审 ⇒ 立刻不在公开面」（自助写不直改公开面）');
+  const mineB = await pubJson('/api/publisher/mine', {}, tokB);
+  check(!!mineB.body.mine.find((m) => m.id === idB)?.funcKind, '/mine 的响应里带 funcKind（页面才画得出那一栏）');
+  const auditFk = auditLines().filter((l) => l.action === 'funcKind');
+  check(auditFk.length >= 1 && auditFk.every((l) => l.actor === 'admin' && l.admin === true), '归类在审计里有 funcKind 这一笔（actor=admin）');
+
+  // ================================================================
+  console.log('⑭ 档 2 恢复：撤回自己那次软删（只对自己、只能撤软删）');
+  const resCross = await postJsonRead('/api/publisher/restore', { id: idB }, tokC);
+  check(resCross.status === 403, '② **恢复别人的 ⇒ 403**（只能恢复自己删掉的那条）', String(resCross.status));
+  const resNoTok = await postJsonRead('/api/publisher/restore', { id: idC });
+  check(resNoTok.status === 401, '③ 无令牌 ⇒ 401', String(resNoTok.status));
+  const resOther = await postJsonRead('/api/publisher/restore', { id: idA }, tokA);
+  check(resOther.status === 409, '① 那条 superseded **不是发布者软删来的**（管理员确认的自撤）⇒ 409，不在这条通道里', String(resOther.status));
+  const resMine = await postJsonRead('/api/publisher/restore', { id: idC }, tokC);
+  const resMineB = resMine.body || {};
+  check(resMine.status === 200 && resMineB.state === 'approved', '① **恢复自己的软删 ⇒ 200 + 回到 approved**', String(resMine.status));
+  check((await publicIds()).includes(idC), '① 恢复即**重新公开**（作者自己的东西）');
+  check((await (await fetch(`${BASE}/api/file/${idC}`)).status) === 200, '① 下载口也回来了（200）');
+  const decC2 = JSON.parse(readFileSync(join(dataDir, 'submissions', idC, 'decision.json'), 'utf8'));
+  check(decC2.decision === 'approved' && decC2.publisherRestored && decC2.restoredFrom && decC2.restoredFrom.decision === 'superseded',
+    '① 恢复留痕：`publisherRestored` + 原判定逐字留在 `restoredFrom` 里（零删除）');
+  const metaC3 = JSON.parse(readFileSync(join(dataDir, 'submissions', idC, 'meta.json'), 'utf8'));
+  check(metaC3.withdrawHistory.some((h) => h.action === 'restored') && metaC3.revisions.some((r) => r.to && String(r.to.decision).includes('approved')),
+    '① withdrawHistory 与 revisions 各留一笔（可追溯）');
+  check(existsSync(join(dataDir, 'submissions', idC, 'mod.zip')), '① 恢复全程没有动过文件（它本来就在）');
+  const resAgain = await postJsonRead('/api/publisher/restore', { id: idC }, tokC);
+  check(resAgain.status === 409, '① 已经公开了再点恢复 ⇒ 409（没有可恢复的东西，不瞎写）', String(resAgain.status));
+  check(auditLines().some((l) => l.action === 'publisherRestored' && l.actor === 'publisher'), '① 审计里有 publisherRestored 这一笔');
+
+  // ================================================================
+  console.log('⑮ 档 3 硬删（物理）：一次调用不删 · 二次确认 · 先审计后删 · 墓碑在位 · 不可恢复');
+  // ⚠️ 这是全站**唯一**会删数据的路（业主 2026-10-14 明确授权的例外，且只限作者删自己的 + 二次确认）。
+  const H = await submit(goodPackWith('solo-hard-del', 'H君', '1.0.0'), { name: 'H 的独立包' });
+  const idH = H.body.id;
+  const tokH = (await postJsonRead('/api/publisher/claim', { id: idH, claimCode: H.body.claimCode })).body.publisherToken;
+  await adminJson('/api/admin/decide', { id: idH, decision: 'approved' });
+  check((await publicIds()).includes(idH), '（基准）H 已上线、包内 id 独有');
+
+  const hardNoTok = await postJsonRead('/api/publisher/delete-hard', { id: idH });
+  check(hardNoTok.status === 401, '③ 无令牌 ⇒ 401', String(hardNoTok.status));
+  const hardCross = await postJsonRead('/api/publisher/delete-hard', { id: idH }, tokA);
+  check(hardCross.status === 403, '② **硬删别人的 ⇒ 403**', String(hardCross.status));
+  check(existsSync(join(dataDir, 'submissions', idH, 'mod.zip')), '② 越权那一次**一个字节都没删**');
+  const hardBatch = await postJsonRead('/api/publisher/delete-hard', { ids: [idH], id: idH }, tokH);
+  check(hardBatch.status === 400, '「一批」的形状 ⇒ 400（一次一个明确 id）', String(hardBatch.status));
+  // 有引用 ⇒ 409 先报人（idB 与别的记录共用包内 id `mine-test`）
+  const hardRef = await postJsonRead('/api/publisher/delete-hard', { id: idB }, tokB);
+  check(hardRef.status === 409 && Array.isArray(hardRef.body?.refs) && hardRef.body.refs.length > 0,
+    '④ **有引用 ⇒ 409 不删**（把引用清单交给人看，不擅自动手）', `${(hardRef.body?.refs || []).length} 条引用`);
+  check(existsSync(join(dataDir, 'submissions', idB, 'meta.json')), '④ 有引用那一次同样一个字节都没删');
+
+  // ---- 第一步：只预检 + 发一次性凭据
+  const step1 = await postJsonRead('/api/publisher/delete-hard', { id: idH }, tokH);
+  check(step1.status === 200 && step1.body?.needsConfirm === true && step1.body?.hardDeleted === false,
+    '① 第一次调用：needsConfirm=true、hardDeleted=false', String(step1.status));
+  check(typeof step1.body?.confirmToken === 'string' && step1.body.confirmToken.length >= 16,
+    '① 返回一枚一次性 confirmToken（明文只出现这一次）');
+  check(step1.body?.expect?.name === 'H 的独立包', '① 同时返回要核对的包名（expect.name）', String(step1.body?.expect?.name));
+  check(existsSync(join(dataDir, 'submissions', idH, 'meta.json')) && existsSync(join(dataDir, 'submissions', idH, 'mod.zip')),
+    '⭐ **一次调用绝不物理删**：记录与包体都还在（这就是那条牙）');
+  check(!existsSync(join(dataDir, 'tombstones', `${idH}.json`)), '① 此时**还没有墓碑**（先审计后删：动手之前才写）');
+  const metaH1 = JSON.parse(readFileSync(join(dataDir, 'submissions', idH, 'meta.json'), 'utf8'));
+  check(typeof metaH1.pendingHardDelete?.h === 'string' && !metaH1.pendingHardDelete.h.includes(step1.body.confirmToken),
+    '① 盘上只存凭据的**哈希**（明文不进记录，与认领码同一套纪律）');
+
+  // ---- 第二步的三种「不合格」：一律不删
+  const hardBadToken = await postJsonRead('/api/publisher/delete-hard',
+    { id: idH, confirmToken: '0'.repeat(32), confirmName: 'H 的独立包' }, tokH);
+  check(hardBadToken.status === 409, '② 凭据不对 ⇒ 409', String(hardBadToken.status));
+  const hardBadName = await postJsonRead('/api/publisher/delete-hard',
+    { id: idH, confirmToken: step1.body.confirmToken, confirmName: '乱写的名字' }, tokH);
+  check(hardBadName.status === 409, '② 包名不是逐字相同 ⇒ 409', String(hardBadName.status));
+  check(existsSync(join(dataDir, 'submissions', idH, 'mod.zip')), '② 这两次不合格的尝试后，包体照旧在（一个字节都没删）');
+  const hardNameMissing = await postJsonRead('/api/publisher/delete-hard', { id: idH, confirmToken: step1.body.confirmToken }, tokH);
+  check(hardNameMissing.status === 409, '② 只给凭据、不给包名 ⇒ 409（少一个都不删）', String(hardNameMissing.status));
+
+  // ---- 第二步（合格）：真删
+  const step2 = await postJsonRead('/api/publisher/delete-hard',
+    { id: idH, confirmToken: step1.body.confirmToken, confirmName: 'H 的独立包', reason: '作者不想要了' }, tokH);
+  check(step2.status === 200 && step2.body?.hardDeleted === true && step2.body?.recoverable === false,
+    '① 二次确认后 ⇒ **物理删成功**、recoverable:false', String(step2.status));
+  check(!existsSync(join(dataDir, 'submissions', idH)), '① 记录目录**确实不在了**');
+  check(!(await publicIds()).includes(idH), '① 公开面也不再列出它');
+  const tombPathH = join(dataDir, 'tombstones', `${idH}.json`);
+  check(existsSync(tombPathH), '⭐ **墓碑在位**（先审计后删，且落独立目录）', `tombstones/${idH}.json`);
+  const tomb = JSON.parse(readFileSync(tombPathH, 'utf8'));
+  check(tomb.id === idH && tomb.actor === 'publisher' && tomb.packId === 'solo-hard-del'
+    && /^[0-9a-f]{64}$/.test(String(tomb.sha256 || '')) && Array.isArray(tomb.files) && tomb.files.length >= 2
+    && !!tomb.deletedAt && tomb.reason === '作者不想要了',
+    '① 墓碑内容齐：id / 包内 id / sha256 / 文件清单 / 时间 / actor / 理由',
+    `${tomb.files.length} 个文件 · ${tomb.sha256?.slice(0, 8)}…`);
+  check((tomb.files || []).includes('mod.zip') && (tomb.files || []).includes('meta.json'), '① 墓碑里逐条记下了删掉的文件名');
+  const hardAgain = await postJsonRead('/api/publisher/delete-hard', { id: idH }, tokH);
+  check(hardAgain.status === 410, '① 已被硬删的再删 ⇒ 410（有墓碑，分得清「删过」与「没有」）', String(hardAgain.status));
+  const resHard = await postJsonRead('/api/publisher/restore', { id: idH }, tokH);
+  check(resHard.status === 410 && resHard.body?.hardDeleted === true && resHard.body?.recoverable === false,
+    '① ⭐ **硬删过的恢复不了** ⇒ 明确 410 + recoverable:false', String(resHard.status));
+  check(auditLines().some((l) => l.action === 'publisherHardDeleted' && l.actor === 'publisher'),
+    '① 审计里有 publisherHardDeleted 这一笔');
+  check(auditLines().some((l) => l.action === 'publisherHardDeleteRequested'), '① 第一步也留了一笔（预检也要可追溯）');
+  // ---- 零删除的**边界**：只有硬删那一条会删东西，别的记录一个都没少
+  const leftover = listFiles().filter((rel) => rel.startsWith('tombstones/'));
+  check(leftover.length === 1, '⭐ 全站墓碑只有硬删留下的那一份（零删除边界没被放宽）', leftover.join('、'));
+  check(existsSync(join(dataDir, 'submissions', idB, 'meta.json')) && existsSync(join(dataDir, 'submissions', idC, 'meta.json'))
+    && existsSync(join(dataDir, 'submissions', idA, 'meta.json')),
+    '⭐ 别的记录（含刚恢复过的 C）**一条都没少** —— 硬删只动了它自己那一条');
+  const stray3 = listFiles().filter((rel) => !rel.includes('/') && rel !== 'audit.jsonl');
+  check(stray3.length === 0, '数据目录根下依旧干净（墓碑在子目录里，不是散文件）', stray3.join('、') || '（0 个）');
 } catch (e) {
   failures++;
   console.log(`  ✗ 自测自己抛了异常：${e.stack || e.message}`);
@@ -631,4 +844,4 @@ if (failures) {
   console.log('—— 服务端日志（尾部）——\n' + serverLog.slice(-2000));
   process.exit(1);
 }
-console.log('✔ 发布者自助（认领 / 改元数据 / 换包体 / 自撤 / 自助删除）＋ 管理员确认 ＋ 分类筛选 ＋ 审计日志：整条链通过');
+console.log('✔ 发布者自助（认领 / 改元数据 / 换包体 / 自撤 / 三档删除：软删·恢复·硬删）＋ 功能类目（6 类）＋ 技术维度筛选 ＋ 审计日志：整条链通过');

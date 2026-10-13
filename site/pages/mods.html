@@ -30,19 +30,31 @@
 <!-- ================================================================
      分类筛选（业主 2026-10-12 需求 ③：让需要的人更快找到对应分类的模组）
      ================================================================
-     ⚠️ 三条约束，写在这里免得下一个人改歪：
-       ① **不新增分类字段**：用的就是既有的 `packKind`（闭集 functional /
-          documentation / unknown，缺省 unknown）。老记录一个都不用回填。
-       ② **筛选走 URL**：`/mods?kind=functional`、`?kind=functional,documentation`。
-          服务端**白名单校验**过这个值再注进下面的 `data-kinds`（不把 URL 上的任意值写进 HTML），
-          并且已经在服务端把数据筛过一遍了。所以这一页**收藏、分享、刷新都还原得回来**。
-       ③ **不传 kind = 现状**：三个分区、两份数据、一条判据都不变；下面这排按钮只是
-          「点一下就跳到一个带 kind 的地址」，**没有 JS 也能用**（退化成普通链接）。
+     ⚠️ 约束，写在这里免得下一个人改歪：
+       ① **两个维度、两个字段，各筛各的**（2026-10-14 更新）：
+          · `packKind` = **技术维度**「装上会不会生效」（functional / documentation / unknown，
+            缺省 unknown）—— 这一栏与 `?kind=` **一个字节都没改**，老链接、老判据照旧；
+          · `funcKind` = ⭐ **功能维度**「这包是干什么的」（游戏玩法 / 拓展包 / 实用工具 /
+            素材替换 / 说明文档 / 未分类，缺省未分类）—— 业主说「要按功能分」指的就是它。
+          ⚠️ 两者**故意不复用同一个键**：复用必然互相踩（技术维度还要喂给镜像入选判据）。
+       ② **筛选走 URL**：`/mods?kind=functional`、`/mods?func=gameplay,utility`。
+          两条**可以叠加**（`?kind=functional&func=utility` = 既装得上、又是实用工具）。
+          服务端**白名单校验**过这些值再注进下面的 `data-kinds` / `data-funcs`
+          （不把 URL 上的任意值写进 HTML），并且已经在服务端把数据筛过一遍了。
+          所以这一页**收藏、分享、刷新都还原得回来**。
+       ③ **不传 = 现状**：分区、数据、老判据一条没动；下面这两排按钮只是
+          「点一下就跳到一个带参数的地址」，**没有 JS 也能用**（退化成普通链接）。
+       ④ 主分区**按功能类目**分（固定 6 个区的顺序），技术维度画在**每条的徽标**上 ——
+          两个维度正交，谁都不吞掉谁；`说明文档` 自成一区，业主 2026-10-12 那条
+          「说明包不能混在功能包里」的要求**照旧成立**。
      按钮是**真链接**（`<a href>`，不是 JS 拦截），所以中键新开、复制链接、分享都正常。 -->
 <nav class="kindbar" id="kindbar" aria-label="按分类筛选">
   <span class="kindbar__label">按「装上会不会生效」筛：</span>
 </nav>
-<div id="list" data-kinds="__KINDS__"><p class="dim">正在载入…</p></div>
+<nav class="kindbar" id="funcbar" aria-label="按功能筛选">
+  <span class="kindbar__label">按功能分：</span>
+</nav>
+<div id="list" data-kinds="__KINDS__" data-funcs="__FUNCS__"><p class="dim">正在载入…</p></div>
 
 <script>
 const list = document.getElementById('list');
@@ -53,6 +65,17 @@ const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls)
 // ⚠️ `dataset` 要**防一手**：真实浏览器一定有，但极简的 DOM 桩（自测里那种）未必有 ——
 //    读不到就当作「不筛」，绝不让它把整个脚本打挂（那样整页就白屏了）。
 const ACTIVE = String((list.dataset && list.dataset.kinds) || '').split(',').map((s) => s.trim()).filter(Boolean);
+// ⭐ 功能类目的当前筛选（同一个白名单纪律：服务端只注入闭集里过滤过的值）。
+const ACTIVE_FUNC = String((list.dataset && list.dataset.funcs) || '').split(',').map((s) => s.trim()).filter(Boolean);
+/** 拼一个地址：两条筛选**各自保留**（各管一个维度，可以同时生效）。 */
+function urlWith({ kind, func }) {
+  const q = [];
+  const k = kind !== undefined ? kind : ACTIVE.join(',');
+  const f = func !== undefined ? func : ACTIVE_FUNC.join(',');
+  if (k) q.push(`kind=${encodeURIComponent(k)}`);
+  if (f) q.push(`func=${encodeURIComponent(f)}`);
+  return q.length ? `/mods?${q.join('&')}` : '/mods';
+}
 
 // ---- 「装上会不会生效」这一栏（指令③④）----------------------------------------
 // 与 `m.kind`（compat / submission）**不是一回事**：`kind` 说的是这条**记录是怎么来的**
@@ -75,6 +98,33 @@ const KIND_BADGE = {
   unknown: ['badge warn', '未核实是否装上即生效'],
 };
 
+// ---- ⭐⭐ 功能类目（业主 2026-10-14 裁定的 6 类）--------------------------------
+// 与上面那一栏是**两个维度**，故意分开画：
+//   · 上面那栏 = 技术维度「装上到底会不会生效」；
+//   · 这一栏 = 功能维度「这包是干什么的」—— **业主说「现在分类不对，要按功能分」指的就是这一栏**。
+// 缺省一律 `uncategorized`（未分类）：老记录没有这一栏 ⇒ 落未分类，**绝不替它猜一个真功能类**。
+const FUNC_OF = (m) => (FUNC_BADGE[m && m.funcKind] ? m.funcKind : 'uncategorized');
+const FUNC_TITLE = {
+  gameplay: '游戏玩法', expansion: '拓展包', utility: '实用工具',
+  assets: '素材替换', documentation: '说明文档', uncategorized: '未分类',
+};
+const FUNC_HINT = {
+  gameplay: '这一类的包**改的是玩法本身**：回合流程、对局规则、角色/技能的判定逻辑。',
+  expansion: '这一类的包**往里加东西**：新角色、新卡、新关卡、整合式的内容扩充。',
+  utility: '这一类的包**只办事、不改玩法**：面板、查询、设置、批量操作这类工具。',
+  assets: '这一类的包**换的是素材**：立绘、图标、音效、字体、界面皮肤 —— 玩法逻辑一个字不动。',
+  documentation: '这一类的包**装上不会启用任何功能**，是说明 / 参考 / 资料：下载下来是给你看的，不是给你装的。',
+  uncategorized: '**还没归类**（老记录默认落这里，等维护者一条一条看）。这里**不代表它不是好包** —— '
+    + '只代表分类这一栏还没人填过，请不要据此判断质量。',
+};
+const FUNC_BADGE = {
+  gameplay: ['badge ok', '游戏玩法'], expansion: ['badge ok', '拓展包'],
+  utility: ['badge ok', '实用工具'], assets: ['badge info', '素材替换'],
+  documentation: ['badge info', '说明文档'], uncategorized: ['badge warn', '未分类'],
+};
+// 功能类目的**固定顺序**（页面分区按它走；不按条数排序，免得每次刷新跳来跳去）。
+const FUNC_ORDER = ['gameplay', 'expansion', 'utility', 'assets', 'documentation', 'uncategorized'];
+
 // ---- 「同一个 pack id」的成对记录（指令㉑）--------------------------------------
 // 引擎**不允许同 id 的两个包并存**：目录名与 `pack.json` 的 `id` 不一致即 `PACK_ID_MISMATCH` 整包被拒；
 // 实测同一 workshop 根放两份 id 相同的包，只会装载 1 条、后者**静默覆盖**前者。
@@ -95,7 +145,7 @@ function renderKindbar(counts) {
   const mk = (label, value, extra) => {
     const on = value === null ? ACTIVE.length === 0 : (ACTIVE.length === 1 && ACTIVE[0] === value);
     const a = el('a', 'kindbtn' + (on ? ' on' : ''), label + (extra != null ? `（${extra}）` : ''));
-    a.href = value === null ? '/mods' : `/mods?kind=${encodeURIComponent(value)}`;
+    a.href = urlWith({ kind: value === null ? '' : value });
     if (on) a.setAttribute('aria-current', 'true');
     return a;
   };
@@ -109,7 +159,34 @@ function renderKindbar(counts) {
     // 当前地址带了筛选：把「正在按什么筛」和「怎么退回全部」说清楚（可收藏、可分享）。
     const hint = el('span', 'kindbar__hint', `当前只显示：${ACTIVE.map((k) => KIND_TITLE[k] || k).join(' + ')} · `);
     const back = el('a', null, '看全部');
-    back.href = '/mods';
+    back.href = urlWith({ kind: '' });
+    hint.append(back);
+    bar.append(hint);
+  }
+}
+
+// ---- ⭐ 功能类目筛选条（业主 2026-10-14）----------------------------------------
+// 与上面那条**各管一个维度**、可以**同时生效**：点「游戏玩法」不会把「真功能」那栏清掉。
+// 同样是**真链接**（`<a href>`）：中键新开、复制链接、分享、无 JS 都正常。
+function renderFuncbar(counts) {
+  const bar = document.getElementById('funcbar');
+  if (!bar) return;
+  bar.textContent = '';
+  const mk = (label, value, extra) => {
+    const on = value === null ? ACTIVE_FUNC.length === 0 : (ACTIVE_FUNC.length === 1 && ACTIVE_FUNC[0] === value);
+    const a = el('a', 'kindbtn' + (on ? ' on' : ''), label + (extra != null ? `（${extra}）` : ''));
+    a.href = urlWith({ func: value === null ? '' : value });
+    if (on) a.setAttribute('aria-current', 'true');
+    return a;
+  };
+  const c = counts || {};
+  bar.append(el('span', 'kindbar__label', '按功能分：'));
+  bar.append(mk('全部', null, c.total));
+  for (const k of FUNC_ORDER) bar.append(mk(FUNC_TITLE[k], k, c[k]));
+  if (ACTIVE_FUNC.length) {
+    const hint = el('span', 'kindbar__hint', `当前只显示：${ACTIVE_FUNC.map((k) => FUNC_TITLE[k] || k).join(' + ')} · `);
+    const back = el('a', null, '看全部');
+    back.href = urlWith({ func: '' });
     hint.append(back);
     bar.append(hint);
   }
@@ -128,6 +205,9 @@ function card(m, flagged, peers) {
   // 必须在名字旁边就看得出来，不能等下完了才发现装不上。
   const kb = KIND_BADGE[KIND_OF(m)];
   head.append(el('span', kb[0], kb[1]));
+  // ⭐ 功能类目徽标（业主 2026-10-14）：与上面那个技术徽标**并排画**，两个维度都看得见。
+  const fb = FUNC_BADGE[FUNC_OF(m)];
+  head.append(el('span', fb[0], fb[1]));
   if (flagged) head.append(el('span', 'badge warn', '含疑似官方素材'));
   body.append(head);
   body.append(el('div', 'kv dim', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
@@ -222,10 +302,13 @@ function card(m, flagged, peers) {
   return c;
 }
 
-// 带筛选时把 kind 交给服务端（**服务端过滤**，不是前端把数据藏起来）：
+// 带筛选时把两条筛选都交给服务端（**服务端过滤**，不是前端把数据藏起来）：
 // 这样「筛了之后还剩几条」与服务端算的一致，页面也不用先下载全量再丢掉。
 // 不筛时**一个参数都不带** —— 现状那条请求逐字不变。
-const apiUrl = ACTIVE.length ? `/api/mods?kind=${encodeURIComponent(ACTIVE.join(','))}` : '/api/mods';
+const qs = [];
+if (ACTIVE.length) qs.push(`kind=${encodeURIComponent(ACTIVE.join(','))}`);
+if (ACTIVE_FUNC.length) qs.push(`func=${encodeURIComponent(ACTIVE_FUNC.join(','))}`);
+const apiUrl = qs.length ? `/api/mods?${qs.join('&')}` : '/api/mods';
 fetch(apiUrl).then((r) => r.json()).then(({ mods, flagged, counts }) => {
   list.textContent = '';
   mods = mods || []; flagged = flagged || [];
@@ -239,22 +322,27 @@ fetch(apiUrl).then((r) => r.json()).then(({ mods, flagged, counts }) => {
     documentation: all.filter((m) => KIND_OF(m) === 'documentation').length,
     unknown: all.filter((m) => KIND_OF(m) === 'unknown').length,
   };
+  const shownFunc = { total: all.length };
+  for (const k of FUNC_ORDER) shownFunc[k] = all.filter((m) => FUNC_OF(m) === k).length;
+  // ⚠️ 两个维度的计数**各按各的 counts 画**：`counts.func` 是功能那 6 类；
+  //    老服务端（没有 counts.func）时退回按当前这批自己数，绝不让筛选条空着。
   renderKindbar(counts || shown);
+  renderFuncbar((counts && counts.func) ? { ...counts.func, total: counts.total } : shownFunc);
   if (!mods.length && !flagged.length) {
-    list.append(el('p', 'dim', ACTIVE.length
-      ? `当前筛选（${ACTIVE.map((k) => KIND_TITLE[k] || k).join(' + ')}）下没有已上线的包。`
+    list.append(el('p', 'dim', (ACTIVE.length || ACTIVE_FUNC.length)
+      ? `当前筛选（${[...ACTIVE.map((k) => KIND_TITLE[k] || k), ...ACTIVE_FUNC.map((k) => FUNC_TITLE[k] || k)].join(' + ')}）下没有已上线的包。`
       : '还没有通过审核的包。'));
     return;
   }
-  // 主分区：按「装上会不会生效」分成**三处**，真功能与说明包各占一处、各画各的标题与提示。
-  // 业主 2026-10-12：「站点要加一个说明包和实际功能 mod 分开的地方，
-  // 不能出现下载 mod 但是不能用的情况」⇒ 说明包不再混在功能包那一列里，
-  // 它那一区的标题、提示、徽标、下载按钮**四处都写明「装上不会启用任何功能」**。
-  for (const k of ['functional', 'documentation', 'unknown']) {
-    const arr = mods.filter((m) => KIND_OF(m) === k);
+  // ⭐ 主分区**按功能类目**分（业主 2026-10-14：「现在分类不对，要按功能分」）。
+  //    每一区一条判据、固定顺序，标题旁给条数；技术维度（装上会不会生效）**仍然画在每条卡片的徽标上**
+  //    —— 两个维度正交，谁都不吞掉谁。`说明文档` 自成一区 ⇒ 业主那条
+  //    「说明包不能混在功能包里」的要求**照旧成立**。
+  for (const k of FUNC_ORDER) {
+    const arr = mods.filter((m) => FUNC_OF(m) === k);
     if (!arr.length) continue;
-    list.append(el('h2', 'sec', `${KIND_TITLE[k]}（${arr.length}）`));
-    list.append(el('p', 'sub', KIND_HINT[k]));
+    list.append(el('h2', 'sec', `${FUNC_TITLE[k]}（${arr.length}）`));
+    list.append(el('p', 'sub', FUNC_HINT[k]));
     for (const m of arr) list.append(card(m, false, sameIdPeers(all, m)));
   }
   // 疑似素材**照旧单独一组、明确标注**：这一组说的是「素材版权」，与上面三区**正交** ——

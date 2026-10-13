@@ -26,7 +26,11 @@
   由维护者复审通过后才重新上线。<b>撤下申请则立刻生效</b>：公开列表与下载口马上不再显示它，
   维护者确认后转为终态（记录与文件都不会被删）。<br>
   <b>删除这一条不用等维护者</b>：按下就立刻从公开列表与下载口消失（状态落成「已撤下」）。
-  它是<b>软删</b> —— 记录、包体与留痕全部保留、可以恢复；想连文件一起物理删掉要找维护者。
+  它是<b>软删</b> —— 记录、包体与留痕全部保留、<b>可以撤回</b>（「撤回删除」按钮一按就重新公开）。<br>
+  <b>彻底删除</b>是<b>物理删除</b>（记录与文件都不再存在、<b>不可恢复</b>）：必须<b>两步确认</b>
+  —— 第一步只预检、什么都不删，第二步要逐字打进包名才真删；站点会先留一份墓碑。<br>
+  分类有<b>两栏、两个维度</b>：<b>功能类目</b>（游戏玩法 / 拓展包 / 实用工具 / 素材替换 / 说明文档 / 未分类）
+  与<b>装上会不会生效</b>（真功能 / 说明包 / 未核实）。
   想投稿请去 <a href="/">上传页</a>。
 </p>
 
@@ -90,6 +94,12 @@ const KEY = 'sp-modsite-publisher-token';
 const tok = () => ($('ptok').value || '').trim();
 
 const STATE_LABEL = { approved: '已上线', pending: '待审', rejected: '已打回', superseded: '已取代 / 已撤下' };
+// ⭐ 功能类目（6 类，业主 2026-10-14）：与 KIND_TITLE（技术维度）并列，**两个维度不许互相顶替**。
+const FUNC_ORDER = ['gameplay', 'expansion', 'utility', 'assets', 'documentation', 'uncategorized'];
+const FUNC_TITLE = {
+  gameplay: '游戏玩法', expansion: '拓展包', utility: '实用工具',
+  assets: '素材替换', documentation: '说明文档', uncategorized: '未分类',
+};
 const KIND_TITLE = { functional: '真功能 mod', documentation: '说明包', unknown: '其他（未分类 / 安装器·补丁形态）' };
 
 function say(node, text, kind) {
@@ -186,13 +196,23 @@ function card(m) {
     kindS.append(o);
   }
   kindS.style.cssText = 'margin:0 0 8px';
-  edit.append(nameI, noteI, kindS);
+  // ⭐ 功能类目（6 类，业主 2026-10-14）—— 这才是「这包是干什么的」那一栏。
+  // 与上面那一栏（装上会不会生效）是两个维度；保存时两栏一起发，服务端按功能类目
+  // 把技术维度一并归位，所以不会各说各话。
+  const funcS = document.createElement('select');
+  for (const k of FUNC_ORDER) {
+    const o = document.createElement('option'); o.value = k; o.textContent = '功能类目：' + FUNC_TITLE[k];
+    if ((m.funcKind || 'uncategorized') === k) o.selected = true;
+    funcS.append(o);
+  }
+  funcS.style.cssText = 'margin:0 0 8px;display:block';
+  edit.append(nameI, noteI, kindS, funcS);
   const saveB = el('button', 'btn btn--primary btn--sm', '保存改动（回到待审）');
   saveB.onclick = async () => {
     if (!confirm('保存后这一条会**回到待审**、暂时从公开列表上下来，等维护者复审通过才重新上线。继续吗？')) return;
     saveB.disabled = true;
     const r = await apiJson('/api/publisher/update', {
-      id: m.id, name: nameI.value, note: noteI.value, packKind: kindS.value,
+      id: m.id, name: nameI.value, note: noteI.value, packKind: kindS.value, funcKind: funcS.value,
     });
     saveB.disabled = false;
     alert(r.ok ? (r.body.changed ? '改好了：已回到待审。' : '字段没变化，没有写盘。') : ('没成：' + (r.body?.error || r.status)));
@@ -256,7 +276,49 @@ function card(m) {
   };
   delRow.append(el('span', 'kv dim', '一按即生效、不经维护者确认'), delB);
 
-  body.append(edit, blobRow, delRow, wdRow);
+  // ---- 撤回那次删除（**档 2**：只有软删过、且是自己删的才恢复得回来）
+  // 恢复 = 判定回到 approved ⇒ **立刻重新公开**。被物理删过的那条恢复不了（文件已经不在）。
+  const resRow = el('div', 'flex');
+  resRow.style.marginTop = '6px';
+  const resB = el('button', 'btn btn--ghost btn--sm', '撤回删除（重新公开）');
+  resB.onclick = async () => {
+    if (!confirm('撤回这次删除：这一条**立刻重新出现在公开列表与下载口**上。继续吗？')) return;
+    resB.disabled = true;
+    const r = await apiJson('/api/publisher/restore', { id: m.id });
+    resB.disabled = false;
+    alert(r.ok ? '已撤回：这一条重新公开了。' : ('没成：' + (r.body?.error || r.status)));
+    if (r.ok) loadMine();
+  };
+  resRow.append(el('span', 'kv dim', '只对自己软删过的那条有效；已彻底删除的恢复不了'), resB);
+
+  // ---- 彻底删除（**档 3**：物理删，**必须两步**）
+  // 第一步只预检并拿一枚一次性凭据（**什么都没删**）；第二步要同时给出凭据与**逐字相同的包名**才真删。
+  // 真删之前站点会先把墓碑写进独立目录，再删记录目录与包体 —— **不可恢复**。
+  const hardRow = el('div', 'flex');
+  hardRow.style.marginTop = '6px';
+  const hardB = el('button', 'btn btn--danger btn--sm', '彻底删除（物理，需二次确认）');
+  hardB.onclick = async () => {
+    if (!confirm('⚠️ 彻底删除是**物理删除**：记录目录与包体都不再存在，**不可恢复**。\n'
+      + '站点会先把一份墓碑留档，但文件回不来。\n第一步只做预检、不会删任何东西。继续吗？')) return;
+    hardB.disabled = true;
+    const r1 = await apiJson('/api/publisher/delete-hard', { id: m.id });
+    hardB.disabled = false;
+    if (!r1.ok) { alert('预检没通过（**什么都没删**）：' + (r1.body?.error || r1.status)); return; }
+    const want = (r1.body?.expect && r1.body.expect.name) || m.name || '';
+    const typed = prompt('第二步：要把这条**真的删掉**，请把包名逐字打一遍确认。\n\n包名：' + want, '');
+    if (typed == null) { alert('已取消 —— 第一步只是预检，什么都没有删。'); return; }
+    if (typed.trim() !== want) { alert('包名不一致，**一个字节都没删**。要删请重来一次。'); return; }
+    hardB.disabled = true;
+    const r2 = await apiJson('/api/publisher/delete-hard', {
+      id: m.id, confirmToken: r1.body.confirmToken, confirmName: typed.trim(),
+    });
+    hardB.disabled = false;
+    alert(r2.ok ? '已彻底删除（不可恢复）。墓碑留在站点侧。' : ('没成（**什么都没删**）：' + (r2.body?.error || r2.status)));
+    if (r2.ok) loadMine();
+  };
+  hardRow.append(el('span', 'kv dim', '两步确认；不可恢复；有引用时会拒绝并让你先找维护者'), hardB);
+
+  body.append(edit, blobRow, delRow, resRow, hardRow, wdRow);
   c.append(body);
   return c;
 }

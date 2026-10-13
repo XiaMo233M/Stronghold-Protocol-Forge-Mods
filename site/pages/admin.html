@@ -220,6 +220,13 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
+// ⭐ 功能类目（6 类，业主 2026-10-14）：管理口归类用的闭枚举与中文名。
+// 与服务端 `FUNC_KINDS` / `FUNC_KIND_TITLES` 逐字同源；顺序固定，界面上不跳来跳去。
+const FUNC_ORDER = ['gameplay', 'expansion', 'utility', 'assets', 'documentation', 'uncategorized'];
+const FUNC_TITLE = {
+  gameplay: '游戏玩法', expansion: '拓展包', utility: '实用工具',
+  assets: '素材替换', documentation: '说明文档', uncategorized: '未分类',
+};
 let TOKEN = sessionStorage.getItem('adminToken') || '';
 const API = '__ADMIN_API__';
 const api = (p, opt = {}) => fetch(API + p, { ...opt, headers: { 'x-admin-token': TOKEN, ...(opt.headers || {}) } });
@@ -1036,6 +1043,47 @@ async function detail(id) {
   head.append(h);
   if (meta.kind === 'compat') head.append(el('span', 'badge ok', '兼容包'));
   inner.append(head);
+
+  // ================================================================
+  // ⭐⭐ 功能归类（业主 2026-10-14 裁定的 6 类）—— 管理口**手工归类**那一步。
+  // ================================================================
+  // 为什么要有它：`funcKind` 是老记录**一个都没有**的一栏（读时缺省 `uncategorized`），
+  // 业主的口径是「**不确定的一律落未分类，等人工过**」—— 所以必须有一个人能一条一条过。
+  // 规矩与 `/packkind`、`/hide` 逐字同源：**一次一个明确 id**、闭枚举、写进 `revisions` + `audit`。
+  // ⚠️ 归类**只动分类**：不动包体、不动判定、不改公开与否（要下架用「打回」）。
+  const fkRow = el('div', 'flex');
+  fkRow.style.margin = '10px 0 2px';
+  fkRow.style.alignItems = 'center';
+  fkRow.append(el('span', 'kv', '功能类目：'));
+  const fkSel = document.createElement('select');
+  for (const k of FUNC_ORDER) {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = FUNC_TITLE[k];
+    // 缺省 `uncategorized` —— 老记录没填过这一栏，如实显示「未分类」，不替它猜。
+    if (String(meta.funcKind || 'uncategorized') === k) o.selected = true;
+    fkSel.append(o);
+  }
+  const fkB = el('button', 'btn btn--primary btn--sm', '归类');
+  fkB.onclick = async () => {
+    fkB.disabled = true;
+    const r = await api('/funkind', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: meta.id, funcKind: fkSel.value }),   // ← 只带这一个 id，绝不批量
+    });
+    fkB.disabled = false;
+    let j = {};
+    try { j = await r.json(); } catch { j = {}; }
+    if (!r.ok) { alert('归类没成：HTTP ' + r.status + ' ' + (j.error || '')); return; }
+    await reloadList();
+    detail(meta.id);
+  };
+  fkRow.append(fkSel, fkB);
+  fkRow.append(el('span', 'kv dim', meta.funcKind
+    ? `（现在：${FUNC_TITLE[meta.funcKind] || meta.funcKind} · 技术维度 ${meta.packKind || 'unknown'}）`
+    : '（现在：未分类 —— 老记录没有这一栏，等人工过；系统不猜）'));
+  inner.append(fkRow);
 
   // 「不再显示」勾选框 —— **详情里也有一个**（业主口径：列表行上，或详情里，「两者都给更好」）。
   // 与列表行上那一个同一份实现（`hideBox`），勾上就整条从三个视图消失、取消就回来。
