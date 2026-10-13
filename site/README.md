@@ -513,7 +513,7 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 
 ## 更新服务器上这一个服务
 
-运行时代码只有 `server.mjs` / `review.mjs` / `zip.mjs` 三个 `.mjs`，加一个 `pages/`（5 个 `.html` + `theme.css`）；目录里另有四个 `selftest*.mjs`，同一次一起传。更新时**先备份、再换文件、再重启**，全程只碰 `/opt/sp-modsite` 与 `sp-modsite.service`：
+运行时代码只有 `server.mjs` / `review.mjs` / `zip.mjs` 三个 `.mjs`，加一个 `pages/`（4 个 `.html` + `theme.css`）；目录里另有四个 `selftest*.mjs`，同一次一起传。更新时**先备份、再换文件、再重启**，全程只碰 `/opt/sp-modsite` 与 `sp-modsite.service`：
 
 ```bash
 # ① 备份 + 记下旧版哈希（可回滚的硬条件）

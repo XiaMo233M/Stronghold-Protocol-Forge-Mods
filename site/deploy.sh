@@ -136,9 +136,13 @@ cp "$SELF_DIR"/pages/*.html "$DIR/pages/"
 # 样式表也要一起搬：server.mjs 的 `GET /theme.css` 读的就是 pages/theme.css（site/server.mjs:858）。
 # 漏了它，照本脚本重新部署出来的站就没有样式（页面里 __CSS__ 换出来的链接是 404）。
 cp "$SELF_DIR"/pages/*.css "$DIR/pages/"
+# 四个自测也一起搬：site/README.md「改完必跑」的就是它们（在 $DIR 里 `node selftest*.mjs`）。
+# 它们各自起一个实例、数据目录指向自己造的临时目录（不碰 $DATA），只读同目录的
+# server.mjs / zip.mjs / pages/，所以必须和 server.mjs 放在同一层 —— 也就是上面这几步先做完。
+for f in selftest.mjs selftest-admin.mjs selftest-compat.mjs selftest-publisher.mjs; do cp "$SELF_DIR/$f" "$DIR/$f"; done
 cp "$SELF_DIR/README.md" "$DIR/site-README.md" 2>/dev/null || true
 touch "$DIR/.sp-modsite"
-ok "代码在 $DIR（server.mjs / zip.mjs / review.mjs / pages/）"
+ok "代码在 $DIR（server.mjs / zip.mjs / review.mjs / pages/ / 四个 selftest*.mjs）"
 
 # ---------------------------------------------------------------- 4. Node：优先用系统的，不够就把官方二进制下进自己目录
 say "4. 准备 Node（不装系统包）"

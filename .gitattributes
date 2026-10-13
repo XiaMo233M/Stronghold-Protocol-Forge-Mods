@@ -1,4 +1,4 @@
-# 这个仓库里有两个 Linux 脚本（部署与卸载）。它们必须在 Linux 上是 LF 换行，
+# 这个仓库里有一个 Linux 部署脚本（site/deploy.sh，装与卸载两个模式）。它必须在 Linux 上是 LF 换行，
 # 否则 bash 会报 `$'\r': command not found`。所以这里按扩展名钉死。
 *.sh text eol=lf
 
