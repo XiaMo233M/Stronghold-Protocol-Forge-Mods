@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-12T11:46:01.400Z",
+  "generatedAt": "2026-10-13T10:55:20.783Z",
   "source": {
-    "stage": "E:\\destop\\harness_1\\_up\\modrepo-stage-new\\modrepo-stage",
+    "stage": "E:\\destop\\harness_1\\_up\\stage-new2\\modrepo-stage",
     "host": null,
     "dataDir": "/var/lib/sp-modsite",
     "readAt": null,
-    "manifestGeneratedAt": "2026-10-12T11:44:10.715Z",
+    "manifestGeneratedAt": "2026-10-13T10:54:50.753Z",
     "selection": "state=approved 且 packKind=functional",
     "excludedSamePackId": [
       {
@@ -19,12 +19,23 @@
         "keptId": "05c6dd5c5844",
         "keptDecisionAt": "2026-10-12T04:39:29.920Z",
         "keptUploadedAt": "2026-10-12T02:46:16.446Z"
+      },
+      {
+        "id": "9709a3406f16",
+        "packId": "mod-xie",
+        "version": "2.0.0",
+        "uploadedAt": "2026-10-11T08:44:06.823Z",
+        "decisionAt": "2026-10-11T09:24:26.829Z",
+        "reason": "同 pack id 只能一条（引擎不允许并存）",
+        "keptId": "d77099d4a54a",
+        "keptDecisionAt": "2026-10-13T10:48:10.057Z",
+        "keptUploadedAt": "2026-10-13T10:38:37.417Z"
       }
     ]
   },
   "engine": {
     "path": "E:\\destop\\harness_1\\Stronghold-Protocol",
-    "appVersion": "0.16.0",
+    "appVersion": "0.18.3",
     "modApiVersion": 1
   },
   "note": "本索引是 mod 仓库的唯一真相；每条字段都实测（sha256 重算、装载调用引擎那一份）。`fileCount` 是 ZIP 条目数，不等于包内实际文件数（`.spresources` 容器内部另有若干文件）。",
@@ -532,16 +543,16 @@
     {
       "id": "mod-xie",
       "name": "促融共竞 · 协同共竞",
-      "version": "2.0.0",
-      "sha256": "9169f8e9c5aec7aba630f4117bdf3aa1d207810c78499604d8d25ebeed9374cc",
-      "packHash": "6d6308d2b98968ba6ea7474d7a22504bf973aeca9654034c3fcdcab00493c3c0",
+      "version": "2.1.0",
+      "sha256": "6613cd2e5a947a5370341fcd3a1b6a3f9069bc5c871078f27965561ac27e12ec",
+      "packHash": "e52222a45367ac4357fab10ae556a6b8c7403f2c18947e118d75890d4e12ed5a",
       "category": "functional",
       "categoryWhy": "声明了 client / server",
-      "stationId": "9709a3406f16",
-      "path": "mods/mod-xie/2.0.0/mod.zip",
-      "sizeBytes": 187587,
+      "stationId": "d77099d4a54a",
+      "path": "mods/mod-xie/2.1.0/mod.zip",
+      "sizeBytes": 64478,
       "fileCount": 14,
-      "unpackedBytes": 186081,
+      "unpackedBytes": 191300,
       "assets": {
         "assetFree": true,
         "count": 0,
@@ -1012,5 +1023,19 @@
       }
     }
   ],
-  "rejected": []
+  "rejected": [],
+  "prune": {
+    "enabled": false,
+    "candidates": 30,
+    "live": 29,
+    "wouldDelete": [],
+    "deleted": [],
+    "held": [
+      {
+        "path": "mods/mod-xie/2.0.0/",
+        "stationId": "9709a3406f16",
+        "basis": "站侧 9709a3406f16 状态是 approved ⇒ 既不在入选集、也不在已不接受集，交人判，不删"
+      }
+    ]
+  }
 }
