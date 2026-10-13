@@ -1,3 +1,8 @@
 # 这个仓库里有两个 Linux 脚本（部署与卸载）。它们必须在 Linux 上是 LF 换行，
 # 否则 bash 会报 `$'\r': command not found`。所以这里按扩展名钉死。
 *.sh text eol=lf
+
+# site/ 这一棵是**按字节搬到 Linux 上跑**的：site/README.md 的 scp 清单与 site/deploy.sh
+# 都是直接换文件，不经 git 检出。本机 core.autocrlf=true ⇒ 不钉的话检出会把工作区写成
+# CRLF，谁照工作区部署就等于把 CRLF 推上线（索引里存的仍是 LF，与服务器字节一致）。
+site/** text eol=lf

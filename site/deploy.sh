@@ -133,6 +133,9 @@ mkdir -p "$DIR"
 for f in server.mjs zip.mjs review.mjs; do cp "$SELF_DIR/$f" "$DIR/$f"; done
 mkdir -p "$DIR/pages"
 cp "$SELF_DIR"/pages/*.html "$DIR/pages/"
+# 样式表也要一起搬：server.mjs 的 `GET /theme.css` 读的就是 pages/theme.css（site/server.mjs:858）。
+# 漏了它，照本脚本重新部署出来的站就没有样式（页面里 __CSS__ 换出来的链接是 404）。
+cp "$SELF_DIR"/pages/*.css "$DIR/pages/"
 cp "$SELF_DIR/README.md" "$DIR/site-README.md" 2>/dev/null || true
 touch "$DIR/.sp-modsite"
 ok "代码在 $DIR（server.mjs / zip.mjs / review.mjs / pages/）"
