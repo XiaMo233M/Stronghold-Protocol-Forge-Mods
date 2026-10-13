@@ -199,7 +199,23 @@ try {
 
   // ---------------- 2b. 真正的通过
   console.log('\n②b 点通过');
-  const dec = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', reason: '本地走一遍' });
+  // ②b-0 新门（业主令 31）：本条的 pack.json 与**留档原件的根 pack.json** 不同
+  //        （夹具里改的正是 compatNote 自己写的「① game 抬到 0.2.x ② api 加上 >=1 <2」）
+  //        ⇒ 档位是 warn、但**发布/通过要显式 acknowledge**，不带必须 409。
+  const noAck = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved' });
+  check(noAck.status === 409 && noAck.body?.needsAcknowledge === true
+    && (noAck.body?.flags || []).some((f) => f.code === 'COMPAT_PACKJSON_DIFFERS'),
+    '②b-0 pack.json 与留档原件不一致 ⇒ 不带 acknowledge 一律 409（warn 档，需显式确认）',
+    `HTTP ${noAck.status} · ${(noAck.body?.flags || []).map((f) => f.code).join(',')}`);
+  const noAckText = String((noAck.body?.flags || [])[0]?.text || '');
+  check(/game/.test(noAckText) && /api/.test(noAckText),
+    '②b-0b 并且把差异键列了出来（game、api）', noAckText.slice(0, 96) + '…');
+  const noAckDecPath = join(cdir, 'decision.json');
+  const noAckDec = existsSync(noAckDecPath) ? JSON.parse(readFileSync(noAckDecPath, 'utf8')) : null;
+  check(!noAckDec || noAckDec.decision !== 'approved',
+    '②b-0c 被 409 拦下时状态**没变**（记录照留、没通过）', noAckDec ? String(noAckDec.decision) : '(没有 decision.json)');
+
+  const dec = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', reason: '本地走一遍', acknowledge: true });
   check(dec.status === 200, '通过成功', JSON.stringify(dec.body?.published || {}));
   check(dec.body?.author === '社区作者甲' && dec.body?.compatAuthor === '维护者乙', '返回里两个署名都在');
 
@@ -380,14 +396,14 @@ try {
   writeFileSync(join(cdir, 'mod.zip'), tampered);
 
   // 6a：连 sha256 那条也对不上了 → 直接拦
-  const e6 = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved' });
+  const e6 = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', acknowledge: true });
   check(e6.status === 409 && e6.body?.needsResha === true,
     '⑥a 改写版被动过（sha256 对不上）→ 409 被拦', `HTTP ${e6.status} · ${e6.body?.error}`);
   // 6b：把记录里的 sha256 也一起改成被改过的版本（假装一切正常）→ 原件快照仍然拦住
   const metaFix = JSON.parse(readFileSync(join(cdir, 'meta.json'), 'utf8'));
   metaFix.sha256 = sha(tampered);
   writeFileSync(join(cdir, 'meta.json'), JSON.stringify(metaFix, null, 2));
-  const e6c = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved' });
+  const e6c = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', acknowledge: true });
   check(e6c.status === 409 && e6c.body?.needsPackUnchanged === true,
     '⑥b 把 sha 记录也一并改掉 → 仍被原注释快照拦住（这就是快照存在的意义）',
     `HTTP ${e6c.status} · ${e6c.body?.error}`);
@@ -398,7 +414,7 @@ try {
   writeFileSync(join(cdir, 'mod.zip'), compatZip);
   metaFix.sha256 = sha(compatZip);
   writeFileSync(join(cdir, 'meta.json'), JSON.stringify(metaFix, null, 2));
-  const e6b = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', reason: '原样放回' });
+  const e6b = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', reason: '原样放回', acknowledge: true });
   check(e6b.status === 200, '⑥c 把原样的包放回去 → 又能通过（证明拦的就是「改写版盖掉原注释」那一次）',
     `HTTP ${e6b.status}${e6b.status === 200 ? '' : ' · ' + e6b.body?.error ?? ''}`);
 
@@ -442,7 +458,7 @@ try {
   delete beforeRev.compatAuthor;
   delete beforeRev.revisions;
   writeFileSync(join(cdir, 'meta.json'), JSON.stringify(beforeRev, null, 2));
-  const e10 = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', compatAuthor: '维护者乙' });
+  const e10 = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', compatAuthor: '维护者乙', acknowledge: true });
   check(e10.status === 200, '⑩ 给老记录补上兼容者 → 能通过', `HTTP ${e10.status}`);
   const afterRev = JSON.parse(readFileSync(join(cdir, 'meta.json'), 'utf8'));
   check(Array.isArray(afterRev.revisions) && afterRev.revisions.length === 1
@@ -450,7 +466,7 @@ try {
     '补的动作记进了 revisions（谁在什么时候把哪一栏从什么改成什么）',
     JSON.stringify(afterRev.revisions?.[0]?.to || {}));
   // 「兼容者」必填但**值可以为空**：抹成空是合法操作（空 = 未填），不再被拦。
-  const e10b = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', compatAuthor: '' });
+  const e10b = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', compatAuthor: '', acknowledge: true });
   check(e10b.status === 200,
     '⑩b 把兼容者抹成**空** → 200 通过（空 = 未填，合法；上一版这里是要拦人的）', `HTTP ${e10b.status}`);
   const cleared = JSON.parse(readFileSync(join(cdir, 'meta.json'), 'utf8'));
@@ -462,7 +478,7 @@ try {
   const keepAuthor = cleared.author;
   cleared.author = '';
   writeFileSync(join(cdir, 'meta.json'), JSON.stringify(cleared, null, 2));
-  const e10e = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', compatAuthor: '' });
+  const e10e = await post(`${ADMIN}/compat/decide`, { id: cid, decision: 'approved', compatAuthor: '', acknowledge: true });
   check(e10e.status === 409 && e10e.body?.needsSignatures === true,
     '⑩e 原作者为空 → 照样 409 拦下（硬门还在：只是「兼容者」那一条不再算硬门）',
     `HTTP ${e10e.status} · ${String(e10e.body?.error).slice(0, 34)}…`);
@@ -541,7 +557,7 @@ try {
       { name: 'ui/a.js', data: 'export const a = 1;\nexport const compat = true;\n' },
     ]);
     const q2 = new URLSearchParams({ name: '一步到位原件（兼容版）', compatAuthor: '', author: '',
-      compatOf: origId2, compatNote: '一步到位测试', publish: '1' });
+      compatOf: origId2, compatNote: '一步到位测试', publish: '1', acknowledge: '1' });
     const rP = await adm2(`${ADMIN}/compat-submit?${q2}`, {
       method: 'POST', headers: { 'content-type': 'application/zip', 'x-filename': encodeURIComponent('onelick.zip') }, body: compatZip2 });
     const jP = await rP.json();
@@ -1080,6 +1096,204 @@ try {
   check(JSON.stringify(await (await fetch(`${BASE}/api/mods`)).json()) === pubC0,
     '6e-8 一来一回之后公开面仍然是那串基准字节');
 
+  // ---------------------------------------------------------------- ⑥f `POST /note`：投稿区备注
+  // 业主 2026-10-12 裁定：**另开一条只服务投稿区**的备注端点，不把两个区合并进 `/compat/note` ——
+  // 字段语义不同（compat 是 `note` + `compatNote` 同一句、公网按「兼容说明」只画一次；
+  // 投稿只有 `note`、公网不带标签画）。这里打四件事：
+  //   ① 投稿区能写了：200、`note` 变了、其余键值逐字未变、**`compatNote` 没被创建**；
+  //   ② 走错端点要看到「该去哪」：同一 id 打到 `compat/note` 现在是**明确的 404**
+  //      （区域检查排在长度之前，不再被长度抢先报 400），且文案点名 `…/note`；
+  //   ③ 反向也一样：`/note` 收到 compat 区 id ⇒ 400 并点名 `compat/note`；
+  //   ④ 上限真的抬了：9000 字写得进去，20001 字被拒且文案写明 20000。
+  console.log('\n⑥f POST /note：投稿区备注（一次一个 id · 只动 note · 其余键值一字未变）');
+  const notePost = async (p, obj) => {
+    const r = await adm(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(obj) });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  };
+  // 靶子复用 ⓪ 那条**投稿区**原件（`origId`），**不新投一条**：
+  // `/api/submit` 与 `compat-submit` 共用同一个「每 IP 每 10 分钟 10 次」的限流计数器
+  // （`server.mjs:576-582` 的 `rateLimited`），本文件前面已经用掉若干次；
+  // 再投一条会撞 429，而这里要测的是**备注端点**，与上传限流无关。
+  const noteSubId = origId;
+  // 磁盘上的区目录名是 `submissions` / `flagged`，而 `/api/submit` 响应里的 `area` 是语义名
+  // （`normal`）—— 两者不是一回事，所以按**磁盘实况**找（找不到才回落）。
+  const noteSubDir = (() => {
+    for (const a of ['submissions', 'flagged']) {
+      const p = join(dataDir, a, noteSubId);
+      try { readFileSync(join(p, 'meta.json')); return p; } catch (_) { /* 换下一个区 */ }
+    }
+    return join(dataDir, 'submissions', noteSubId);
+  })();
+  const noteMeta0 = JSON.parse(readFileSync(join(noteSubDir, 'meta.json'), 'utf8'));
+  const noteZip0 = sha(readFileSync(join(noteSubDir, 'mod.zip')));
+  const NOTE_SUB = '投稿区备注：这一段由 POST /note 写入（只动 note 一栏）。';
+  const rNote1 = await notePost(`${ADMIN}/note`, { id: noteSubId, note: NOTE_SUB });
+  // 注意：**响应的 `area` 是语义名**（投稿区是 `normal`，磁盘目录才是 `submissions`）——
+  // 与 `/hide`、`/list` 同源，都是 `pathsOf().area`。判据写「不是 compat」比写死目录名稳。
+  check(rNote1.status === 200 && rNote1.body?.changed === true && rNote1.body?.area !== 'compat',
+    '6f-1 POST /note 对投稿区记录 → 200，备注写入成功',
+    `HTTP ${rNote1.status} · area=${rNote1.body?.area}`);
+  const noteMeta1 = JSON.parse(readFileSync(join(noteSubDir, 'meta.json'), 'utf8'));
+  check(noteMeta1.note === NOTE_SUB, '6f-2 meta.note 已是新文案', JSON.stringify(noteMeta1.note));
+  check(!('compatNote' in noteMeta1),
+    '6f-3 **compatNote 没被创建**（投稿不是兼容包，公网不该给它挂「兼容说明」标签）',
+    'compatNote' in noteMeta1 ? `多出了 compatNote=${JSON.stringify(noteMeta1.compatNote)}` : '没有这一栏');
+  const stripNoteSub = (o) => { const c = { ...o }; delete c.note; delete c.revisions; return JSON.stringify(c); };
+  check(stripNoteSub(noteMeta0) === stripNoteSub(noteMeta1), '6f-4 除 note / revisions 外其余键值逐字未变');
+  check(sha(readFileSync(join(noteSubDir, 'mod.zip'))) === noteZip0, '6f-5 mod.zip 一字未动');
+  check((noteMeta1.revisions || []).length === (noteMeta0.revisions || []).length + 1, '6f-6 revisions 多了一笔留痕');
+  const rNote2 = await notePost(`${ADMIN}/note`, { id: noteSubId, note: NOTE_SUB });
+  check(rNote2.status === 200 && rNote2.body?.changed === false, '6f-7 幂等：同一句再发一次 changed:false（不写盘）');
+  const rNoteWrong = await notePost(`${ADMIN}/compat/note`, { id: noteSubId, note: NOTE_SUB });
+  check(rNoteWrong.status === 404 && /没有这条兼容包/.test(String(rNoteWrong.body?.error || '')),
+    '6f-8 同一 id 打到 compat/note → **明确的 404**（区域检查排在长度之前，不再被长度抢先报 400）',
+    `HTTP ${rNoteWrong.status}`);
+  check(/\/note/.test(String(rNoteWrong.body?.error || '')), '6f-9 那句 404 里点名了正确的端点');
+  const rNoteWrong2 = await notePost(`${ADMIN}/note`, { id: cid, note: NOTE_SUB });
+  check(rNoteWrong2.status === 400 && /compat\/note/.test(String(rNoteWrong2.body?.error || '')),
+    '6f-10 反向：POST /note 收到 compat 区 id → 400，并点名 compat/note', `HTTP ${rNoteWrong2.status}`);
+  const rNoteBatch = await notePost(`${ADMIN}/note`, { ids: [noteSubId], note: NOTE_SUB });
+  check(rNoteBatch.status === 400, '6f-11 「一批」的形状一律 400（一次一个明确写出的 id）', `HTTP ${rNoteBatch.status}`);
+  const rNoteLong = await notePost(`${ADMIN}/note`, { id: noteSubId, note: '长'.repeat(9000) });
+  check(rNoteLong.status === 200 && rNoteLong.body?.changed === true,
+    '6f-12 9000 字的备注写得进去（上限已从 4000 抬到 20000）', `HTTP ${rNoteLong.status}`);
+  const rNoteTooLong = await notePost(`${ADMIN}/note`, { id: noteSubId, note: '长'.repeat(20001) });
+  check(rNoteTooLong.status === 400 && /20000/.test(String(rNoteTooLong.body?.error || '')),
+    '6f-13 超过 20000 字 → 400，且错误文案里写明了当前上限',
+    `HTTP ${rNoteTooLong.status} · ${JSON.stringify(rNoteTooLong.body?.error)}`);
+  // 收尾：把靶子的备注还原成**它原来那句**（不是 NOTE_SUB）—— 测试数据目录随后整个删掉，
+  // 但「只增」的习惯照旧：测完把动过的字段放回去。
+  await notePost(`${ADMIN}/note`, { id: noteSubId, note: noteMeta0.note });
+
+  // ---------------------------------------------------------------- ⑥g `/decide` 的 superseded + `/packkind`
+  // 业主 2026-10-12 两件：
+  //   ① **投稿取代投稿**：同一个 `pack.json` id 会有多版投稿（v0.2.1 取代 v0.2.0 与 v0.1），
+  //      原先只有「兼容包取代投稿」一条路能写 superseded ⇒ 高版本上线后旧版本一直挂在待审队列/公网。
+  //      补法：`markReplacedBy` 的 `replacedBy.area` 按取代者的**实际区**给、理由文案按区换词；
+  //      `/decide` 多收一个 `superseded`（必须带 `replacedBy`）。
+  //   ② **`packKind` 可写**：这一栏原先只有读、没有写 ⇒ 判了分类落不到公网。
+  //
+  // ⚠️ 这一节**先**钉住「compat→投稿 那条老路径的产出与改动前逐字相同」，再去动别的 ——
+  //    老路径零变化是这次补丁的硬要求。
+  console.log('\n⑥g superseded（投稿取代投稿）+ packkind（分类可写）');
+
+  // ---- ① 回归钉子：compat→投稿 那条路（① 段发布兼容包时写的）产出必须与从前逐字相同
+  {
+    const cMetaNow = JSON.parse(readFileSync(join(dataDir, 'compat', cid, 'meta.json'), 'utf8'));
+    const oDecNow = JSON.parse(readFileSync(oDecFile, 'utf8'));
+    const expReason = `已由兼容包 ${cid}（${cMetaNow.name}）取代并发布 —— 这一条不再单独上线，避免公网出现两份。`;
+    check(oDecNow.reason === expReason,
+      '6g-1 【回归钉子】compat→投稿 的理由文案与改动前**逐字相同**（byArea=compat 走老词）',
+      JSON.stringify(oDecNow.reason));
+    check(oDecNow.replacedBy.area === 'compat' && oDecNow.replacedBy.id === cid,
+      '6g-2 【回归钉子】replacedBy.area 仍是 compat、id 未变', JSON.stringify(oDecNow.replacedBy));
+    check(JSON.stringify(Object.keys(oDecNow)) === JSON.stringify(['decision', 'reason', 'at', 'by', 'displayName', 'replacedBy']),
+      '6g-3 【回归钉子】decision.json 的键序与改动前逐字相同', JSON.stringify(Object.keys(oDecNow)));
+  }
+
+  // ---- ② 起第四个实例（**同一个 DATA_DIR**、新进程 ⇒ 限流计数器是新的），造一条**已 approved 的投稿**当取代者
+  const P4 = 8809;
+  const BASE4 = `http://127.0.0.1:${P4}`;
+  const child4 = spawn(process.execPath, [SERVER_FILE], {
+    env: { ...process.env, PORT: String(P4), DATA_DIR: dataDir, ADMIN_TOKEN: TOKEN, ADMIN_PATH, MAX_MB: '4', HOST: '127.0.0.1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let log4 = '';
+  child4.stdout.on('data', (d) => { log4 += d; });
+  child4.stderr.on('data', (d) => { log4 += d; });
+  try {
+    let up4 = false;
+    for (let i = 0; i < 60; i++) {
+      try { if ((await fetch(`${BASE4}/healthz`)).ok) { up4 = true; break; } } catch { /* 还没起 */ }
+      await sleep(120);
+    }
+    if (!up4) throw new Error('第四个实例没起来：\n' + log4);
+    const adm4 = (p, opt = {}) => fetch(`${BASE4}${p}`, { ...opt, headers: { 'x-admin-token': TOKEN, ...(opt.headers || {}) } });
+    const post4 = async (p, obj) => {
+      const r = await adm4(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(obj) });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    };
+    const newZip = makeZip([
+      { name: 'pack.json', data: '{\n  "id": "newver",\n  "name": "高版本投稿",\n  "version": "0.2.1",\n  "author": "社区作者辛",\n  "license": "CC-BY-NC-4.0",\n  "description": "同 id 的更高版本。",\n  "api": ">=1 <2"\n}\n' },
+      { name: 'ui/a.js', data: 'export const a = 2;\n' },
+    ]);
+    const rN = await fetch(`${BASE4}/api/submit?name=${encodeURIComponent('高版本投稿')}`, {
+      method: 'POST', headers: { 'content-type': 'application/zip' }, body: newZip });
+    const jN = await rN.json();
+    const newId = jN.id;
+    check(rN.status === 201 && !!newId, '6g-4 第四个实例（新进程 ⇒ 新限流计数器）投出一条新投稿', `编号 ${newId}`);
+
+    // ---- ③ 守卫：全都要在**写盘之前**拒掉
+    const target = origId;                 // 被取代者（submissions 区）
+    const tMeta = join(dataDir, 'submissions', target, 'meta.json');
+    const tZip = join(dataDir, 'submissions', target, 'mod.zip');
+    const tMeta0 = sha(readFileSync(tMeta)), tZip0 = sha(readFileSync(tZip));
+    const g1 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded' });
+    check(g1.status === 400, '6g-5 superseded 缺 replacedBy ⇒ 400', `HTTP ${g1.status}`);
+    const g2 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: 'not-an-id' });
+    check(g2.status === 400, '6g-6 replacedBy 形状不对 ⇒ 400', `HTTP ${g2.status}`);
+    const g3 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: target });
+    check(g3.status === 400, '6g-7 replacedBy 等于自己 ⇒ 400', `HTTP ${g3.status}`);
+    const g4 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: 'zzzzzzzzzzzz' });
+    check(g4.status === 404, '6g-8 replacedBy 那条不存在 ⇒ 404', `HTTP ${g4.status}`);
+    const g5 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: cid });
+    check(g5.status === 400, '6g-9 replacedBy 是**兼容包** ⇒ 400（并点名 compat/link）', `HTTP ${g5.status}`);
+    const g6 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: newId });
+    check(g6.status === 409, '6g-10 **取代者还没 approved** ⇒ 409（防公网「两份都没有」）', `HTTP ${g6.status}`);
+    const g7 = await post(`${ADMIN}/decide`, { ids: [target], decision: 'superseded', replacedBy: newId });
+    check(g7.status === 400, '6g-11 「一批」的形状 ⇒ 400（一次一个明确写出的 id）', `HTTP ${g7.status}`);
+    const g8 = await post(`${ADMIN}/decide`, { id: target, decision: 'nonsense' });
+    check(g8.status === 400, '6g-12 decision 白名单外的值 ⇒ 400', `HTTP ${g8.status}`);
+    check(sha(readFileSync(tMeta)) === tMeta0 && sha(readFileSync(tZip)) === tZip0,
+      '6g-13 上面那一串被拒的请求**一个字节都没写**（先算不写）');
+
+    // ---- ④ 成功路径：先把取代者批上线，再取代
+    const ap = await post(`${ADMIN}/decide`, { id: newId, decision: 'approved' });
+    check(ap.status === 200, '6g-14 把取代者批上线', `HTTP ${ap.status}`);
+    const s1 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: newId });
+    check(s1.status === 200 && s1.body?.state === 'superseded' && s1.body?.changed === true,
+      '6g-15 投稿取代投稿 ⇒ 200 superseded', `HTTP ${s1.status}`);
+    const tDec = JSON.parse(readFileSync(join(dataDir, 'submissions', target, 'decision.json'), 'utf8'));
+    check(tDec.replacedBy.area === 'normal' && tDec.replacedBy.id === newId,
+      '6g-16 replacedBy.area 按**取代者的实际区**给（submissions 区 ⇒ normal），不再写死 compat',
+      JSON.stringify(tDec.replacedBy));
+    check(/^已由投稿 /.test(tDec.reason), '6g-17 理由文案按区换词（取代者是投稿 ⇒「已由投稿 …」）', JSON.stringify(tDec.reason));
+    check(sha(readFileSync(tMeta)) === tMeta0 && sha(readFileSync(tZip)) === tZip0,
+      '6g-18 被取代那条的 meta.json 与 mod.zip **逐字节未变**（只写它自己的 decision.json）');
+    const s2 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: newId });
+    check(s2.status === 200 && s2.body?.changed === false, '6g-19 幂等：同一件事发两次，第二次 changed:false');
+
+    // ---- ⑤ packkind：闭枚举 / 一批 / 幂等 / 只动一栏 / 区无关 / 公网真的变了
+    const nMeta = join(dataDir, 'submissions', newId, 'meta.json');
+    const nZip = join(dataDir, 'submissions', newId, 'mod.zip');
+    const nMeta0 = JSON.parse(readFileSync(nMeta, 'utf8'));
+    const nZip0 = sha(readFileSync(nZip));
+    const k0 = await post4(`${ADMIN}/packkind`, { id: newId, packKind: 'bogus' });
+    check(k0.status === 400, '6g-20 packKind 闭枚举：拼错的值 ⇒ 400', `HTTP ${k0.status}`);
+    const k1 = await post4(`${ADMIN}/packkind`, { ids: [newId], packKind: 'functional' });
+    check(k1.status === 400, '6g-21 packkind 「一批」的形状 ⇒ 400', `HTTP ${k1.status}`);
+    const k2 = await post4(`${ADMIN}/packkind`, { id: newId, packKind: 'functional' });
+    check(k2.status === 200 && k2.body?.changed === true && k2.body?.packKind === 'functional',
+      '6g-22 packKind 写成功（functional）', `HTTP ${k2.status}`);
+    const nMeta1 = JSON.parse(readFileSync(nMeta, 'utf8'));
+    check(nMeta1.packKind === 'functional', '6g-23 记录里 packKind = functional');
+    const stripPk = (o) => { const c = { ...o }; delete c.packKind; delete c.revisions; return JSON.stringify(c); };
+    check(stripPk(nMeta0) === stripPk(nMeta1), '6g-24 除 packKind / revisions 外其余键值逐字未变');
+    check(sha(readFileSync(nZip)) === nZip0, '6g-25 mod.zip 一字未动');
+    const k3 = await post4(`${ADMIN}/packkind`, { id: newId, packKind: 'functional' });
+    check(k3.status === 200 && k3.body?.changed === false, '6g-26 幂等：同一句再发一次 changed:false');
+    const k4 = await post4(`${ADMIN}/packkind`, { id: cid, packKind: 'documentation' });
+    check(k4.status === 200 && k4.body?.area === 'compat', '6g-27 区无关：compat 区的记录也设得上', `HTTP ${k4.status}`);
+    const pub = await (await fetch(`${BASE4}/api/mods`)).json();
+    const pubNew = pub.mods.find((x) => x.id === newId);
+    check(pubNew && pubNew.packKind === 'functional',
+      '6g-28 公网 /api/mods 上这一条**不再是 unknown**，而是 functional（这就是这个端点存在的理由）',
+      pubNew ? `packKind=${pubNew.packKind}` : '(不在主列表)');
+  } finally {
+    child4.kill();
+    await sleep(200);
+  }
+
   // 收尾总检查：整场测试跑完（成功的、被拒的、抛错的路径都走过），
   // 数据目录根下**一个 .part 都不该有** —— 临时文件只该以「已经改名成正式 mod.zip」的形式存在。
   const leftover = await partFilesSettled();
@@ -1087,8 +1301,15 @@ try {
     leftover.length ? `残留 ${leftover.length} 个：${leftover.join('、')}` : '一个都没有');
   // 根下只该有 submissions / flagged / compat 三个**目录**（测试自己还会建一个 _stash 暂存目录），
   // 一个**文件**都不该有 —— 生产数据目录根下出现文件，那就是上传中途留下的垃圾。
-  const strayFiles = readdirSync(dataDir, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name);
-  check(strayFiles.length === 0, '⑦b DATA_DIR 根下没有多余的**文件**（只剩三个数据子目录）',
+  // 【2026-10-12 唯一一处既有断言的改动 —— **不是放宽**】：本条原本要求根下「一个文件都不该有」，
+  //   防的是上传中途留下的垃圾（.part 之类）。本次新增了**极简追加式审计日志**
+  //   `<DATA_DIR>/audit.jsonl`（裁定 ⑧ ①，落点就在数据目录，只追加、从不改写），
+  //   它是**有意的、必须存在的**顶层文件。所以白名单里只多它**一个**：
+  //   其余任何顶层文件照旧让这一条失败 —— 对「意外文件」的严格程度一点没降。
+  const ROOT_OK = ['audit.jsonl'];
+  const strayFiles = readdirSync(dataDir, { withFileTypes: true }).filter((e) => e.isFile())
+    .map((e) => e.name).filter((n) => !ROOT_OK.includes(n));
+  check(strayFiles.length === 0, '⑦b DATA_DIR 根下没有多余的**文件**（只剩三个数据子目录 + 有意的 audit.jsonl）',
     strayFiles.length ? `多出 ${strayFiles.length} 个：${strayFiles.join('、')}` : '一个都没有');
 } finally {
   child.kill();

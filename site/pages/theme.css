@@ -386,3 +386,19 @@ h2.sec::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 .warnbox h3 { margin: 0 0 4px; font-size: 14.5px; color: var(--gold); }
 .num { font-family: var(--font-label); letter-spacing: .08em; color: var(--text-dim); }
 .card { margin: 0 0 12px; }
+
+/* ================================================================
+   分类筛选条（业主 2026-10-12 需求 ③：让需要的人更快找到对应分类的模组）
+   —— 就是「已上线」那一页分区标题旁边那一排可点的按钮。
+   只用既有的 CSS 变量（--line / --accent / --text-dim 那一套），不引任何外链、不拉字体。
+   ================================================================ */
+.kindbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
+.kindbar__label { font-family: var(--font-label); font-size: 12.5px; letter-spacing: .06em; color: var(--text-dim); }
+.kindbar__hint { font-size: 12.5px; color: var(--text-dim); margin-left: 4px; }
+.kindbtn {
+  display: inline-block; padding: 5px 11px; border: 1px solid var(--line); border-radius: var(--radius);
+  font-family: var(--font-label); font-size: 12.5px; letter-spacing: .04em; color: var(--text-dim);
+  text-decoration: none; background: transparent; cursor: pointer;
+}
+.kindbtn:hover { color: var(--text); border-color: var(--accent); }
+.kindbtn.on { color: var(--accent); border-color: var(--accent); background: rgba(78, 216, 175, .08); }

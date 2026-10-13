@@ -61,6 +61,18 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
 
+// ⭐ 认领码（业主 2026-10-12 需求 ①：「发布者能自由管理修改」）。
+// **只在这一个响应里出现一次** —— 站点只存它的哈希，刷新页面就再也看不到明文了。
+// 所以这里必须**显眼地把「请现在保存」写出来**，并把下一步（去「我的投稿」换发布者令牌）给成链接。
+function claimBox(r) {
+  if (!r || !r.claimCode) return '';
+  return '<div class="warnbox"><h3>这串认领码只显示这一次，请现在保存</h3>' +
+    '<p class="kv"><b>' + esc(r.claimCode) + '</b></p>' +
+    '<p>' + esc(r.claimNote || '') + '</p>' +
+    '<p>下一步：打开 <a href="' + esc(r.publisherPage || '/mine') + '">我的投稿</a>，' +
+    '填「编号 + 认领码」换一枚<b>发布者令牌</b>。之后改名 / 改备注 / 改分类、换包体、申请撤下，' +
+    '都在那一页自己做；每次改动都会<b>回到待审</b>，等维护者复审。</p></div>';
+}
 function renderFlags(flags) {
   if (!flags || !flags.length) return '';
   return flags.map((f) =>
@@ -97,6 +109,7 @@ $('go').onclick = () => {
         '<p><b>收到了。</b></p>' +
         '<p class="kv">编号：' + esc(r.id) + '<br>回执令牌：' + esc(r.receipt) + '</p>' +
         '<p>把上面这两行留着，随时可以查状态：<br><a href="' + esc(r.statusUrl) + '">' + esc(r.statusUrl) + '</a></p>' +
+        claimBox(r) +
         '<p>' + esc(r.message) + '</p>' + renderFlags(r.flags);
     } else {
       out.innerHTML = '<p style="color:var(--red-premium)">没传上：' + esc(r && r.error ? r.error : ('HTTP ' + xhr.status)) + '</p>' + renderFlags(r && r.flags);

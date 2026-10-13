@@ -11,7 +11,7 @@
 #   4. **不做不可逆的事** —— 端口被占、目录已有别的东西、Node 版本不够，一律**停下报错**而不是硬来。
 #
 # 用法（在服务器上，用 root 或 sudo）：
-#   bash deploy.sh --port 8787 --base-url http://47.103.14.217:8787 \
+#   bash deploy.sh --port 25570 --base-url http://47.103.14.217:25570 \
 #                  --admin-ips <你的固定IP>            # 强烈建议给管理口加白名单
 #
 #   bash deploy.sh --uninstall                         # 只卸自己，绝不动别的
@@ -19,7 +19,7 @@
 # 其它选项：--dir /opt/sp-modsite --data /var/lib/sp-modsite --node-version v22.11.0
 set -Eeuo pipefail
 
-PORT=8787
+PORT=25570
 BASE_URL=""
 DIR=/opt/sp-modsite
 DATA=/var/lib/sp-modsite
@@ -47,11 +47,11 @@ while [ $# -gt 0 ]; do
 把工坊包上传站装到这台服务器上（绝不干扰已有的 nginx / gunicorn 项目）。
 
 用法：
-  sudo bash deploy.sh --port 8787 --base-url http://<IP>:8787 [--admin-ips <你的固定IP>]
+  sudo bash deploy.sh --port 25570 --base-url http://<IP>:25570 [--admin-ips <你的固定IP>]
   sudo bash deploy.sh --uninstall
 
 选项：
-  --port N           监听端口（默认 8787）——必须是空闲端口，被占就报错退出
+  --port N           监听端口（默认 25570，与线上生产实例一致）——必须是空闲端口，被占就报错退出
   --base-url URL     公开地址（默认 http://<本机IP>:<port>），回执链接用它拼
   --admin-ips LIST   管理口白名单，逗号分隔（强烈建议；本机回环始终放行，SSH 隧道靠它）
   --admin-path NAME  审核入口的路径名（默认 admin）。换成猜不到的名字可少掉自动扫描；

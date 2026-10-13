@@ -390,8 +390,18 @@ try {
   check(JSON.stringify(filesBefore) === JSON.stringify(filesAfter),
     '**读公网列表一次，记录一个字节都没动**（全目录 sha256 清单前后相同 —— 这是推导，不是补数据）',
     `${filesBefore.length} 个文件逐条比对`);
-  check(listFiles().every((rel) => rel.includes('/')),
-    'DATA_DIR 根下依旧没有散文件', listFiles().filter((rel) => !rel.includes('/')).join('、') || '（0 个）');
+  // 【2026-10-12 唯一一处既有断言的改动 —— **不是放宽**，是把一个**新增的、有意的**顶层文件
+  //   加进白名单】：本条断言原本要求「DATA_DIR 根下一个散文件都没有」，防的是失败路径留下
+  //   `.part` 垃圾（上传被拒、例外早退等等）。本次新增了**极简追加式审计日志**
+  //   `<DATA_DIR>/audit.jsonl`（裁定 ⑧ ①：落点就在数据目录，只追加、从不改写），
+  //   它是一个**有意的、必须存在的**顶层文件，不是散落垃圾。
+  //   所以白名单里只多它**一个**：其余任何顶层文件（`.part`、临时件、别的什么）
+  //   照旧会让这一条失败 —— 断言的严格程度对「意外文件」一点没降。
+  const ROOT_OK = ['audit.jsonl'];
+  const stray = listFiles().filter((rel) => !rel.includes('/') && !ROOT_OK.includes(rel));
+  check(stray.length === 0,
+    'DATA_DIR 根下依旧没有散文件（白名单只有一份有意的顶层文件 audit.jsonl）',
+    `${stray.join('、') || '（0 个意外文件）'} · 顶层允许清单 ${ROOT_OK.join('、')}`);
   const pubNoAuthor = mods2.mods.find((m) => m.id === idNoAuthor);
   check(!!pubNoAuthor, '包内没写作者的那条也上了公网列表');
   check(pubNoAuthor?.author === null, '包内**没有** author ⇒ 公网这一栏就是 null（不代填、不编名字）',

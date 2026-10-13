@@ -25,13 +25,42 @@
 //   看不出它是被哪一次批量操作顺带翻回来的。
 //   批准是有后果的动作（上线、放开下载、取代原投稿），只能一条一条指名点姓地做；
 //   要「按条件处理」，就先把命中的 id **列出来给人看一眼**，再逐条调。
+//
+// ================================================================
+// 2026-10-12 增补：**发布者自助管理**（认领码 → 发布者令牌）＋ **分类筛选**
+// ================================================================
+// 业主原话：「发布页能不能改成**发布者能自由管理修改**，有人之前上传那个**整合包更新，
+//           他想删掉**，**管理员负责审核**，再加入一个**筛选功能**，让需要的人能更快
+//           找到对应分类的模组」。
+//
+// 落到代码里的**四条不许破的边界**（本文件所有新增段落都受它约束）：
+//   ① **发布者不直改公开面**：任何自助写端点都**不得**写 `decision=approved`，
+//      也**不得**在未复审时替换公开的 `mod.zip`。改了就必须回到待审（见 `clearDecision`）。
+//   ② **零删除**：任何路径都不删记录、不删文件。旧的 `decision.json` 进 `revisions`
+//      留痕、旧包体原样留在目录里（见 `promoteCandidate` / `clearDecision`）。
+//   ③ **公开面主判据不动**：`state === 'approved'` 仍然是主判据，只在它之上**加**一条
+//      「没有待确认的自撤申请」（`isPubliclyVisible`）—— 见下面那一段的完整说明。
+//   ④ **不建第二套账密体系**：发布者令牌与 `ADMIN_TOKEN` 平行、互不替代；
+//      `isAdmin` 一个字没改，新增的是平行的 `isPublisher`。令牌**只存哈希**。
+//
+// 新增端点一览（详细形状见各自的段注释）：
+//   POST /api/submit                      ← 响应多一枚一次性**认领码**（`claimCode`）
+//   POST /api/publisher/claim             ← 认领码 → 发布者令牌（一次性）
+//   GET  /api/publisher/mine              ← 「我的投稿」（凭发布者令牌）
+//   POST /api/publisher/update            ← 改元数据（name/note/homepage/packKind）⇒ 强制回待审
+//   POST /api/publisher/blob              ← 换包体 / 上新版本 ⇒ 写成**候选**，公开面照旧展示旧包
+//   POST /api/publisher/withdraw          ← 自撤申请 ⇒ 公开面**立刻**不再列出
+//   POST ${ADMIN_API}/withdraw-decide     ← 管理员确认 / 拒绝自撤
+//   POST ${ADMIN_API}/promote-blob        ← 管理员批准候选包体（切换公开包体）
+//   POST ${ADMIN_API}/issue-claim         ← 管理员手工发认领码（老记录 / 找回令牌）
+//   GET  /mods?kind=…  与  GET /api/mods?kind=…   ← 分类筛选（不传 = 现状）
 import { createServer } from 'node:http';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync, createReadStream, statSync, renameSync, copyFileSync, unlinkSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync, createReadStream, statSync, renameSync, copyFileSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readZipEntries, readZipFile, looksLikeZip } from './zip.mjs';
-import { reviewName, reviewLabel, reviewEntries, hasBlocker } from './review.mjs';
+import { reviewName, reviewLabel, reviewEntries, hasBlocker, reviewContainer, reviewSelfDecl, reviewCompatPackJson, needsAcknowledge, ACK_CODES } from './review.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGES = join(HERE, 'pages');
@@ -57,7 +86,8 @@ const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
 /**
  * 管理口的 IP 白名单（逗号分隔）。设了就**只有**这些地址（外加本机回环）能碰审核页与审核 API。
  * 站点只有 HTTP、没有 HTTPS 时，这条是保护令牌的主要手段 —— 配合 SSH 隧道用：
- *   ssh -L 8787:127.0.0.1:8787 root@<服务器>
+ *   ssh -L 25570:127.0.0.1:25570 root@<服务器>
+ *   （线上生产实例的端口是 25570；代码默认值 8787 只用于本机自起实例）
  * 隧道进来的是回环地址，所以永远放行。
  */
 const ADMIN_IPS = (process.env.ADMIN_IPS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -79,6 +109,23 @@ if (!/^[a-z0-9][a-z0-9_-]{2,40}$/.test(ADMIN_PATH)) {
   process.exit(2);
 }
 const ADMIN_API = `/api/${ADMIN_PATH}`;
+
+/**
+ * 备注长度上限（业主 2026-10-12 裁定：4000 → 20000）。
+ *   · **单一常量**：`/api/submit` 的备注、`compat-submit` 的兼容说明、`compat/note` 与 `note`
+ *     都引它 —— 改之前三处各写一个硬编码的 4000，各写各的会继续漂移。
+ *   · `NOTE_BODY_MAX` 是**报文体**的上限，不是文案上限：20000 个汉字按 UTF-8 最坏 4 字节/字
+ *     是 80 KB，加 JSON 转义与包装 128 KB 足够。旧值 16 KB 会让「上限 20000」在汉字上
+ *     先被 413 挡住 —— 文案上限与报文上限必须一起抬。
+ *   · ⚠️ 已知边界：`/api/submit` 与 `compat-submit` 的备注是**查询串**传的，
+ *     实际天花板是 Node 的请求头上限（默认 16 KB），不是这个常量。
+ *     要写长备注走**报文体**那条路（`compat/note` / `note`）。
+ */
+/** 「装上到底会不会生效」的闭枚举 —— 与 `/api/mods` 的三档一致（那一处缺省给 `unknown`）。
+ *  `/api/mods` 的注释逐字：「缺省**绝不可能是 functional**」。 */
+const PACK_KINDS = Object.freeze(['functional', 'documentation', 'unknown']);
+const NOTE_MAX = 20000;
+const NOTE_BODY_MAX = 128 * 1024;
 
 /**
  * 「兼容者」= **必填字段，但值可以为空**（业主 2026-10-11 改口径；上一版那套
@@ -105,8 +152,326 @@ const ID_RE = /^[a-z0-9]{6,32}$/;
 const nowIso = () => new Date().toISOString();
 const idOf = () => randomBytes(6).toString('hex');            // 12 位十六进制
 const tokenOf = () => randomBytes(16).toString('hex');        // 给投稿人的回执令牌
+/**
+ * ⭐ 一次性**认领码**：16 个 Base32 字符（字母表去掉 0/O/1/I/L）—— 目的只有一个，
+ * **让人念得出来、抄得下来、抄错还有救**（这就是要交给发布者保存的那一串）。
+ * 80 bit 熵，穷举不现实；换令牌走 `timingSafeEqual` 定长比较（形状不对的输入也照比一次）。
+ */
+const CLAIM_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const CLAIM_RE = /^[2-9A-HJ-NP-Z]{16}$/;
+const claimOf = () => {
+  const b = randomBytes(16);
+  let s = '';
+  for (let i = 0; i < 16; i++) s += CLAIM_ALPHABET[b[i] % 32];
+  return s;
+};
+const sha256Hex = (s) => createHash('sha256').update(String(s), 'utf8').digest('hex');
+/** 认领码**只存哈希** ⇒ 盘上（含备份）永远没有明文，泄露也换不出发布者令牌。 */
+const claimHashOf = (code) => sha256Hex(`sp-modsite/claim/v1:${String(code || '').trim().toUpperCase()}`);
+/** 发布者令牌**只存哈希**。 */
+const tokHashOf = (tok) => sha256Hex(`sp-modsite/publisher-token/v1:${String(tok || '')}`);
 
-/** 一个投稿住哪个区：疑似素材的在 flagged/，其余在 submissions/；兼容包在 compat/。 */
+const EMPTY32 = Buffer.alloc(32);
+/**
+ * 「这枚令牌是不是这一条记录的发布者令牌」—— **只返回布尔**。
+ *
+ * ⚠️ 两条纪律（与 `tokenOk` 同源，但比它更严）：
+ *   ① **只存哈希**：`meta.publisherTokens[]` 里是 `{ h, at, by }`，没有明文可偷；
+ *   ② **定长比较**：输入先哈希成 32 字节，再逐条 `timingSafeEqual`。任何形状的输入
+ *      （空串 / 超长 / 非 ASCII）都**照比一次**，不因「长度不对」提前返回 ——
+ *      否则「这条在不在」「令牌像不像」会从耗时上漏出去。
+ */
+function publisherTokenOk(meta, token) {
+  const list = Array.isArray(meta?.publisherTokens) ? meta.publisherTokens : [];
+  const given = Buffer.from(tokHashOf(token), 'hex');
+  let hit = false;
+  for (const t of list) {
+    let buf = EMPTY32;
+    const h = String(t?.h || '');
+    if (/^[0-9a-f]{64}$/.test(h)) { try { buf = Buffer.from(h, 'hex'); } catch { buf = EMPTY32; } }
+    if (buf.length === given.length && timingSafeEqual(buf, given)) hit = true;
+  }
+  return hit;
+}
+/** 一枚认领码在不在这一条的待用清单里（同样定长比较）。 */
+function claimOk(meta, code) {
+  const list = Array.isArray(meta?.pendingClaim) ? meta.pendingClaim : [];
+  const given = Buffer.from(claimHashOf(code), 'hex');
+  let hit = false;
+  for (const c of list) {
+    let buf = EMPTY32;
+    const h = String(c?.h || '');
+    if (/^[0-9a-f]{64}$/.test(h)) { try { buf = Buffer.from(h, 'hex'); } catch { buf = EMPTY32; } }
+    if (buf.length === given.length && timingSafeEqual(buf, given)) hit = true;
+  }
+  return hit;
+}
+/**
+ * 这枚发布者令牌有没有资格动**这一条**记录。
+ * ⚠️ **只在「按 id 指名点姓」的端点里用** —— 绝不做全库枚举（那既是枚举口、又慢）。
+ */
+const isPublisher = (meta, token) => !!token && publisherTokenOk(meta, token);
+
+/** 令牌从哪来：`x-publisher-token` 头，或 `Authorization: Bearer <token>`。 */
+const publisherTokenOf = (req) => {
+  const h = String(req.headers['x-publisher-token'] || '').trim();
+  if (h) return h;
+  const a = String(req.headers.authorization || '');
+  return a.startsWith('Bearer ') ? a.slice(7).trim() : '';
+};
+
+/**
+ * ⚠️ **公网可见性**（业主 2026-10-12 裁定 ②）：一条记录除了「决定是 approved」，
+ * 还**必须没有待确认的自撤申请**。
+ *
+ * 为什么要有后半句：发布者点「撤下」要**立刻见效** —— 他不想让自己的包再挂在那儿；
+ * 而「管理员二次确认」是**流程**上的事，不能拖成「先挂着等人点」。所以申请一提交，
+ * 公开面（`/api/mods`、`/mods`、`/api/file` 的公开下载口）立刻不再列它、也不再让人下；
+ * 记录、`decision.json`、包体**一个字节都不动**（零删除）。
+ * 管理员点确认 ⇒ 才真正落 `decision=superseded`；点拒绝 ⇒ 清标志位，它照旧上线。
+ *
+ * 这条判据**只加不减**：`state === 'approved'` 那条主判据一个字没改。
+ */
+const isPubliclyVisible = (s) => s.state === 'approved' && s.withdrawRequested !== true;
+
+/**
+ * 审核台「发布者自撤待确认」队列：`withdrawRequested === true` 且**还没转成终态**。只数数、不改盘。
+ * 已经 `superseded`（管理员确认过）或这条本来就被打回（`rejected`）的，都不算「待确认」。
+ */
+const withdrawQueue = () => allSubs().filter((s) => s.withdrawRequested === true
+  && s.state !== 'superseded' && s.state !== 'rejected');
+
+// ---------------------------------------------------------------- 数据模型常量（新增段落用）
+
+/** 审计日志：**一行一条 JSON，只追加**（见 audit()）。 */
+const AUDIT_LOG = join(DATA_DIR, 'audit.jsonl');
+/** 候选包体的文件名：发布者换包体时**新包写这里**，公开面照旧是旧的 `mod.zip`（裁定 ⑦）。 */
+const CANDIDATE_BLOB = 'mod.pending.zip';
+/** 每条记录最多留几枚发布者令牌（旧令牌丢失就再发一枚，不回收 —— 零删除）。 */
+const TOKEN_MAX = 8;
+/** 认领码有效期（天）。过期只是不再接受兑换，记录里的哈希照旧留着（零删除）。 */
+const CLAIM_TTL_DAYS = 30;
+/** 自撤申请原因为空时用的兜底文案；**不是**替发布者编理由，只是给审核台一行可读的字。 */
+const WITHDRAW_DEFAULT_REASON = '发布者自撤（未填理由）';
+
+/**
+ * ⭐ **极简追加式审计日志**（裁定 ⑧ ①）。
+ *
+ * 落点 `<DATA_DIR>/audit.jsonl`：**一行一条 JSON，只追加**（`appendFileSync`），从不改写、从不删除。
+ * 与 `meta.revisions` 的分工：revisions 是**记录自己**的改动史（翻记录时看得到）；
+ * 这份日志是**跨记录的事件流**（谁、什么时候、从哪个 IP、以什么身份、动了哪一条）——
+ * 出事第一眼看它，比把几十个 `meta.json` 挨个翻一遍快得多。
+ *
+ * ⚠️ **不记令牌明文**：认领码、发布者令牌、ADMIN_TOKEN、Basic 头一律一个字节都不写；
+ *   记的是**事件**（`claimIssued` / `tokenClaimed` / `adminAuth`），不是凭据。
+ * 形状：`{ at, action, id, ip, actor, admin, detail }`，`actor` ∈ `admin` / `publisher` / `public`。
+ * 失败**绝不影响主流程**：这是留痕，不是业务。写不进去（只读盘之类）时请求照常成功，控制台告警一行。
+ */
+function audit(action, { id = null, ip = null, actor = 'public', admin = false, detail = null } = {}) {
+  let line;
+  try { line = JSON.stringify({ at: nowIso(), action, id, ip, actor, admin: admin === true, detail }) + '\n'; }
+  catch { return; }                                     // detail 有循环引用之类：放弃这一笔，不影响请求
+  try { appendFileSync(AUDIT_LOG, line, 'utf8'); }
+  catch (e) { console.error('[audit] 写不进去（不影响这次请求）：', e.message); }
+}
+/** 留痕时**只留字段名、不留值** —— 避免把正文/凭据抄进日志。 */
+const keysOf = (o) => Object.keys(o || {}).sort();
+
+/**
+ * 把一份 `decision.json` **移进 `meta.revisions` 留痕**，并让这条记录的判定回到**缺省**。
+ *
+ * 为什么这么做（裁定 ⑤）：本站的 `pending` **不是一个写出值**，而是「`decision.json` 不存在」
+ * 的**读时缺省**（`allSubs()` 与 `/api/status` 都是这么读的；`/decide` 的白名单也从不收 `pending`）。
+ * 所以「发布者改了东西 ⇒ 强制回待审」的正确做法就是：**把那一份决定原样搬进 revisions、文件不再存在**
+ * —— 记录与判定一个字都没丢（零删除），而公开面立刻不再列它（`state` 读出来就是 `pending`）。
+ *
+ * 返回被搬走的那一份（没有就返回 null）。**只动 meta.json，不删任何文件。**
+ */
+function clearDecision(id, why, by) {
+  const P = pathsOf(id);
+  if (!P) return null;
+  const meta = readJson(P.meta);
+  if (!meta) return null;
+  const prev = readJson(P.decision);
+  if (!prev) return null;                               // 本来就没有决定：已经是待审，无事可做
+  const at = nowIso();
+  const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+  writeJson(P.meta, {
+    ...meta,
+    revisions: [...hist, {
+      at, by,
+      changed: { decision: prev.decision, at: prev.at ?? null, by: prev.by ?? null },
+      to: { decision: 'pending（文件缺省：decision.json 已移入本笔留痕）' },
+      why,
+      // 原样留一份搬走的决定，日后翻记录能逐字看到「上一版是怎么判的」。
+      decisionSnapshot: prev,
+    }],
+  });
+  // ⚠️ 这里是**唯一**会移除 decision.json 的地方。它不是「删记录」：
+  //    内容已逐字进 revisions.decisionSnapshot，判定回到读时缺省（pending），
+  //    记录目录、meta.json、包体、留档原件**一个都没动**（零删除）。
+  try { unlinkSync(P.decision); } catch { /* 移不动也不能把请求打挂 */ }
+  return prev;
+}
+
+/**
+ * 把一条记录**原样搬进 superseded**（自撤 / 管理员指定取代者都走这里）。
+ *
+ * 与 `markReplacedBy` 的关系：那个函数管「被别的记录取代」（`replacedBy` 指向一条真实记录）；
+ * 这个函数管**自撤**（`replacedBy: null`，无取代者）—— 业主 2026-10-12 裁定 ①：
+ * 「允许 `decision=superseded` 且 `replacedBy: null`（自撤）」，但**只对发布者自撤这条路放宽**；
+ * 管理员驱动的 superseded **仍强制要求 `replacedBy` 指向一条 approved**（旧不变量不许被放宽）。
+ *
+ * 只写它自己的 `decision.json`，**不动 meta.json、不删任何文件**。
+ */
+function markSelfWithdrawn(id, { reason = WITHDRAW_DEFAULT_REASON, by = 'admin', ip = null, at = null } = {}) {
+  const q = dirOf(id);
+  if (!q || q.area === 'compat') return null;           // 兼容包不来自发布者，不走自撤
+  const m = readJson(join(q.dir, 'meta.json'));
+  if (!m) return null;
+  const when = at || nowIso();
+  const prev = readJson(join(q.dir, 'decision.json'));
+  writeJson(join(q.dir, 'decision.json'), {
+    decision: 'superseded',
+    reason: String(reason || WITHDRAW_DEFAULT_REASON),
+    at: when, by,
+    displayName: m.name || null,
+    // ⭐ 自撤：**没有取代者**。这一栏照给（值为 null），免得前端「有键/无键」两种读法。
+    replacedBy: null,
+    publisherWithdraw: {
+      reason: String(reason || WITHDRAW_DEFAULT_REASON),
+      requestedAt: m.withdrawRequestedAt || null,
+      confirmedAt: when,
+      by,
+      ip: ip || null,
+      note: '发布者自撤并经管理员确认：这一条不再单独上线。记录、包体、留档一个都没删（零删除）。',
+    },
+    reasonBeforeSupersede: prev ? (prev.reason ?? null) : null,
+  });
+  return when;
+}
+
+/**
+ * ⭐ **批准候选包体**（裁定 ⑦ 的后半句）：把发布者换上的 `mod.pending.zip` 正式切成公开的 `mod.zip`。
+ *
+ * 「零删除」怎么落：
+ *   · 旧的 `mod.zip` **不删** —— 它改名成 `mod.superseded-<ts>.zip` 留在**同一个目录**里；
+ *   · 上一版发布时的 `sha256` / `size` / `entryCount` 一起记进 `meta.revisions`，翻记录就能比；
+ *   · 候选文件本身是**改名**过来的（不是拷贝后删除），所以全程只是「搬位置」，没有一步是删除。
+ *
+ * 返回 `{ ok, id, sha256, oldSha256, archived, at }`；形状不对 / 候选不在 / 哈希对不上
+ * 一律**先算不写**（磁盘上什么都不动）。
+ *
+ * ⚠️ `expectedSha256`：候选是发布者传的，批准前必须**照记录里的哈希核一次**，
+ *    防「审的是 A、切上去的是 B」（与 `approveGate` 里那条同一个道理）。
+ */
+function promoteCandidate(id, { by = 'admin', expectedSha256 = null } = {}) {
+  const P = pathsOf(id);
+  if (!P) return { error: '没有这条记录' };
+  const meta = readJson(P.meta);
+  if (!meta) return { error: '这条记录的 meta.json 读不出来，不动它' };
+  const cand = readJson(join(P.dir, 'candidate.json'));
+  if (!cand) return { error: '这条没有待批的候选包体' };
+  const candPath = join(P.dir, CANDIDATE_BLOB);
+  if (!existsSync(candPath)) return { error: '候选包体的文件不在（记录里有、盘上没有），不动它' };
+  const live = createHash('sha256').update(readFileSync(candPath)).digest('hex');
+  const want = expectedSha256 || cand.candidate?.sha256 || null;
+  if (!want) return { error: '候选记录里没有哈希，不能切 —— 没有哈希就没法证明切上去的就是审过的那一份' };
+  if (live !== want) {
+    return { error: `候选包体现在磁盘上的哈希 ${live} 与记录里的 ${want} 不一致（文件被换过）。先核对，别切。` };
+  }
+  const at = nowIso();
+  const oldSha = meta.sha256 || null;
+  // 旧包体**改名留档**（不是删除）。时间戳取 ISO 里的数字，名字短、可排序。
+  let archived = null;
+  if (existsSync(P.blobPath)) {
+    archived = `mod.superseded-${at.replace(/[^0-9]/g, '')}.zip`;
+    let target = archived;
+    for (let i = 1; existsSync(join(P.dir, target)); i++) {
+      target = `mod.superseded-${at.replace(/[^0-9]/g, '')}-${i}.zip`;
+    }
+    archived = target;
+    renameSync(P.blobPath, join(P.dir, archived));
+  }
+  renameSync(candPath, P.blobPath);                      // 候选转正（改名，不是拷贝+删除）
+  const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+  writeJson(P.meta, {
+    ...meta,
+    size: cand.candidate?.size ?? meta.size,
+    sha256: live,
+    entries: cand.candidate?.entries ?? meta.entries,
+    unpackedBytes: cand.candidate?.unpackedBytes ?? meta.unpackedBytes,
+    blobName: cand.candidate?.blobName || meta.blobName,
+    revisions: [...hist, {
+      at, by,
+      changed: { sha256: oldSha, size: meta.size ?? null, archivedBlob: archived },
+      to: { sha256: live, size: cand.candidate?.size ?? null },
+      why: '发布者换包体 / 上新版本，管理员核过哈希后批准：公开包体切到这一份；旧包体改名留档（不删）。',
+      candidate: cand.candidate || null,
+    }],
+  });
+  // 候选记录本身**不删** —— 它里面是「上一版候选取自哪一次提交」，改个名继续留在目录里。
+  writeJson(join(P.dir, `candidate.applied-${at.replace(/[^0-9]/g, '')}.json`), { ...cand, appliedAt: at, appliedBy: by, appliedSha256: live });
+  try { unlinkSync(join(P.dir, 'candidate.json')); } catch { /* 留着也不影响：promoteCandidate 以文件在不在为准 */ }
+  clearDecision(id, '管理员批准了发布者换上的新包体 ⇒ 本条回到待审，等一次正常的通过 / 打回（公开面露出的仍是这一份新包体，判定由管理员给）。', by);
+  return { ok: true, id, sha256: live, oldSha256: oldSha, archived, at };
+}
+
+/**
+ * ⭐ 分类筛选（裁定 ⑤ / ⑥ / ⑨ 与需求 ③）：**只复用既有的 `packKind` 闭集**，
+ * 不新增分类字段、不要求回填老记录。
+ *
+ * 读法（`GET /mods?kind=…` 与 `GET /api/mods?kind=…` 共用这一份）：
+ *   · **不传** ⇒ 返回 `{ kinds: null }`：调用方走**现状**（全量、三区照旧）；
+ *   · `functional` / `documentation` / `unknown` 单个或多个（逗号分隔）⇒ 返回去重后的集合；
+ *   · 有任何一个值不在闭集里 ⇒ 返回 `{ error }`（调用方 400）——**不悄悄忽略**，
+ *     否则「我筛了但列表没变」会变成查不出来的误会。
+ * 空串 / 只有逗号（`?kind=`、`?kind=,`）按**不传**处理（等价于现状）。
+ */
+function kindFilterOf(url) {
+  const raw = url.searchParams.get('kind');
+  if (raw == null) return { kinds: null };
+  const parts = String(raw).split(',').map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return { kinds: null };
+  const bad = parts.filter((k) => !PACK_KINDS.includes(k));
+  if (bad.length) {
+    return { error: `kind 只能是 ${PACK_KINDS.join(' / ')} 之一（可以多选：逗号分隔）。不认识的值：${bad.join(' / ')}` };
+  }
+  const kinds = [...new Set(parts)];
+  // 值域就是三档，全选上了与「不传」等价 —— 但**不合并**：调用方要能区分「用户确实点了全选」。
+  return { kinds };
+}
+/** 一条记录的对外分类（缺省 `unknown` —— 与 `/api/mods` 那条口径逐字一致）。 */
+const kindOfRec = (s) => (PACK_KINDS.includes(s?.packKind) ? s.packKind : 'unknown');
+
+// ---------------------------------------------------------------- 数据模型字段（新增）
+/**
+ * `meta.json` 新增字段（老记录一个都没有 ⇒ 老记录一律**不可认领**，裁定 ④）：
+ *
+ *   pendingClaim     Array<{ h, at, by, ip }>  待用的**认领码哈希**（`h` 是 sha256，**无明文**）。
+ *                                              缺省 / 不存在 ⇒ 这条没有待领的码。
+ *   publisherTokens  Array<{ h, at, by }>      发布者令牌哈希（同样无明文）。缺省 ⇒ 无人认领。
+ *   publisherChanged boolean                   曾经被发布者改过（审核台加个标记用）。缺省 false。
+ *   withdrawRequested boolean                  自撤申请待管理员确认。缺省 false（**不存在就是没有**）。
+ *   withdrawRequestedAt string|null            ISO 时间。
+ *   withdrawReason   string|null               发布者自己填的理由（可为空字符串）。
+ *   withdrawHistory  Array<{...}>              自撤申请的流水（含被拒绝的那些，零删除）。
+ *   candidate        object|null              待批的候选包体描述（见下面 `/api/publisher/blob`）。
+ *
+ * `decision.json` 新增字段：
+ *   replacedBy: null                           **自撤专用**（裁定 ①）。管理员驱动的 superseded
+ *                                              照旧强制要求它是形状正确、且指向 approved 的编号。
+ *   publisherWithdraw object                   自撤那一笔的完整留痕（谁、什么时候、什么理由）。
+ *   reasonBeforeSupersede string|null          自撤前的决定理由（自撤后 `reason` 被换成自撤理由）。
+ *
+ * 「自撤申请」是**在 meta 上**、不是新状态：`state` 仍然只有 approved / rejected / superseded / pending
+ * 四档读法，一个都没新增 —— 所以公开面、审核台三视图、`/api/status` 的老读法全都不受影响。
+ */
+
+// ---------------------------------------------------------------- 文件与记录小工具
+/**
+ * 一个投稿住哪个区：疑似素材的在 flagged/，其余在 submissions/；兼容包在 compat/。
+ */
 const AREAS = { normal: SUBS, flagged: FLAGGED, compat: COMPAT };
 const dirIn = (area, id) => join(AREAS[area] ?? SUBS, id);
 /** 按编号找它的目录（三个区都找一遍）；找不到返回 null。 */
@@ -121,6 +486,7 @@ const dirOf = (id) => {
  * 一个编号对应哪个文件：
  *   `mod`  —— 要**发布**的那一份（普通投稿就是它自己；兼容包是**改写版**）
  *   `orig` —— **只留档、不发布**的原件（只有兼容包有）
+ *
  * 用一份实现，免得「公开下载」和「留档下载」哪天走到两个不同的地方去。
  */
 const blobNames = { mod: 'mod.zip', orig: 'orig.zip' };
@@ -136,6 +502,30 @@ const pathsOf = (id, variant = 'mod') => {
     packJsonOrig: join(f.dir, 'pack-json.orig.json'),
   };
 };
+/**
+ * 「原件留档」这条链接到底能不能给出 —— **按磁盘实况判**，不看 `kind`、不看记录里怎么写的。
+ *
+ * 兼容包的 `orig.zip` 只在走 `POST .../compat-submit` 时、且 `compatOf` 有值那一支才会被拷出来
+ * （见上面 `copyFileSync(op.blobPath, join(dir,'orig.zip'))`）。早先**手工逐个批准**上线的兼容包，
+ * 走的是 `/compat/link` 事后补 `compatOf`，那条路只补字段、**不补文件** —— 于是目录里根本没有 `orig.zip`。
+ *
+ * 早先这里写的是 `kind === 'compat'`，等于无条件发链接：前端拿到一个 `GET /api/file/<id>?variant=orig`
+ * 必然是 404 的地址。业主 2026-10-12 的硬要求是「不能出现下载 mod 但是不能用的情况」，
+ * 所以判据改成**只认文件在不在**：不在就输出 `null`（字段照给，值为 null，前端按缺省处理）。
+ *
+ * 与 `GET /api/file/<id>?variant=orig` 那段共用同一个 `pathsOf`，两处判据不会各说各话。
+ */
+const origArchiveOf = (id) => {
+  const P = pathsOf(id, 'orig');
+  return P && existsSync(P.blobPath) ? `/api/file/${id}?variant=orig` : null;
+};
+/** 「待批候选包体」的同源下载口（只有维护者能下，见 `/api/file` 段）。 */
+const candidateArchiveOf = (id) => {
+  const P = pathsOf(id);
+  return P && existsSync(join(P.dir, CANDIDATE_BLOB)) && existsSync(join(P.dir, 'candidate.json'))
+    ? `/api/file/${id}?variant=candidate` : null;
+};
+
 const metaPath = (id) => pathsOf(id)?.meta ?? null;
 const blobPath = (id) => pathsOf(id)?.blobPath ?? null;
 const decisionPath = (id) => pathsOf(id)?.decision ?? null;
@@ -185,6 +575,43 @@ async function packJsonFor(file) {
 }
 
 /**
+ * 不透明容器（`.spresources`）**看进去**：把 zip 里每个 `.spresources` 条目取出来，
+ * 交给 `reviewContainer`（纯函数）解析清单并逐条跑既有判据。
+ *
+ * 为什么必须有：容器是 ZIP 里**一个**大二进制，ZIP 层的检查只看得到它自己那一条记录
+ * （名字 + 大小），容器内部的路径**一条都没过** —— 2026-10-12 那次 43.2 MB 的素材容器
+ * 就是这样一路 `info`、`suspected=false` 的。这里补的就是"看一眼里面到底装了什么"。
+ */
+async function reviewOpaqueFor(zipFile, entries) {
+  const out = [];
+  const conts = (entries || []).filter((e) => !e.dir && /\.spresources$/i.test(e.name));
+  for (const c of conts) {
+    let buf = null;
+    try { buf = (await readZipFile(zipFile, [c.name])).get(c.name) || null; } catch { buf = null; }
+    out.push(...reviewContainer(buf, { containerName: c.name }));
+  }
+  return out;
+}
+
+/**
+ * 两处盲区的检查（**warn 档 + 要显式确认**，不是 blocker）：
+ *   ① 不透明容器内部清单（`reviewOpaqueFor`）
+ *   ② `pack.json.description` 与上传备注里**作者自己的自述**（`reviewSelfDecl`）
+ * 返回值还要给调用方算 `ackRequired`：命中 `ACK_CODES` 就得发布时点头。
+ */
+async function blindSpotFlags(zipFile, entries, { note = null } = {}) {
+  const out = [];
+  out.push(...(await reviewOpaqueFor(zipFile, entries)));
+  let description = null;
+  try { const pj = await packJsonFor(zipFile); description = pj && pj.description; } catch { description = null; }
+  out.push(...reviewSelfDecl({ note, description }));
+  return out;
+}
+
+/** 命中"要点头"的 code → 去重后的清单（写进 meta.ackCodes，供审核页与 /decide 用）。 */
+const ackCodesOf = (flags) => [...new Set((flags || []).filter((f) => ACK_CODES.includes(f.code)).map((f) => f.code))];
+
+/**
  * 一条记录的**原作者**从哪来 —— 公网 `/api/mods` 那两个署名栏用的就是它。
  *
  * **只推导，绝不回写**（业主 2026-10-11 口径）：这里一个字节都不写进
@@ -226,7 +653,11 @@ async function packAuthorOf(id) {
   try {
     const pack = await packJsonFor(file);
     const a = pack && typeof pack.author === 'string' ? pack.author.trim() : '';
-    if (a) value = { author: a, authorSource: 'pack.json' };
+    // 同一次读顺带把包内 `pack.json` 的 `id` 也带回来 —— 公网要按它找「**同一个 pack id 的成对记录**」
+    // （指令㉑：引擎不允许同 id 并存，玩家一次只能装一条，这件事必须在卡片上直接点出来）。
+    // 读不到 id 就是 null：**不猜、不编**，拿不到就不画那一行（见 pages/mods.html 的 sameIdPeers）。
+    const pid = pack && typeof pack.id === 'string' ? pack.id.trim() : '';
+    value = { author: a || null, authorSource: a ? 'pack.json' : null, packId: pid || null };
   } catch {
     value = null;                        // zip 坏了 / 条目加密 ⇒ 当作「读不到」，不是错误页
   }
@@ -237,11 +668,18 @@ async function packAuthorOf(id) {
 
 /** 公网列表里一条记录的两个署名栏（**只读记录，绝不写**；见 packAuthorOf）。 */
 async function signatureOf(s) {
-  if (s.kind === 'compat') return { author: s.author || null, authorSource: s.authorSource || null };
-  // 普通投稿：记录里万一已经有这一栏（历史记录或别的入口写进去的），**以记录为准** ——
+  if (s.kind === 'compat') {
+    // 兼容包的原始 id 记录里本来就有（发布时从包内 pack.json 抄下来的），不必再解一次 zip。
+    return { author: s.author || null, authorSource: s.authorSource || null, packId: (s.pack && s.pack.id) || null };
+  }
+  const fromPack = await packAuthorOf(s.id);          // 有缓存：同一条记录只解一次 zip
+  // 署名：记录里万一已经有这一栏（历史记录或别的入口写进去的），**以记录为准** ——
   // 推导只补「记录里没有」的那一格，绝不覆盖记录里已有的字。
-  if (s.author) return { author: s.author, authorSource: s.authorSource || null };
-  return (await packAuthorOf(s.id)) || { author: null, authorSource: null };
+  const auth = s.author
+    ? { author: s.author, authorSource: s.authorSource || null }
+    : { author: (fromPack && fromPack.author) || null, authorSource: (fromPack && fromPack.authorSource) || null };
+  // packId 一律取自包内 pack.json —— 它就是「同 id 不能并存」那条判据里的 id。
+  return { ...auth, packId: (fromPack && fromPack.packId) || null };
 }
 
 /**
@@ -356,23 +794,34 @@ function writeCompatDecision(P, M, { decision, reason = null, displayName = null
  *     并且 `replacedBy` 里写明「由哪条兼容包取代、那条叫什么、什么时候取代的」——可追溯。
  *
  * 只写它自己的 decision.json，**不动它的 meta.json、不删任何文件**。
- * 普通投稿 `/decide` 那条路仍只收 approved / rejected 作为**入参**（不认 superseded），
- * 所以这个状态不会被误当成一个可以随手传进来的值；但它**不是锁**：日后要人工纠错，
- * 维护者照样可以用 `/decide` 覆盖这一条（本站的原则是「不许把记录弄成不可处置」）。
+ *
+ * **取代者是谁**（业主 2026-10-12 扩展）：这个函数本来就不限制取代者 —— 它只拦「**被取代者**不能是兼容包」。
+ * 锁住取代者的是**调用点**：`compat-submit?publish=1` / `/compat/decide` / `/compat/link` 传进来的永远是
+ * compat 区记录。`/decide` 现在也收 `superseded`（必须带 `replacedBy`）⇒ **投稿取代投稿**这一路也走这里，
+ * 于是 `replacedBy.area` **按取代者的实际区给**（不再写死 `'compat'`）、理由文案也按区换词。
+ * ⚠️ 兼容性：既有三个调用点传的都是 compat 记录 ⇒ `byArea === 'compat'` ⇒ 产出的 `reason` 与
+ * `replacedBy.area` 与从前**逐字相同**（老路径零变化）。
+ * 这个状态**不是锁**：日后要人工纠错，维护者照样可以用 `/decide` 覆盖这一条
+ * （本站的原则是「不许把记录弄成不可处置」）。
+ *
+ * ⚠️ **自撤不走这里**（业主 2026-10-12 裁定 ①）：自撤是 `replacedBy: null`，没有取代者，
+ *    走 `markSelfWithdrawn()`。这个函数**一个字没改** —— 它产出的 `replacedBy` 永远是一条真实记录。
  */
-function markReplacedBy(origId, compatId, compatName) {
-  if (!origId || origId === compatId) return null;
+function markReplacedBy(origId, byId, byName) {
+  if (!origId || origId === byId) return null;
   const q = dirOf(origId);
   if (!q || q.area === 'compat') return null;                    // 只取代普通投稿（含 flagged）
+  const bq = dirOf(byId);
+  const byArea = bq ? bq.area : null;                            // 取代者住在哪个区（不再写死 'compat'）
   const om = readJson(join(q.dir, 'meta.json'));
   if (!om) return null;
   const at = nowIso();
   writeJson(join(q.dir, 'decision.json'), {
     decision: 'superseded',
-    reason: `已由兼容包 ${compatId}（${compatName}）取代并发布 —— 这一条不再单独上线，避免公网出现两份。`,
+    reason: `已由${byArea === 'compat' ? '兼容包' : '投稿'} ${byId}（${byName}）取代并发布 —— 这一条不再单独上线，避免公网出现两份。`,
     at, by: 'admin',
     displayName: om.name || null,
-    replacedBy: { id: compatId, name: compatName || null, area: 'compat', at },
+    replacedBy: { id: byId, name: byName || null, area: byArea, at },
   });
   return { id: origId, at };
 }
@@ -421,18 +870,23 @@ const sendCss = (res) => {
  * 视图名由服务端**白名单**校验后再注入页面（不把 URL 上的任意值写进 HTML）。
  */
 const ADMIN_VIEWS = ['main', 'approved', 'rejected'];
-/** 发一个「统一皮肤」的页面：把 __CSS__ 换成同源样式表链接、__ADMIN_API__ 换成当前前缀。
+/**
+ * 发一个「统一皮肤」的页面：把 __CSS__ 换成同源样式表链接、__ADMIN_API__ 换成当前前缀。
  * 两个替换放在一处，页面上就不会漏掉谁 —— 审核前缀是环境变量决定的，漏了就会打到不存在的地址。
  * 审核页还多一个 __VIEW__（当前在哪一页），同样是**白名单校验过**的值。
+ * 列表页多一个 __KINDS__（当前分类筛选，同样白名单校验过；只填进 data 属性，不拼 HTML）。
  */
 const renderPage = (res, name, opts = {}) => {
   const p = join(PAGES, name);
   if (!existsSync(p)) return send(res, 404, '页面不存在', { 'content-type': 'text/plain; charset=utf-8' });
   const view = ADMIN_VIEWS.includes(opts.view) ? opts.view : 'main';
+  const kinds = Array.isArray(opts.kinds) ? opts.kinds.filter((k) => PACK_KINDS.includes(k)) : [];
   const html = readFileSync(p, 'utf8')
     .split('__CSS__').join('/theme.css?v=3')
     .split('__ADMIN_API__').join(ADMIN_API)
-    .split('__VIEW__').join(view);
+    .split('__VIEW__').join(view)
+    // __KINDS__ 只注入**闭集里过滤过**的值（逗号分隔）；不传就是空串（= 现状）。
+    .split('__KINDS__').join(kinds.join(','));
   send(res, 200, html, { 'content-type': 'text/html; charset=utf-8' });
 };
 /** 审核页要告诉前端「管理 API 现在挂在哪个前缀下、当前是哪一页」，所以把占位符换掉再发。 */
@@ -484,6 +938,10 @@ const basicOk = (req) => {
   if (i < 0) return false;
   return tokenOk(dec.slice(i + 1));
 };
+/**
+ * 管理口两道防线合起来判定。**这个函数一个字没改**（硬约束：登录/令牌不许动）。
+ * 发布者那一侧是**平行的** `isPublisher`（认同一枚发布者令牌），两套互不替代。
+ */
 const isAdmin = (req) => adminAllowed(req) && (tokenOk(req.headers['x-admin-token']) || basicOk(req));
 
 /** 401 时要带这个头，浏览器才会弹登录框。 */
@@ -499,6 +957,25 @@ const rateLimited = (ip) => {
   arr.push(t);
   hits.set(ip, arr);
   return arr.length > 10;
+};
+
+/**
+ * 发布者侧写端点的限流（裁定 ⑧ ②：「别只限 `/api/submit`」）。
+ *
+ * 为什么**另开一套桶**而不是复用 `hits`：两件事的频率完全不是一回事 ——
+ * 「投稿」一个人一天发一次；「认领 / 改元数据 / 换包体 / 自撤」是**操作**，正常用起来
+ * 一分钟能点好几下（改个名字、再改个分类）。共用一个桶的话，发布者刚投完稿就动不了自己那条了。
+ *
+ * 口径：**每 IP 每 10 分钟 60 次**（正常人手点绝对到不了；脚本刷就被挡）。
+ * ⚠️ 只限**写**端点；`/api/publisher/mine` 那种只读查询不限（否则刷新几下就被锁）。
+ */
+const pubHits = new Map();
+const publisherRateLimited = (ip) => {
+  const t = Date.now();
+  const arr = (pubHits.get(ip) || []).filter((x) => t - x < 600000);
+  arr.push(t);
+  pubHits.set(ip, arr);
+  return arr.length > 60;
 };
 
 const readBody = (req, limit) =>
@@ -539,7 +1016,17 @@ const server = createServer(async (req, res) => {
     // ---- 页面
     if (req.method === 'GET' && p === '/theme.css') return sendCss(res);
     if (req.method === 'GET' && (p === '/' || p === '/index.html')) return renderPage(res, 'index.html');
-    if (req.method === 'GET' && (p === '/mods' || p === '/mods.html')) return renderPage(res, 'mods.html');
+    // ⭐ 「我的投稿」页（发布者自助的控制台）。零依赖、内联 JS；`__CSS__` 占位符照旧替换。
+    // ℹ️ 这一页**本身不校验令牌**（页面里什么都没有，就是几个空表单）——
+    //    真正的门在 `/api/publisher/*` 那几个端点上，每个都独立验令牌、独立限流。
+    if (req.method === 'GET' && (p === '/mine' || p === '/mine.html')) return renderPage(res, 'mine.html');
+    if (req.method === 'GET' && (p === '/mods' || p === '/mods.html')) {
+      // ⭐ 分类筛选（需求 ③）：`/mods?kind=functional` / `?kind=functional,documentation`。
+      // **不传 = 现状**（全量、三区照旧）。非法值 400 而不是悄悄忽略 —— 「筛了没变化」最难查。
+      const kf = kindFilterOf(url);
+      if (kf.error) return sendJson(res, 400, { error: kf.error, kinds: PACK_KINDS });
+      return renderPage(res, 'mods.html', { kinds: kf.kinds || [] });
+    }
     // 审核页本身就要认证 —— 只有**顶层导航**的 401 才会让浏览器弹登录框
     // （fetch 拿到 401 是不弹的，所以认证必须卡在页面这一层）。
     if (req.method === 'GET' && (p === `/${ADMIN_PATH}` || p === `/${ADMIN_PATH}/`)) {
@@ -559,6 +1046,9 @@ const server = createServer(async (req, res) => {
 
     // ---- 公开：已上线的 mod（**疑似素材的单独一组**，前端要分开显示并标注）
     if (req.method === 'GET' && p === '/api/mods') {
+      // ⭐ 分类筛选（可选，**不传 = 现状**，向后兼容）：`?kind=functional` 或 `?kind=a,b`。
+      const kf = kindFilterOf(url);
+      if (kf.error) return sendJson(res, 400, { error: kf.error, kinds: PACK_KINDS });
       const shape = (s, sig) => ({
         id: s.id, name: s.name, note: s.note, uploadedAt: s.uploadedAt, size: s.size,
         homepage: s.homepage || null, suspected: s.suspected === true,
@@ -567,6 +1057,21 @@ const server = createServer(async (req, res) => {
         // 普通投稿这两栏里通常只有原作者（没有「兼容者」这回事）——但**原作者照给**：
         // 来源是包内的 pack.json，见 signatureOf（推导，不回写记录）。
         kind: s.kind || 'submission',
+        // **另一种** kind：这条包「**装上到底会不会生效**」（指令③④）。与上面那个 `kind`
+        // （compat / submission，说的是这条记录**怎么来的**）是两回事，所以**故意不复用同一个键**：
+        //   functional    装上即生效 —— 站上每条都过了三道核：① `pack.json` 在 ZIP 根
+        //                 （否则解压进 workshop 目录根本不被装载）② 在引擎 0.16.0 的干净 workshop
+        //                 根**单独装载 errors=0** ③ `pack.json` 的 `api`/`game` 区间与当前
+        //                 MOD_API_VERSION / 上游版本相容；
+        //   documentation 说明包 / 参考 / 补丁 —— **装上不会启用任何功能**；
+        //   unknown       安装器形态等，判不了就**不放进真功能区**。
+        // ⚠️ 记录里没有这一栏（还没分类的、或日后新批的）一律按 **unknown** 给：
+        // 缺省**绝不可能是 functional** —— 否则「下载了 mod 却不能用」会从新记录那里漏回来。
+        packKind: s.packKind || 'unknown',
+        // 包内 `pack.json` 的 `id`（兼容包取记录里那一栏）。**只用来做一件事**：让公网那一页
+        // 能看出「哪几条是同一个 id」——引擎不允许同 id 并存，玩家一次只能装一条。
+        // 读不到就是 null，页面不画那一行（不猜）。
+        packId: sig.packId ?? null,
         // 原作者：兼容包取记录里那一栏（发布时预填自包内 pack.json，或维护者手填）；
         // 普通投稿记录里从来没有这一栏 ⇒ 去**包内 pack.json** 读（同一个来源名 pack.json）。
         author: sig.author,
@@ -583,17 +1088,47 @@ const server = createServer(async (req, res) => {
         // fetch 时代则直接 Failed to fetch。
         download: `/api/file/${s.id}`,
         // 只给维护者看的留档入口（公开下载这条路走到它会 403，见 /api/file/ 那一段）。
-        archiveDownload: s.kind === 'compat' ? `/api/file/${s.id}?variant=orig` : null,
+        // ⚠️ 只有留档文件**真的在磁盘上**才给这一栏：没有 `orig.zip` 的兼容包（早先手工批准上线、
+        // 以及 `/compat/link` 事后补链的那几条）发出去就是必然 404 的死链。判据见 `origArchiveOf`。
+        archiveDownload: origArchiveOf(s.id),
       });
-      const approved = allSubs().filter((s) => s.state === 'approved');
+      // ⭐ **公开面过滤器**（2026-10-12 增补，只加不减）：
+      //   · 主判据一个字没改：`state === 'approved'`；
+      //   · **只多一条**：排除「发布者申请自撤、等管理员确认」的那些（`isPubliclyVisible`）。
+      //     「他想删掉」要立刻见效 —— 见 isPubliclyVisible 的完整说明。
+      const approved = allSubs().filter((s) => isPubliclyVisible(s));
       // 逐条推署名来源（**只读**）。只有普通投稿真会去解一次 zip，而且结果有缓存
       // （见 packAuthorOf）；兼容包走记录里那两栏，一次 zip 都不读。
       // Promise.all 保序，所以列表顺序与 filter/map 时代完全一致。
       const shaped = await Promise.all(approved.map(async (s) => ({ s, o: shape(s, await signatureOf(s)) })));
-      return sendJson(res, 200, {
-        mods: shaped.filter((x) => !x.s.suspected).map((x) => x.o),
-        flagged: shaped.filter((x) => x.s.suspected).map((x) => x.o),
-      });
+      // 分类筛选在**分组之前**做（两组同一条判据），并且**保留三个分区标题**的既有画法：
+      // 服务端只筛数据，页面自己按 KIND_OF 分三块，标题一个没动（需求 ③ 的「保留现有三个分区标题」）。
+      const picked = kf.kinds ? shaped.filter((x) => kf.kinds.includes(kindOfRec(x.s))) : shaped;
+      const body = {
+        mods: picked.filter((x) => !x.s.suspected).map((x) => x.o),
+        flagged: picked.filter((x) => x.s.suspected).map((x) => x.o),
+      };
+      // ⭐ 每类计数（需求 ③：「分区标题旁显示每类计数」）。
+      // **只在不筛的时候给**：筛过之后「functional 有 3 条」这种数会因为筛选而变小，
+      // 反而误导（用户以为站上只有 3 条功能包）。所以筛过时不给 `counts` 字段，
+      // 页面退回按当前这批自己数（那才是屏幕上真实的条数）。
+      // ⚠️ 数的是**主分区（非疑似素材）**里的条数 —— 与页面实际画出来的那三个区块**同一口径**：
+      //    疑似素材在 `/mods` 上另起一块（「含疑似官方素材的 mod」），不并进任何分类区。
+      //    计数若把疑似素材那条也算进「说明包」，就会比用户点进去看到的多 1 条
+      //    （实测线上 115 条里 `e3a5d09eb6d3` 正是 approved + documentation + suspected，
+      //     它进了疑似那一组 ⇒ 计数 22、点进去只有 21）。这种「数对不上」最招人问，所以数同一批。
+      const mainOnly = shaped.filter((x) => !x.s.suspected);
+      if (!kf.kinds) {
+        body.counts = {
+          functional: mainOnly.filter((x) => kindOfRec(x.s) === 'functional').length,
+          documentation: mainOnly.filter((x) => kindOfRec(x.s) === 'documentation').length,
+          unknown: mainOnly.filter((x) => kindOfRec(x.s) === 'unknown').length,
+          flagged: shaped.length - mainOnly.length,
+          total: mainOnly.length,
+        };
+      }
+      body.kinds = kf.kinds;
+      return sendJson(res, 200, body);
     }
 
     // ---- 投稿人查自己的状态（要回执令牌）
@@ -602,9 +1137,22 @@ const server = createServer(async (req, res) => {
       if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对' });
       const meta = readJson(metaPath(id));
       if (!meta) return sendJson(res, 404, { error: '没有这条投稿' });
-      if (url.searchParams.get('t') !== meta.receipt) return sendJson(res, 403, { error: '回执令牌不对' });
+      const givenRec = url.searchParams.get('t');
+      const givenTok = publisherTokenOf(req);
+      const byReceipt = givenRec != null && givenRec === meta.receipt;
+      // ⭐ 发布者令牌也能查自己那条的状态（认领之后就不必再翻回执令牌了）。
+      // **失败时回同一句话、同一个码** —— 不区分「这条不存在」与「令牌不对」，
+      // 否则这就是一个「报 id 探记录存在性」的口子。定长比较见 publisherTokenOk。
+      const byPublisher = !!givenTok && isPublisher(meta, givenTok);
+      if (!byReceipt && !byPublisher) return sendJson(res, 403, { error: '回执令牌不对' });
       const d = readJson(decisionPath(id));
-      return sendJson(res, 200, { id, name: meta.name, state: d ? d.decision : 'pending', reason: d?.reason ?? null, decisionAt: d?.at ?? null });
+      return sendJson(res, 200, {
+        id, name: meta.name, state: d ? d.decision : 'pending', reason: d?.reason ?? null, decisionAt: d?.at ?? null,
+        // 自撤申请是**在 meta 上**的一条并行信息，不是第五种 state（state 仍然只有四档读法）。
+        withdrawRequested: meta.withdrawRequested === true,
+        withdrawReason: meta.withdrawReason ?? null,
+        withdrawRequestedAt: meta.withdrawRequestedAt ?? null,
+      });
     }
 
     // ---- 下载：已上线的谁都能下；待审的只有维护者能下（你要 down 下来跑测试）
@@ -613,7 +1161,26 @@ const server = createServer(async (req, res) => {
       const id = p.slice('/api/file/'.length);
       if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对' });
       const raw = url.searchParams.get('variant');
-      if (raw && raw !== 'mod' && raw !== 'orig') return sendJson(res, 400, { error: 'variant 只能是 mod / orig' });
+      if (raw && raw !== 'mod' && raw !== 'orig' && raw !== 'candidate') {
+        return sendJson(res, 400, { error: 'variant 只能是 mod / orig / candidate' });
+      }
+      // ⭐ 候选包体（发布者换上、还没批的那一份）：**只有维护者能下**，
+      //    它与「留档原件」一个性质 —— 是给你核对用的，不是发布物。
+      //    公开面上它**一个字节都不露**（裁定 ⑦：批准前公开面继续展示旧包）。
+      if (raw === 'candidate') {
+        if (!isAdmin(req)) {
+          if (!adminAllowed(req)) {
+            return sendJson(res, 403, { error: '候选包体只给审核看；管理口只允许回环地址（ADMIN_IPS），走 SSH 隧道再看。' });
+          }
+          return sendJson(res, 403, { error: '候选包体还没批，只有维护者能下载：请从审核页进入（浏览器会弹登录框），或用 x-admin-token 头带上令牌' });
+        }
+        const C = pathsOf(id);
+        if (!C) return sendJson(res, 404, { error: '没有这条记录' });
+        const candPath = join(C.dir, CANDIDATE_BLOB);
+        if (!existsSync(candPath)) return sendJson(res, 404, { error: '这条没有待批的候选包体' });
+        const cRec = readJson(join(C.dir, 'candidate.json')) || {};
+        return sendFile(res, candPath, cRec.candidate?.blobName || `${id}-候选版.zip`);
+      }
       const P = pathsOf(id, raw || 'mod');
       if (!P) return sendJson(res, 404, { error: '文件不在' });
       if (!existsSync(P.blobPath)) {
@@ -632,15 +1199,22 @@ const server = createServer(async (req, res) => {
         return sendFile(res, P.blobPath, `${id}-原件留档-${(mOrig.author || 'author').replace(/[\\/:*?"<>|]/g, '_')}.zip`);
       }
       const d = readJson(decisionPath(id));
-      if (d?.decision !== 'approved' && !isAdmin(req)) {
+      const mPub = readJson(metaPath(id)) || {};
+      // ⭐ 公开下载口也认「待确认的自撤申请」（与 /api/mods 同一条判据，一处写、两处用）：
+      //    发布者申请撤下的那一刻起，公网就**下不到**它了 —— 否则「删掉了但链接还能下」是假删除。
+      //    维护者（`isAdmin`）照旧能下，跑测试不受影响。
+      const publicOk = d?.decision === 'approved' && mPub.withdrawRequested !== true;
+      if (!publicOk && !isAdmin(req)) {
+        if (mPub.withdrawRequested === true) {
+          return sendJson(res, 403, { error: '发布者已申请撤下这一条，等维护者确认；期间公网不再提供下载。' });
+        }
         // 报错要自己说清怎么办，不然维护者本人也会以为「我不是维护者吗」
         if (!adminAllowed(req)) {
           return sendJson(res, 403, { error: '这个还没通过审核；而管理口只允许回环地址（ADMIN_IPS），公网上拿不到待审包。走 SSH 隧道再下。' });
         }
         return sendJson(res, 403, { error: '这个还没通过审核，只有维护者能下载：请从审核页进入（浏览器会弹登录框），或用 x-admin-token 头带上令牌' });
       }
-      const meta = readJson(metaPath(id)) || {};
-      return sendFile(res, P.blobPath, meta.blobName || `${id}-${(meta.name || 'mod').replace(/[\\/:*?"<>|]/g, '_')}.zip`);
+      return sendFile(res, P.blobPath, mPub.blobName || `${id}-${(mPub.name || 'mod').replace(/[\\/:*?"<>|]/g, '_')}.zip`);
     }
 
     // ---- 上传
@@ -653,7 +1227,7 @@ const server = createServer(async (req, res) => {
       if (nameFlags.some((f) => f.level === 'blocker')) {
         return sendJson(res, 400, { error: '名称不合格', flags: nameFlags });
       }
-      if (note.length > 4000) return sendJson(res, 400, { error: '备注太长（最多 4000 字）' });
+      if (note.length > NOTE_MAX) return sendJson(res, 400, { error: `备注太长（最多 ${NOTE_MAX} 字）` });
 
       // 有 content-length 就先拒：这样客户端拿到的是明明白白的 413，而不是传到一半连接被掐。
       // （XHR / fetch 传 Buffer 或 File 时一定会带这个头；没有的走下面的边收边判。）
@@ -681,6 +1255,11 @@ const server = createServer(async (req, res) => {
         contentFlags = [{ level: 'blocker', code: 'BAD_ZIP', text: `zip 读不了：${e.message}` }];
       }
 
+      // 两处盲区（2026-10-12 业主裁定）：不透明容器内部 + 作者自述。**warn 档，但发布要显式点头。**
+      contentFlags = [...contentFlags, ...(await blindSpotFlags(tmpZip, entries, { note }))];
+      const ackCodes = ackCodesOf(contentFlags);
+      const ackRequired = needsAcknowledge(contentFlags);
+
       // **疑似素材照收不拒**（业主裁决）：它进 flagged/ 单独存放，并且处处标注清楚。
       // 「疑似」不等于「确认」—— 投稿人自己也未必知道原件里夹了什么。
       const suspected = hasBlocker(contentFlags);
@@ -691,6 +1270,9 @@ const server = createServer(async (req, res) => {
       partToClean = null;                      // 已经是正式的 mod.zip 了，不再是临时文件
 
       const files = entries.filter((e) => !e.dir);
+      // ⭐ 认领码（裁定 ③）：**明文只在这一个响应里出现一次**；盘上存的是它的哈希
+      //    （见 `pendingClaim`）。发布者拿它去 `POST /api/publisher/claim` 换一枚发布者令牌。
+      const claimCode = claimOf();
       const meta = {
         id, area, name, note, homepage: homepage || null,
         size: body.length, sha256: createHash('sha256').update(body).digest('hex'),
@@ -700,14 +1282,29 @@ const server = createServer(async (req, res) => {
         flags: [...nameFlags, ...contentFlags],
         suspected,
         suspectedReasons: contentFlags.filter((f) => f.level === 'blocker').map((f) => f.code),
+        // 「要显式确认」的标志位（与 `suspected` 是两条不同的路：这一条**不改存放区**、
+        // 也**不改公开面对"疑似素材"的既有标注**，只要求发布时 acknowledge）。
+        ackRequired,
+        ackCodes,
+        // 新增（老记录一个都没有 ⇒ 老记录一律不可认领，裁定 ④）：
+        pendingClaim: [{ h: claimHashOf(claimCode), at: nowIso(), by: 'submit', ip }],
       };
       writeJson(join(dir, 'meta.json'), meta);
+      audit('submit', { id, ip, actor: 'public', detail: { name, area, suspected, claimIssued: true } });
 
       return sendJson(res, 201, {
         ok: true, id, area, receipt: meta.receipt,
         state: 'pending', suspected,
         size: meta.size, sha256: meta.sha256, entries: meta.entries,
         statusUrl: `${BASE_URL}/api/status/${id}?t=${meta.receipt}`,
+        // ⭐ **认领码，只在这里出现一次**：站点不存明文、页面也不回显第二次。
+        //    发布者用它换发布者令牌，之后就能自己改这一条（改完照样回待审）。
+        claimCode,
+        claimPath: '/api/publisher/claim',
+        publisherPage: '/mine',
+        claimNote: '这串认领码**只显示这一次**：用它去「我的投稿」换一枚发布者令牌，之后这条投稿就归你管'
+          + '（改名称/备注/分类、换包体、申请撤下）。站点只存它的哈希，丢了就找不回明文 —— '
+          + '丢了也不要紧：请维护者再发一枚即可（老记录也一样，找维护者手工发码）。',
         flags: meta.flags,
         message: suspected
           ? '已收到。包里有疑似官方素材（见 flags），它已被单独存放并会公开标注；维护者人工确认后再决定上不上线。'
@@ -715,12 +1312,378 @@ const server = createServer(async (req, res) => {
       });
     }
 
+    // ================================================================
+    // ⭐ **发布者自助**（`/api/publisher/*`，2026-10-12 新增）
+    //
+    // 身份 = **发布者令牌**（认领码换来的），与 `ADMIN_TOKEN` **平行**、互不替代：
+    //   · 这一层**不看** `ADMIN_IPS`（发布者在公网上用，回环白名单是给管理口的）；
+    //     但也**不可能**因此拿到任何管理能力 —— 每个端点只动**自己那一条**。
+    //   · 认领码 / 令牌**只存哈希**（`pendingClaim` / `publisherTokens`），比对走 `timingSafeEqual`。
+    //   · 写端点**一律限流**（`publisherRateLimited`，裁定 ⑧ ②）；只读的 `/mine` 不限。
+    //
+    // ⚠️ 四条不许破的边界（再次写在这里，因为这是最容易写歪的一段）：
+    //   ① 自助写**永不**写 `decision=approved`；
+    //   ② 自助写**永不**替换公开的 `mod.zip`（新包写成候选 `mod.pending.zip`）；
+    //   ③ 任何改动**都回待审**（`clearDecision`）；
+    //   ④ 任何路径**都不删**记录 / 文件。
+    // ================================================================
+    if (p === '/api/publisher/claim' || p.startsWith('/api/publisher/')) {
+      const pubToken = publisherTokenOf(req);
+      const pubIp = ip;
+
+      // ---- ① 认领码 → 发布者令牌（一次性）
+      if (req.method === 'POST' && p === '/api/publisher/claim') {
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        const id = typeof inObj.id === 'string' ? inObj.id.trim() : '';
+        const code = typeof inObj.claimCode === 'string' ? inObj.claimCode.trim().toUpperCase() : '';
+        if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6–32 位小写字母/数字）' });
+        const meta = readJson(metaPath(id));
+        // ⚠️ **认不出来就回同一句话、同一个码**：不区分「编号不存在」「没有待领的码」「码不对」，
+        //    否则这就是一个「报 id 探记录存在性」的口子。形状不对的码也照比一次（定长比较）。
+        const denied = () => sendJson(res, 403, { error: '编号或认领码不对（认领码是一次性的；已用过、已过期、或这条没有待领的码，都会是这个结果）' });
+        if (!meta) { claimOk({}, code); return denied(); }
+        if (!claimOk(meta, code)) return denied();
+        // 认领码过期：不再接受兑换（记录里的哈希照旧留着 —— 零删除）。管理员可再发一枚。
+        const claims = (Array.isArray(meta.pendingClaim) ? meta.pendingClaim : []).filter((c) => {
+          const at = Date.parse(c?.at || '');
+          return !Number.isFinite(at) || (Date.now() - at) <= CLAIM_TTL_DAYS * 86400000;
+        });
+        if (!claimOk({ pendingClaim: claims }, code)) {
+          return sendJson(res, 410, { error: `这枚认领码超过 ${CLAIM_TTL_DAYS} 天，已经不再接受兑换 —— 请维护者再发一枚。` });
+        }
+        const token = tokenOf();
+        const at = nowIso();
+        const kept = (Array.isArray(meta.publisherTokens) ? meta.publisherTokens : []).slice(-(TOKEN_MAX - 1));
+        const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+        writeJson(metaPath(id), {
+          ...meta,
+          // 用掉的那一枚从待用清单里去掉（**不是删记录**：只去掉一枚已消费的凭据哈希），
+          // 其余待用的码原样保留。
+          pendingClaim: claims.filter((c) => c.h !== claimHashOf(code)),
+          publisherTokens: [...kept, { h: tokHashOf(token), at, by: 'claim', ip }],
+          revisions: [...hist, {
+            at, by: 'publisher',
+            changed: { publisherTokens: (meta.publisherTokens || []).length },
+            to: { publisherTokens: (meta.publisherTokens || []).length + 1 },
+            why: '发布者用一次性认领码换了一枚发布者令牌（只存哈希）。',
+          }],
+        });
+        audit('tokenClaimed', { id, ip, actor: 'publisher', detail: { tokens: kept.length + 1 } });
+        // ⚠️ 令牌**明文只在这一个响应里出现一次**（盘上只有哈希，丢了只能由管理员重发认领码）。
+        return sendJson(res, 200, {
+          ok: true, id, publisherToken: token, name: meta.name,
+          minePath: '/api/publisher/mine',
+          page: '/mine',
+          note: '这枚发布者令牌**只显示这一次**（站点只存哈希）。请存好：'
+            + '它就是「这条投稿归你管」的凭据 —— 改名称/备注/分类、换包体、申请撤下都靠它。'
+            + '丢了找维护者再发一枚认领码即可。',
+        });
+      }
+
+      // ---- ② 「我的投稿」：凭令牌列出自己认领过的记录（只读，不限流）
+      if (req.method === 'GET' && p === '/api/publisher/mine') {
+        // ⚠️ 认不下来就 401，而且**不告诉任何事**（不说「你没有认领过」还是「令牌不对」）。
+        if (!pubToken) return sendJson(res, 401, { error: '需要发布者令牌（x-publisher-token 头，或 Authorization: Bearer）' });
+        const mine = [];
+        for (const s of allSubs()) {
+          if (s.kind === 'compat') continue;              // 兼容包不出自发布者
+          const meta = readJson(metaPath(s.id));
+          if (!meta || !isPublisher(meta, pubToken)) continue;
+          mine.push({
+            id: s.id, name: s.name, state: s.state, area: s.area,
+            packKind: kindOfRec(s),
+            size: meta.size ?? null, uploadedAt: meta.uploadedAt ?? null,
+            withdrawRequested: meta.withdrawRequested === true,
+            withdrawReason: meta.withdrawReason ?? null,
+            candidate: meta.candidate ? {
+              at: meta.candidate.at ?? null, sha256: meta.candidate.sha256 ?? null, size: meta.candidate.size ?? null,
+            } : null,
+            revisions: Array.isArray(meta.revisions) ? meta.revisions.length : 0,
+            download: `/api/file/${s.id}`,
+          });
+        }
+        // 认下来了但一条也没有（比如认领的是别人的？不可能 —— 令牌就是按条存哈希的）
+        // 也照给空数组，不报错：页面照实画「还没有认领的投稿」。
+        if (!mine.length) {
+          // 「一枚令牌都没匹配上任何记录」时给 401 还是空列表？**给空列表** ——
+          // 令牌是按记录存的，认领成功就一定有一条；给空列表不会泄露任何东西，
+          // 而 401 会让「记录被管理员整条搬走」这种正常情形看起来像令牌坏了。
+          return sendJson(res, 200, { ok: true, mine: [], count: 0 });
+        }
+        return sendJson(res, 200, { ok: true, mine, count: mine.length });
+      }
+
+      // ---- ③ 改元数据（name / note / homepage / packKind）⇒ **强制回待审**
+      if (req.method === 'POST' && p === '/api/publisher/update') {
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        const raw = await readBody(req, NOTE_BODY_MAX);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        // 一次一个明确写出的 id（与 /note、/hide、/packkind 同一条铁律）。
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，不收「一批」（多了这些键：${batchKeys.join(' / ')}）。要改 N 条就发 N 次。`,
+          });
+        }
+        const id = typeof inObj.id === 'string' ? inObj.id.trim() : '';
+        if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6–32 位小写字母/数字）' });
+        if (!pubToken) return sendJson(res, 401, { error: '需要发布者令牌（x-publisher-token 头）' });
+        const meta = readJson(metaPath(id));
+        if (!meta) return sendJson(res, 404, { error: '没有这条记录' });
+        // ⚠️ **只能碰自己那条**：令牌对不上就是 403，**不是 404** ——
+        //    「这条存在但不是你的」与「这条不存在」在这条路上本来就没打算区分，
+        //    但 403 更诚实：编号存在（/api/mods 上谁都能看到），只是你没这个权。
+        if (!isPublisher(meta, pubToken)) return sendJson(res, 403, { error: '这枚发布者令牌不是这一条的（只能改自己认领过的投稿）' });
+        if (dirOf(id)?.area === 'compat') return sendJson(res, 400, { error: '兼容包不在发布者自助范围内（它是维护者侧的改写成品）' });
+        // 逐个字段**先算不写**：任何一项不合法就直接返回，磁盘上什么都不改。
+        const patch = {};
+        if (inObj.name != null) {
+          if (typeof inObj.name !== 'string') return sendJson(res, 400, { error: 'name 形状不对（必须是字符串）' });
+          const nm = inObj.name.trim();
+          if (!nm) return sendJson(res, 400, { error: 'name 不能是空的' });
+          if (nm.length > 60) return sendJson(res, 400, { error: 'name 太长（最多 60 字）' });
+          const nf = reviewName(nm);
+          if (nf.some((f) => f.level === 'blocker')) return sendJson(res, 400, { error: '名称不合格', flags: nf });
+          if (nm !== meta.name) patch.name = nm;
+        }
+        if (inObj.note != null) {
+          if (typeof inObj.note !== 'string') return sendJson(res, 400, { error: 'note 形状不对（必须是字符串）' });
+          const nt = inObj.note.trim();
+          if (nt.length > NOTE_MAX) return sendJson(res, 400, { error: `备注太长（最多 ${NOTE_MAX} 字）` });
+          if (nt !== (meta.note ?? '')) patch.note = nt;
+        }
+        if (inObj.homepage != null) {
+          if (typeof inObj.homepage !== 'string') return sendJson(res, 400, { error: 'homepage 形状不对（必须是字符串）' });
+          const hp = inObj.homepage.trim().slice(0, 300);
+          if (hp !== (meta.homepage ?? '')) patch.homepage = hp || null;
+        }
+        if (inObj.packKind != null) {
+          if (typeof inObj.packKind !== 'string' || !PACK_KINDS.includes(inObj.packKind.trim())) {
+            return sendJson(res, 400, { error: `packKind 只能是 ${PACK_KINDS.join(' / ')} 之一（闭枚举：拼错的值不许落进记录）` });
+          }
+          const pk = inObj.packKind.trim();
+          if (pk !== (meta.packKind ?? null)) patch.packKind = pk;
+        }
+        if (!Object.keys(patch).length) {
+          return sendJson(res, 200, { ok: true, id, changed: false, at: nowIso(), note: '字段与现在完全相同，没有写盘（幂等）。' });
+        }
+        const at = nowIso();
+        const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+        writeJson(metaPath(id), {
+          ...meta,
+          ...patch,
+          publisherChanged: true,
+          revisions: [...hist, {
+            at, by: 'publisher',
+            changed: Object.fromEntries(Object.keys(patch).map((k) => [k, meta[k] ?? null])),
+            to: patch,
+            why: '发布者自助改元数据（改动即**强制回待审**：上一份决定已移入本记录的 revisions，等管理员复审）。',
+          }],
+        });
+        // ⭐ 强制回待审：**公开面立刻不再列出**这条（`state` 读出来就是 pending）。
+        //    不是「删记录」—— 上一份决定逐字进了 revisions.decisionSnapshot（零删除）。
+        const moved = clearDecision(id, '发布者改了这条投稿的元数据 ⇒ 强制回到待审，等管理员复审（改动前的决定已留在 revisions 里）。', 'publisher');
+        audit('publisherUpdate', {
+          id, ip, actor: 'publisher',
+          detail: { changed: keysOf(patch), forcedPending: true, previousDecision: moved?.decision ?? null },
+        });
+        return sendJson(res, 200, {
+          ok: true, id, changed: true, at,
+          forcedPending: true,
+          changedKeys: keysOf(patch),
+          previousDecision: moved?.decision ?? null,
+          note: moved
+            ? `改动已记进 revisions；上一份决定（${moved.decision}）也已移入 revisions，本条回到**待审**。`
+            : '改动已记进 revisions；本条本来就是待审。',
+          message: '改好了。管理员复审通过后才会重新出现在公开列表上 —— 这是有意的：发布者不直改公开面。',
+        });
+      }
+
+      // ---- ④ 换包体 / 上新版本 ⇒ 写成**候选**，公开面照旧展示旧包（裁定 ⑦）
+      if (req.method === 'POST' && p === '/api/publisher/blob') {
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        const id = (url.searchParams.get('id') || '').trim();
+        if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6–32 位小写字母/数字，放在查询串 ?id=）' });
+        if (!pubToken) return sendJson(res, 401, { error: '需要发布者令牌（x-publisher-token 头）' });
+        const meta = readJson(metaPath(id));
+        if (!meta) return sendJson(res, 404, { error: '没有这条记录' });
+        if (!isPublisher(meta, pubToken)) return sendJson(res, 403, { error: '这枚发布者令牌不是这一条的（只能换自己认领过的投稿）' });
+        if (dirOf(id)?.area === 'compat') return sendJson(res, 400, { error: '兼容包不在发布者自助范围内' });
+        const declared = Number(req.headers['content-length'] || 0);
+        if (declared && declared > MAX_BYTES) {
+          return sendJson(res, 413, { error: `文件 ${(declared / 1048576).toFixed(1)} MB，超过上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB` });
+        }
+        const body = await readBody(req, MAX_BYTES);
+        if (!body.length) return sendJson(res, 400, { error: '没有收到文件' });
+        if (!looksLikeZip(body.subarray(0, 4))) return sendJson(res, 400, { error: '只收 zip（这个文件头不是 zip 魔数）' });
+        const P = pathsOf(id);
+        // 候选先落到**数据目录根下的临时名**，检查全过了才搬进记录目录 ——
+        // 与 /api/submit 同一条纪律：失败路径一个 `.part` 都不许留在记录目录里。
+        const tmpZip = join(DATA_DIR, `${id}.publisher.part`);
+        writeFileSync(tmpZip, body);
+        partToClean = tmpZip;
+        let entries = [];
+        let contentFlags = [];
+        try {
+          entries = await readZipEntries(tmpZip);
+          contentFlags = reviewEntries(entries, { packIdHint: meta.name });
+        } catch (e) {
+          contentFlags = [{ level: 'blocker', code: 'BAD_ZIP', text: `zip 读不了：${e.message}` }];
+        }
+        contentFlags = [...contentFlags, ...(await blindSpotFlags(tmpZip, entries, { note: meta.note }))];
+        const sha = createHash('sha256').update(body).digest('hex');
+        if (sha === meta.sha256) {
+          // 同一份文件：不必留候选（幂等），但**也不报错** —— 发布者多半只是想确认传上去了。
+          try { unlinkSync(tmpZip); } catch { /* 清不掉由 finally 兜 */ }
+          partToClean = null;
+          return sendJson(res, 200, {
+            ok: true, id, changed: false, at: nowIso(),
+            sha256: sha, note: '这一份与现在公开的包体**逐字节相同**，没有留候选。',
+          });
+        }
+        const at = nowIso();
+        const dir = P.dir;
+        const candPath = join(dir, CANDIDATE_BLOB);
+        const candName = blobNameFromHeader(req, `${id}-候选版.zip`);
+        // 覆盖上一份**没批的**候选是安全的（它本来就还没生效）；但**先把旧候选留个名**，
+        // 免得「我上次传的那份去哪了」查无对证（零删除）。
+        let prevCand = null;
+        if (existsSync(candPath)) {
+          prevCand = `mod.pending-${at.replace(/[^0-9]/g, '')}.zip`;
+          let t = prevCand;
+          for (let i = 1; existsSync(join(dir, t)); i++) t = `mod.pending-${at.replace(/[^0-9]/g, '')}-${i}.zip`;
+          prevCand = t;
+          renameSync(candPath, join(dir, prevCand));
+        }
+        renameSync(tmpZip, candPath);
+        partToClean = null;
+        const candidate = {
+          at, by: 'publisher', ip,
+          sha256: sha, size: body.length,
+          entries: entries.filter((e) => !e.dir).length,
+          unpackedBytes: entries.reduce((n, e) => n + e.uncompSize, 0),
+          blobName: candName,
+          previousCandidateArchived: prevCand,
+          flags: contentFlags,
+          ackRequired: needsAcknowledge(contentFlags),
+          suspected: hasBlocker(contentFlags),
+          note: '发布者换的包体 / 上新版本 —— **候选**：批准前公开面继续展示旧的 mod.zip（裁定 ⑦）。',
+        };
+        writeJson(join(dir, 'candidate.json'), { id, candidate, previousPublicSha256: meta.sha256 || null });
+        const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+        writeJson(P.meta, {
+          ...meta,
+          publisherChanged: true,
+          candidate: {
+            at, by: 'publisher', sha256: sha, size: body.length,
+            entries: candidate.entries, blobName: candName,
+            previousPublicSha256: meta.sha256 || null,
+          },
+          revisions: [...hist, {
+            at, by: 'publisher',
+            changed: { sha256: meta.sha256 ?? null, publicBlob: 'mod.zip（未动）' },
+            to: { candidateSha256: sha, candidateBlob: CANDIDATE_BLOB },
+            why: '发布者换上新的候选包体：**不动公开的 mod.zip**；等管理员核过哈希后批准才切换。',
+          }],
+        });
+        audit('publisherBlob', {
+          id, ip, actor: 'publisher',
+          detail: { candidateSha256: sha, publicSha256: meta.sha256 ?? null, bytes: body.length, previousCandidateArchived: prevCand },
+        });
+        return sendJson(res, 200, {
+          ok: true, id, changed: true, at,
+          candidate: { sha256: sha, size: body.length, entries: candidate.entries },
+          publicSha256: meta.sha256 ?? null,
+          note: '候选包体已收下（**没有**替换公开的那一份）。公开面从现在起**照旧展示旧包**；'
+            + '管理员下载候选、核对无误后点「批准候选包体」，才会切到这一份。',
+        });
+      }
+
+      // ---- ⑤ 自撤（裁定 ②）⇒ `withdrawRequested`，**公开面立刻不再列出**
+      if (req.method === 'POST' && p === '/api/publisher/withdraw') {
+        if (publisherRateLimited(ip)) return sendJson(res, 429, { error: '操作太频繁了，过一会儿再来' });
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        const id = typeof inObj.id === 'string' ? inObj.id.trim() : '';
+        if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6–32 位小写字母/数字）' });
+        if (!pubToken) return sendJson(res, 401, { error: '需要发布者令牌（x-publisher-token 头）' });
+        if (inObj.reason != null && typeof inObj.reason !== 'string') {
+          return sendJson(res, 400, { error: 'reason 形状不对（必须是字符串）' });
+        }
+        const reason = String(inObj.reason || '').trim().slice(0, 1000);
+        const meta = readJson(metaPath(id));
+        if (!meta) return sendJson(res, 404, { error: '没有这条记录' });
+        if (!isPublisher(meta, pubToken)) return sendJson(res, 403, { error: '这枚发布者令牌不是这一条的（只能撤自己认领过的投稿）' });
+        if (dirOf(id)?.area === 'compat') return sendJson(res, 400, { error: '兼容包不在发布者自助范围内' });
+        if (meta.withdrawRequested === true) {
+          return sendJson(res, 200, {
+            ok: true, id, changed: false, withdrawRequested: true, at: meta.withdrawRequestedAt ?? nowIso(),
+            note: '这条已经在「待管理员确认自撤」状态里了，没有重复写盘（幂等）。',
+          });
+        }
+        const at = nowIso();
+        const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+        const wh = Array.isArray(meta.withdrawHistory) ? meta.withdrawHistory : [];
+        writeJson(metaPath(id), {
+          ...meta,
+          withdrawRequested: true,
+          withdrawRequestedAt: at,
+          withdrawReason: reason || null,
+          withdrawHistory: [...wh, {
+            at, by: 'publisher', action: 'requested',
+            reason: reason || null,
+            stateBefore: readJson(decisionPath(id))?.decision ?? 'pending',
+            ip,
+          }],
+          revisions: [...hist, {
+            at, by: 'publisher',
+            changed: { withdrawRequested: false },
+            to: { withdrawRequested: true },
+            why: '发布者申请撤下（自撤）。**公开面立刻不再列出这一条**，等管理员确认；记录、决定、包体一个都没删。',
+          }],
+        });
+        audit('withdrawRequested', {
+          id, ip, actor: 'publisher',
+          detail: { reason: reason || null, stateBefore: readJson(decisionPath(id))?.decision ?? 'pending' },
+        });
+        return sendJson(res, 200, {
+          ok: true, id, changed: true, at,
+          withdrawRequested: true,
+          publicVisible: false,
+          note: '撤下申请已收到：**公开列表与下载口立刻不再显示这一条**（这是「想删掉就立刻见效」那一半）。'
+            + '管理员确认后转为 `superseded`（自撤终态，`replacedBy: null`）；管理员拒绝则恢复公开。'
+            + '记录、包体与全部留痕一个都不会删。',
+        });
+      }
+
+      return sendJson(res, 404, { error: '没有这个发布者端点' });
+    }
+
     // ---- 维护者：列表 / 详情 / 决定
     if (p.startsWith(`${ADMIN_API}/`)) {
       if (!adminAllowed(req)) return sendJson(res, 403, { error: '这个地址不在管理白名单里（ADMIN_IPS）' });
       if (!isAdmin(req)) return askForLogin(res);
 
-      if (req.method === 'GET' && p === `${ADMIN_API}/list`) return sendJson(res, 200, { submissions: allSubs() });
+      if (req.method === 'GET' && p === `${ADMIN_API}/list`) {
+        const subs = allSubs();
+        // ⭐ 审核台要一眼看到「发布者自撤待确认」那一条（裁定 ② / 需求 B）。
+        //    只**加**一个字段，`submissions` 的形状与从前逐字相同（既有页面读法不受影响）。
+        return sendJson(res, 200, { submissions: subs, withdrawQueue: withdrawQueue().map((s) => ({ id: s.id, name: s.name, at: s.withdrawRequestedAt ?? null, reason: s.withdrawReason ?? null })) });
+      }
 
       if (req.method === 'GET' && p.startsWith(`${ADMIN_API}/detail/`)) {
         const id = p.slice(`${ADMIN_API}/detail/`.length);
@@ -739,14 +1702,34 @@ const server = createServer(async (req, res) => {
           const k = seg.length > 1 ? seg[0] + '/' : '(根)';
           top[k] = (top[k] || 0) + (e.uncompSize || 0);
         }
+        // ⭐ 「发布者改了什么」：把 `revisions` 里**发布者那一侧**的改动摘出来给审核页看
+        //    （需求 B「审核页显示发布者改了什么」）。`revisions` 本来就是既有字段，
+        //    这里只是**只读地挑出 by !== 'admin' 的那些**，一个字节都不写。
+        const revisions = Array.isArray(meta.revisions) ? meta.revisions : [];
+        const publisherRevisions = revisions
+          .filter((r) => r && r.by && r.by !== 'admin')
+          .map((r) => ({ at: r.at ?? null, by: r.by, changed: r.changed ?? null, to: r.to ?? null, why: r.why ?? null }));
+        const P2 = pathsOf(id, 'mod');
+        const candPath = P2 ? join(P2.dir, CANDIDATE_BLOB) : null;
+        const candRec = P2 ? readJson(join(P2.dir, 'candidate.json')) : null;
+        const candidateLive = candPath && existsSync(candPath)
+          ? createHash('sha256').update(readFileSync(candPath)).digest('hex') : null;
         return sendJson(res, 200, { meta, entries: entries.filter((e) => !e.dir).slice(0, 400), topLevel: top,
           variant,
           // 通过时就是照这个哈希核对「改写版没被掉包」的，所以详情里也带上，好让人当场比。
           viewSha256: existsSync(P.blobPath) ? createHash('sha256').update(readFileSync(P.blobPath)).digest('hex') : null,
           // 两个下载都**同一个编号**，用 variant 分开：默认给要发布的那份，留档原件单独一个口。
           download: `/api/file/${id}`,
-          archiveDownload: existsSync(join(P.dir, 'orig.zip')) ? `/api/file/${id}?variant=orig` : null,          // pack.json 的原件快照：原注释一字不变的凭据。
-          packJsonOrig: readJson(P.packJsonOrig) || null });
+          archiveDownload: origArchiveOf(id),          // pack.json 的原件快照：原注释一字未变的凭据。判据与公开列表同一份实现。
+          packJsonOrig: readJson(P.packJsonOrig) || null,
+          // 新增（只加字段，老读法不受影响）：
+          publisherRevisions,
+          candidate: candRec ? {
+            ...candRec.candidate,
+            download: `/api/file/${id}?variant=candidate`,
+            liveSha256: candidateLive,
+            hashMatches: !!(candidateLive && candRec.candidate?.sha256 === candidateLive),
+          } : null });
       }
 
       // 普通投稿的通过 / 打回。
@@ -756,9 +1739,20 @@ const server = createServer(async (req, res) => {
         const raw = await readBody(req, 64 * 1024);
         let inObj = {};
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
-        const { id, decision, reason, displayName, acknowledge } = inObj;
+        const { id, decision, reason, displayName, acknowledge, replacedBy } = inObj;
+        // 一次一个明确写出的 id（与 `/note`、`/compat/note` 同一条铁律）：任何「一批」的形状直接拒。
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，不收「一批」（多了这些键：${batchKeys.join(' / ')}）。要改 N 条就发 N 次，每条单独核对。`,
+          });
+        }
         if (!ID_RE.test(String(id || ''))) return sendJson(res, 400, { error: 'id 形状不对' });
-        if (!['approved', 'rejected'].includes(decision)) return sendJson(res, 400, { error: 'decision 只能是 approved / rejected' });
+        if (!['approved', 'rejected', 'superseded'].includes(decision)) {
+          return sendJson(res, 400, {
+            error: 'decision 只能是 approved / rejected / superseded（走 superseded 时必须同时给 replacedBy）',
+          });
+        }
         if (!existsSync(blobPath(id))) return sendJson(res, 404, { error: '没有这条投稿' });
         // 兼容包走自己的那一段（它有「两个署名 + 原件留档 + 原注释不变」几条硬检查）。
         // 从这里放它过去，等于把那些检查全部绕开 —— 所以直接挡住。
@@ -766,12 +1760,77 @@ const server = createServer(async (req, res) => {
           return sendJson(res, 400, { error: `这是维护者侧的兼容包，请用专门的那一段：POST ${ADMIN_API}/compat/decide` });
         }
         const meta = readJson(metaPath(id)) || {};
+        // ---- `superseded`：把这一条投稿标成「已被另一条**投稿**取代」（业主 2026-10-12 扩展）
+        //   起因：同一个 `pack.json` id 会有多版投稿（`b6a3f39ae9ad` v0.2.1 取代 v0.2.0 与 v0.1），
+        //   而原先只有「兼容包取代投稿」一条路能写 superseded ⇒ 高版本上线后旧版本一直挂在待审队列/公网。
+        //   判据（缺一个就拒，**先算不写**）：
+        //     · `replacedBy` 必填、形状对、不等于 id、那条记录存在；
+        //     · **取代者不能是兼容包**（与 markReplacedBy 同一条约束，反着说一遍，早点给明确错误）；
+        //     · **取代者必须已经 approved** —— 否则公网上会出现「两份都没有」；
+        //     · 幂等：已经是 superseded 且指向同一个 ⇒ `changed:false`，不写盘。
+        //
+        //   ⭐ 2026-10-12 增补（裁定 ①）：**`replacedBy: null` 只对「发布者自撤」那条路放宽**，
+        //      而且必须**同时带上 `reason: 'publisher-withdraw'`** 这个标志 ——
+        //      即：管理员替发布者落一次自撤终态。**管理员驱动的取代（有取代者）一个字没放宽**：
+        //      下面那一整段校验（形状 / 不等于自己 / 记录在 / 不是兼容包 / 必须已 approved）原样执行。
+        if (decision === 'superseded' && String(reason || '') === 'publisher-withdraw') {
+          const prev = readJson(decisionPath(id));
+          if (prev && prev.decision === 'superseded' && (prev.replacedBy ?? null) === null) {
+            return sendJson(res, 200, { ok: true, id, state: 'superseded', replacedBy: null, changed: false });
+          }
+          const at = markSelfWithdrawn(id, {
+            reason: meta.withdrawReason || displayName || WITHDRAW_DEFAULT_REASON,
+            by: 'admin', ip,
+          });
+          if (!at) return sendJson(res, 400, { error: '这条记录不能这样自撤（兼容包不来自发布者，不在自撤范围内）' });
+          audit('withdrawConfirmed', {
+            id, ip, actor: 'admin', admin: true,
+            detail: { by: 'admin-decide', replacedBy: null, reason: meta.withdrawReason ?? null },
+          });
+          return sendJson(res, 200, { ok: true, id, state: 'superseded', replacedBy: null, changed: true, at });
+        }
+        if (decision === 'superseded') {
+          const byId = String(replacedBy || '').trim();
+          if (!ID_RE.test(byId)) {
+            return sendJson(res, 400, { error: 'superseded 必须同时给 replacedBy（取代它的那条投稿编号），且形状要对。'
+              + '（唯一的例外是**发布者自撤**：那条走 reason:\'publisher-withdraw\' + replacedBy:null，见本段注释。）' });
+          }
+          if (byId === id) return sendJson(res, 400, { error: 'replacedBy 不能是它自己' });
+          if (!existsSync(metaPath(byId))) return sendJson(res, 404, { error: `找不到编号 ${byId} 的那条记录` });
+          if (isCompat(byId)) {
+            return sendJson(res, 400, { error: `编号 ${byId} 是兼容包 —— 兼容包取代投稿请走 POST ${ADMIN_API}/compat/link` });
+          }
+          const byMeta = readJson(metaPath(byId)) || {};
+          const byDec = readJson(decisionPath(byId));
+          if (!byDec || byDec.decision !== 'approved') {
+            return sendJson(res, 409, {
+              error: `取代者 ${byId} 还不是 approved（当前 ${byDec ? byDec.decision : 'pending'}）—— `
+                + '先把它批上线再来取代，否则公网上会出现「两份都没有」。',
+            });
+          }
+          const prev = readJson(decisionPath(id));
+          if (prev && prev.decision === 'superseded' && prev.replacedBy && prev.replacedBy.id === byId) {
+            return sendJson(res, 200, { ok: true, id, state: 'superseded', replacedBy: byId, changed: false });
+          }
+          const r = markReplacedBy(id, byId, byMeta.name || null);
+          if (!r) return sendJson(res, 400, { error: '这条记录不能这样取代（被取代者不能是兼容包）' });
+          audit('superseded', { id, ip, actor: 'admin', admin: true, detail: { replacedBy: byId } });
+          return sendJson(res, 200, { ok: true, id, state: 'superseded', replacedBy: byId, replaced: r, changed: true });
+        }
         // 疑似素材**可以**上线（业主裁决：照收，但标注清楚），但必须**显式确认**过标记 ——
         // 不允许默默放过：页面上那个勾选会把它带来，少了就拒。
-        if (decision === 'approved' && meta.suspected && acknowledge !== true) {
+        // 两道「点头才放行」，都**不改档位规则**、只要求发布者显式 acknowledge：
+        //   ① 疑似素材（blocker 档 → 上公开面会单独标注，既有行为一字未改）；
+        //   ② 盲区 warn 档（不透明容器 / 作者自述夹带官方素材 —— 见 review.mjs 的 ACK_CODES）：
+        //      档位是 warn（业主口径：让风险显式、由发布决定承担，不是一律拦住），但**发布要点头**。
+        if (decision === 'approved' && (meta.suspected || meta.ackRequired === true) && acknowledge !== true) {
+          const warnHits = (meta.flags || []).filter((f) => ACK_CODES.includes(f.code));
           return sendJson(res, 409, {
-            error: '这条带「疑似官方素材」标记，上线后会在公开列表里明确标注。看过标记仍要上线的话，勾上确认再来。',
-            flags: (meta.flags || []).filter((f) => f.level === 'blocker'),
+            error: meta.suspected
+              ? '这条带「疑似官方素材」标记，上线后会在公开列表里明确标注。看过标记仍要上线的话，勾上确认再来。'
+              : `这条命中「要显式确认」的检查（${[...new Set(warnHits.map((f) => f.code))].join(' / ')}）：`
+                + '不透明容器 / 作者自述夹带官方素材。档位是 warn（不是 blocker），但发布要显式点头 —— 看过命中项仍要上线的话，勾上确认再来。',
+            flags: meta.suspected ? (meta.flags || []).filter((f) => f.level === 'blocker') : warnHits,
             needsAcknowledge: true,
           });
         }
@@ -781,7 +1840,227 @@ const server = createServer(async (req, res) => {
           acknowledgedSuspected: meta.suspected === true && decision === 'approved',
         });
         if (displayName && displayName !== meta.name) writeJson(metaPath(id), { ...meta, name: displayName });
-        return sendJson(res, 200, { ok: true, id, state: decision, area: meta.area, suspected: meta.suspected === true });
+        // 管理员把一条**带自撤申请**的记录重新批回上线 ⇒ 那条申请就算处理掉了（清标志位，留痕）。
+        // 这是「管理员拒绝自撤」的另一条等价路径（在决定页直接批回），两条路都留痕、都不删东西。
+        const cleared = [];
+        if (decision === 'approved' && meta.withdrawRequested === true) {
+          const m2 = readJson(metaPath(id)) || meta;
+          const hist2 = Array.isArray(m2.revisions) ? m2.revisions : [];
+          const wh2 = Array.isArray(m2.withdrawHistory) ? m2.withdrawHistory : [];
+          writeJson(metaPath(id), {
+            ...m2,
+            withdrawRequested: false,
+            withdrawHistory: [...wh2, { at: nowIso(), by: 'admin', action: 'rejected-by-approve', reason: null, ip }],
+            revisions: [...hist2, {
+              at: nowIso(), by: 'admin',
+              changed: { withdrawRequested: true }, to: { withdrawRequested: false },
+              why: '管理员在决定页把这条重新批回上线 ⇒ 待确认的自撤申请视为被拒绝，公开面恢复。',
+            }],
+          });
+          cleared.push('withdrawRequested');
+        }
+        audit(decision === 'approved' ? 'approved' : 'rejected', {
+          id, ip, actor: 'admin', admin: true, detail: { reason: reason || null, cleared },
+        });
+        return sendJson(res, 200, { ok: true, id, state: decision, area: meta.area, suspected: meta.suspected === true, cleared });
+      }
+
+      // ================================================================
+      // ⭐ `POST ${ADMIN_API}/withdraw-decide` —— **发布者自撤待确认**的一键确认 / 拒绝（裁定 ②）。
+      //
+      // 报文：`{ "id": "<编号>", "action": "confirm" | "reject", "reason": "<可选，拒绝时建议写>" }`
+      //   · `confirm` ⇒ 落 `decision=superseded` + **`replacedBy: null`**（自撤终态，走 markSelfWithdrawn）；
+      //   · `reject`  ⇒ 清 `withdrawRequested`（公开面恢复），申请进 `withdrawHistory` 留痕。
+      //
+      // ⚠️ 与全站同一条铁律：**只认一个明确指定的 id**（`ids`/`batch`/`items`/`list` 一律 400）。
+      // ⚠️ 零删除：两条路都**不删**记录、包体、决定 —— 拒绝只是清一个布尔标志位并留痕；
+      //    确认是把决定换成自撤终态（上一份决定进 revisions）。
+      // ================================================================
+      if (req.method === 'POST' && p === `${ADMIN_API}/withdraw-decide`) {
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，不收「一批」（多了这些键：${batchKeys.join(' / ')}）。要处理 N 条就发 N 次，每条单独核对。`,
+          });
+        }
+        const id = typeof inObj.id === 'string' ? inObj.id.trim() : '';
+        if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6-32 位小写字母/数字）' });
+        const action = String(inObj.action || '').trim();
+        if (!['confirm', 'reject'].includes(action)) {
+          return sendJson(res, 400, { error: 'action 只能是 confirm（确认自撤）或 reject（拒绝、恢复公开）' });
+        }
+        if (inObj.reason != null && typeof inObj.reason !== 'string') {
+          return sendJson(res, 400, { error: 'reason 形状不对（必须是字符串）' });
+        }
+        const note = String(inObj.reason || '').trim().slice(0, 1000);
+        const P = pathsOf(id);
+        if (!P) return sendJson(res, 404, { error: '没有这条记录' });
+        const meta = readJson(P.meta);
+        if (!meta) return sendJson(res, 404, { error: '这条记录的 meta.json 读不出来（形状不对），不动它' });
+        if (P.area === 'compat') return sendJson(res, 400, { error: '兼容包不来自发布者，没有自撤这回事' });
+        if (meta.withdrawRequested !== true) {
+          return sendJson(res, 409, {
+            error: '这条现在没有待确认的自撤申请（withdrawRequested 不是 true）—— 先让发布者从「我的投稿」提交自撤。',
+            withdrawRequested: false,
+          });
+        }
+        const at = nowIso();
+        const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+        const wh = Array.isArray(meta.withdrawHistory) ? meta.withdrawHistory : [];
+        if (action === 'reject') {
+          writeJson(P.meta, {
+            ...meta,
+            withdrawRequested: false,
+            withdrawHistory: [...wh, { at, by: 'admin', action: 'rejected', reason: note || null, ip }],
+            revisions: [...hist, {
+              at, by: 'admin',
+              changed: { withdrawRequested: true }, to: { withdrawRequested: false },
+              why: '管理员拒绝了发布者的自撤申请：清掉待确认标志位，这条**照旧公开**（记录与包体一个都没动）。',
+            }],
+          });
+          audit('withdrawRejected', { id, ip, actor: 'admin', admin: true, detail: { reason: note || null } });
+          return sendJson(res, 200, {
+            ok: true, id, action: 'reject', withdrawRequested: false, at,
+            note: '已拒绝：这条**恢复公开**（它本来就没被改动过 —— 自撤申请只影响「列不列出来」）。申请已记入 withdrawHistory 留痕。',
+          });
+        }
+        const confirmedAt = markSelfWithdrawn(id, {
+          reason: meta.withdrawReason || note || WITHDRAW_DEFAULT_REASON,
+          by: 'admin', ip,
+        });
+        if (!confirmedAt) return sendJson(res, 400, { error: '这条记录不能这样自撤（兼容包不在自撤范围内）' });
+        // 终态已落 ⇒ 清掉待确认标志位（申请已经处理完，别再挂着）。
+        const m3 = readJson(P.meta) || meta;
+        writeJson(P.meta, {
+          ...m3,
+          withdrawRequested: false,
+          withdrawHistory: [...(Array.isArray(m3.withdrawHistory) ? m3.withdrawHistory : []),
+            { at: confirmedAt, by: 'admin', action: 'confirmed', reason: note || null, ip }],
+          revisions: [...(Array.isArray(m3.revisions) ? m3.revisions : []), {
+            at: confirmedAt, by: 'admin',
+            changed: { withdrawRequested: true }, to: { withdrawRequested: false, decision: 'superseded（replacedBy: null，自撤）' },
+            why: '管理员确认了发布者的自撤申请：这条转为 superseded 自撤终态，公开面不再列出（记录、包体、留档全部保留）。',
+          }],
+        });
+        audit('withdrawConfirmed', {
+          id, ip, actor: 'admin', admin: true,
+          detail: { replacedBy: null, reason: meta.withdrawReason ?? null, adminNote: note || null },
+        });
+        return sendJson(res, 200, {
+          ok: true, id, action: 'confirm', state: 'superseded', replacedBy: null, at: confirmedAt,
+          note: '已确认自撤：`decision=superseded` 且 **`replacedBy: null`**（没有取代者）。'
+            + '记录、包体、留档原件与全部留痕一个都没删（零删除）。',
+        });
+      }
+
+      // ================================================================
+      // ⭐ `POST ${ADMIN_API}/promote-blob` —— **批准候选包体**（裁定 ⑦ 的后半句）。
+      //
+      // 报文：`{ "id": "<编号>" }`（可选 `expectedSha256`：详情页拿到的那个哈希，带上就当场核）。
+      //   · 核过哈希才切：候选文件现在磁盘上的 sha256 必须等于记录里那一栏；
+      //   · 旧的 `mod.zip` **改名留档**（`mod.superseded-<ts>.zip`），**不删**；
+      //   · 切换后本条**回到待审**（`clearDecision`）—— 换包体是有后果的动作，
+      //     上线与否仍然由管理员在决定页明确给一次（与「发布者不直改公开面」同一条边界）。
+      // ⚠️ 只认一个明确指定的 id。
+      // ================================================================
+      if (req.method === 'POST' && p === `${ADMIN_API}/promote-blob`) {
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，不收「一批」（多了这些键：${batchKeys.join(' / ')}）。要批 N 条就发 N 次。`,
+          });
+        }
+        const id = typeof inObj.id === 'string' ? inObj.id.trim() : '';
+        if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6-32 位小写字母/数字）' });
+        if (inObj.expectedSha256 != null && typeof inObj.expectedSha256 !== 'string') {
+          return sendJson(res, 400, { error: 'expectedSha256 形状不对（必须是字符串）' });
+        }
+        if (isCompat(id)) return sendJson(res, 400, { error: '兼容包走 /compat/submit 那条路，没有候选包体这回事' });
+        const r = promoteCandidate(id, { by: 'admin', expectedSha256: inObj.expectedSha256 || null });
+        if (r.error) return sendJson(res, r.error.includes('没有') ? 404 : 409, r);
+        audit('promoteBlob', {
+          id, ip, actor: 'admin', admin: true,
+          detail: { sha256: r.sha256, oldSha256: r.oldSha256, archived: r.archived },
+        });
+        return sendJson(res, 200, {
+          ...r,
+          note: '候选包体已批准：公开包体切到这一份；旧包体改名留档（不删）。'
+            + '本条已**回到待审** —— 请在上面的决定区给它一次明确的「通过并上线」（发布者不直改公开面）。',
+        });
+      }
+
+      // ================================================================
+      // ⭐ `POST ${ADMIN_API}/issue-claim` —— 管理员**手工发一枚认领码**（裁定 ④ / ⑨）。
+      //
+      // 用途两个，都是带外（微信/群里）交给发布者：
+      //   · **老记录**（115 条里没有 `publisherTokens` 的那些）：它们没有提交时的认领码，
+      //     要让人能自助管理，就由管理员在这里发一枚；
+      //   · **令牌丢了**：发布者把令牌弄丢（站上只有哈希，找不回明文）⇒ 管理员再发一枚认领码，
+      //     他换一枚新的即可（旧令牌不回收 —— 零删除）。
+      //
+      // 报文：`{ "id": "<编号>" }`。返回里**明文只出现这一次**；盘上只落哈希。
+      // ⚠️ 只认一个明确指定的 id；**兼容包不发**（它不出自发布者）。
+      // ================================================================
+      if (req.method === 'POST' && p === `${ADMIN_API}/issue-claim`) {
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，不收「一批」（多了这些键：${batchKeys.join(' / ')}）。要发 N 枚就发 N 次。`,
+          });
+        }
+        const id = typeof inObj.id === 'string' ? inObj.id.trim() : '';
+        if (!ID_RE.test(id)) return sendJson(res, 400, { error: 'id 形状不对（6-32 位小写字母/数字）' });
+        const P = pathsOf(id);
+        if (!P) return sendJson(res, 404, { error: '没有这条记录' });
+        if (P.area === 'compat') return sendJson(res, 400, { error: '兼容包不来自发布者，不发认领码' });
+        const meta = readJson(P.meta);
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+          return sendJson(res, 404, { error: '这条记录的 meta.json 读不出来（形状不对），不动它' });
+        }
+        const code = claimOf();
+        const at = nowIso();
+        // 待用清单只保留最近的几枚（旧的也没用了，但**不删记录**：只是不再列在待用清单里）。
+        const kept = (Array.isArray(meta.pendingClaim) ? meta.pendingClaim : []).slice(-7);
+        const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+        writeJson(P.meta, {
+          ...meta,
+          pendingClaim: [...kept, { h: claimHashOf(code), at, by: 'admin', ip }],
+          revisions: [...hist, {
+            at, by: 'admin',
+            changed: { pendingClaim: (meta.pendingClaim || []).length },
+            to: { pendingClaim: kept.length + 1 },
+            why: '管理员手工发了一枚认领码（老记录认领 / 发布者令牌丢失后的找回）。只落哈希。',
+          }],
+        });
+        audit('claimIssued', {
+          id, ip, actor: 'admin', admin: true,
+          detail: { pendingClaims: kept.length + 1, existingTokens: (meta.publisherTokens || []).length },
+        });
+        return sendJson(res, 200, {
+          ok: true, id, claimCode: code, at,
+          claimPath: '/api/publisher/claim', page: '/mine',
+          note: '这一枚认领码**只在这里出现这一次**（盘上只存哈希）。请**带外**交给这条投稿的发布者：'
+            + '他去「我的投稿」页用它换一枚发布者令牌。老记录（没有发布者令牌的）也是这样开通自助管理的。'
+            + '⚠️ 别把它贴在公开地方 —— 谁拿到谁就能替这条投稿做自助操作。',
+        });
       }
 
       // ================================================================
@@ -843,7 +2122,7 @@ const server = createServer(async (req, res) => {
         const originUrl = (url.searchParams.get('originUrl') || '').trim().slice(0, 300);
         const compatOf = (url.searchParams.get('compatOf') || '').trim();           // 由哪个待审原件改写来
         const compatNote = (url.searchParams.get('compatNote') || '').trim();       // 改了什么
-        if (compatNote.length > 4000) return sendJson(res, 400, { error: '兼容说明太长（最多 4000 字）' });
+        if (compatNote.length > NOTE_MAX) return sendJson(res, 400, { error: `兼容说明太长（最多 ${NOTE_MAX} 字）` });
         // 「维护者人工确认」：形状先算不写（校验放在真读包之前，缺理由/形状不对直接拒，磁盘上什么都不动）。
         // 只认字面 `1`；给了理由才算确认。两样缺一个都 400 —— 没有「默认确认」。
         const confirmRaw = (url.searchParams.get('confirmBlockers') || '').trim();
@@ -913,6 +2192,28 @@ const server = createServer(async (req, res) => {
         } catch (e) {
           contentFlags = [{ level: 'blocker', code: 'BAD_ZIP', text: `zip 读不了：${e.message}` }];
         }
+        // 与 /api/submit **同一套**盲区检查（兼容版不该另立一套标准）。
+        contentFlags = [...contentFlags, ...(await blindSpotFlags(tmpZip, entries, { note: compatNote }))];
+        // 业主令 31：本条的 pack.json 与**留档原件的根 pack.json** 比一比 —— 不同 ⇒ warn + 发布要点头；
+        // 原件没有根 pack.json（补丁/安装器/套目录形态）⇒ info。**必须在下面算 ackRequired 之前。**
+        if (compatOf) {
+          const opDiff = pathsOf(compatOf, 'mod');
+          let originText = null, originHasRoot = false;
+          if (opDiff && existsSync(opDiff.blobPath)) {
+            try {
+              const b0 = (await readZipFile(opDiff.blobPath, ['pack.json'])).get('pack.json');
+              if (b0) { originHasRoot = true; originText = b0.toString('utf8').replace(/^\uFEFF/, ''); }
+            } catch { /* 读不了 ⇒ 按"没有根 pack.json"记 info */ }
+          }
+          let myText = null;
+          try {
+            const b1 = (await readZipFile(tmpZip, ['pack.json'])).get('pack.json');
+            if (b1) myText = b1.toString('utf8').replace(/^\uFEFF/, '');
+          } catch { /* 上面已经因为读不到 pack.json 拒过一次了 */ }
+          contentFlags = [...contentFlags, ...reviewCompatPackJson({ compatText: myText, originText, originHasRoot })];
+        }
+        const ackCodes = ackCodesOf(contentFlags);
+        const ackRequired = needsAcknowledge(contentFlags);
         const suspectedByTiers = hasBlocker(contentFlags);
         // 档位照样判（`suspectedByTiers` 永远如实算出来，不进包、也不被确认覆盖）；
         // 「维护者人工确认」只决定**这一条算不算疑似**（＝进不进公网主列表），
@@ -1047,6 +2348,8 @@ const server = createServer(async (req, res) => {
             description: typeof pack.description === 'string' ? pack.description : null },
           flags: [...nameFlags, ...finalAuthorFlags, ...compatFlags, ...contentFlags, ...sourceFlags],
           suspected,
+          ackRequired,
+          ackCodes,
           // 档位怎么判的照实记一份（确认放行过的记录：这里是 true、suspected 是 false）——
           // 「命中过、但人确认过」这件事必须一眼看得出来，不能靠 suspected 一个字段糊过去。
           suspectedByTiers,
@@ -1063,6 +2366,19 @@ const server = createServer(async (req, res) => {
         let published = null;
         let replaced = null;
         if (url.searchParams.get('publish') === '1') {
+          // 业主令 31：命中"要显式确认"的检查（`pack.json` 与留档原件不一致 / 不透明容器 / 作者自述…）
+          // ⇒ **不发布**，但**记录照留**（与下面 gate 拦下时同形：一条都不删，只是没上线）。
+          if (meta.ackRequired === true && url.searchParams.get('acknowledge') !== '1') {
+            const hits = (meta.flags || []).filter((f) => ACK_CODES.includes(f.code));
+            return sendJson(res, 409, {
+              ok: false, id, area: 'compat', kind: 'compat', state: 'pending',
+              published: null, replaced: null,
+              error: `这一份**没有发布**（记录已作为待审留下，没删任何东西）：命中「要显式确认」的检查`
+                + `（${[...new Set(hits.map((f) => f.code))].join(' / ')}）。档位是 warn（不是 blocker）—— `
+                + '看过命中项仍要发布的话，带上 `acknowledge=1` 再发一次；理由写进决定记录。',
+              flags: hits, needsAcknowledge: true,
+            });
+          }
           const gate = await compatPublishGate(pathsOf(id), meta);
           if (gate.error) {
             // 拦下了就**停在待审**：记录、改写版、原件留档一个都不删（条数只增不减），
@@ -1154,6 +2470,16 @@ const server = createServer(async (req, res) => {
           : meta;
 
         if (decision === 'approved') {
+          // 与 /decide 同一道「点头」门：盲区 warn 档也要显式 acknowledge 才发布（档位不变）。
+          if (patchedMeta.ackRequired === true && acknowledge !== true) {
+            const warnHits = (patchedMeta.flags || []).filter((f) => ACK_CODES.includes(f.code));
+            return sendJson(res, 409, {
+              error: `这条命中「要显式确认」的检查（${[...new Set(warnHits.map((f) => f.code))].join(' / ')}）：`
+                + '不透明容器 / 作者自述夹带官方素材。档位是 warn（不是 blocker），但发布要显式点头 —— '
+                + '看过命中项仍要上线的话，带上 acknowledge:true 再来。',
+              flags: warnHits, needsAcknowledge: true,
+            });
+          }
           // 三道硬门（署名 / 原件快照 / 改写版没被掉包）只有一份实现 —— 与上传处的
           // `compat-submit?publish=1` 共用，见文件上方的 compatPublishGate。
           const gate = await compatPublishGate(P, patchedMeta);
@@ -1171,6 +2497,9 @@ const server = createServer(async (req, res) => {
         const replaced = decision === 'approved'
           ? markReplacedBy(patchedMeta.compatOf, id, displayName || patchedMeta.name)
           : null;
+        audit(decision === 'approved' ? 'compatApproved' : 'compatRejected', {
+          id, ip, actor: 'admin', admin: true, detail: { replaced: replaced?.id ?? null },
+        });
         return sendJson(res, 200, {
           ok: true, id, kind: 'compat', state: decision, suspected: patchedMeta.suspected === true,
           author: patchedMeta.author || null, compatAuthor: patchedMeta.compatAuthor || null,
@@ -1246,6 +2575,7 @@ const server = createServer(async (req, res) => {
         if (!already) writeJson(C.meta, patched);
         // 原投稿按 B 口径处置 —— 与一步发布、/compat/decide 完全同一条实现。
         const replaced = markReplacedBy(originId, compatId, patched.name || cMeta.name || null);
+        audit('compatLink', { id: compatId, ip, actor: 'admin', admin: true, detail: { originId, alreadyLinked: already } });
         return sendJson(res, 200, {
           ok: true, compatId, originId, compatOf: originId,
           alreadyLinked: already,
@@ -1283,13 +2613,15 @@ const server = createServer(async (req, res) => {
       //   ③ `id` 是**字符串**且合 `ID_RE`（数组 / 对象直接拒）；
       //   ④ `note` 是**字符串**（数组 / 对象 / null / 缺失都拒）；
       //   ⑤ `note` 去首尾空白后**非空**（备注不许清成空 —— 「没有备注」是另一件事，不在这条路上做）；
-      //   ⑥ 长度 ≤ 4000（与 `/api/submit` 的备注同一个上限）；
-      //   ⑦ 这条记录在 `compat/` 区，且 `meta.json` 读出来是个带字符串 `name` 的对象。
+      //   ⑥ 这条记录在 `compat/` 区，且 `meta.json` 读出来是个带字符串 `name` 的对象
+      //      （**区域检查排在长度之前** —— 业主 2026-10-12 裁定：走错端点的人要看到「该去哪」，
+      //        而不是一句关于长度的 400）；
+      //   ⑦ 长度 ≤ `NOTE_MAX`（20000，与 `/api/submit` 的备注同一个上限）。
       // 幂等：`note` 与 `compatNote` 都已经是新文案时，直接回 `changed:false`，
       //   **不写盘、不加 revisions** —— 重复发同一个请求不会留下第二笔改动记录。
       // ================================================================
       if (req.method === 'POST' && p === `${ADMIN_API}/compat/note`) {
-        const raw = await readBody(req, 16 * 1024);
+        const raw = await readBody(req, NOTE_BODY_MAX);
         let inObj = null;
         try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
         // ① 必须是一个普通对象
@@ -1317,11 +2649,17 @@ const server = createServer(async (req, res) => {
         if (!nextNote) {
           return sendJson(res, 400, { error: 'note 不能是空的 —— 本端点只用来把备注换成一句正常文案' });
         }
-        // ⑥ 长度上限
-        if (nextNote.length > 4000) return sendJson(res, 400, { error: '备注太长（最多 4000 字）' });
-        // ⑦ 记录形状：必须在 compat/ 区，meta.json 读得出来
+        // ⑥ 记录形状：必须在 compat/ 区，meta.json 读得出来
+        //    ⚠️ 次序（业主 2026-10-12 裁定）：**区域检查排在长度检查之前** ——
+        //    否则一条 submissions 区的记录会被长度抢先报 400，真正的原因（走错了端点）反而看不出来。
         const P = pathsOf(id);
-        if (!P || P.area !== 'compat') return sendJson(res, 404, { error: '没有这条兼容包' });
+        if (!P || P.area !== 'compat') {
+          return sendJson(res, 404, {
+            error: `没有这条兼容包。本端点只服务 compat/ 区的记录；submissions / flagged 区的备注请用 POST ${ADMIN_API}/note。`,
+          });
+        }
+        // ⑦ 长度上限
+        if (nextNote.length > NOTE_MAX) return sendJson(res, 400, { error: `备注太长（最多 ${NOTE_MAX} 字）` });
         const meta = readJson(P.meta);
         if (!meta || typeof meta !== 'object' || Array.isArray(meta) || typeof meta.name !== 'string') {
           return sendJson(res, 404, { error: '这条兼容包的 meta.json 读不出来（形状不对），不动它' });
@@ -1343,6 +2681,7 @@ const server = createServer(async (req, res) => {
             why: '公网页备注改写：换成面向下载者的正常文案（只动 note / compatNote 两栏，其余字段一字未动）',
           }],
         });
+        audit('compatNote', { id, ip, actor: 'admin', admin: true, detail: { noteLen: nextNote.length } });
         return sendJson(res, 200, {
           ok: true, id, changed: true, note: nextNote,
           note_old: meta.note ?? null,
@@ -1352,6 +2691,165 @@ const server = createServer(async (req, res) => {
       }
 
       // ================================================================
+      // ================================================================
+      // `POST ${ADMIN_API}/note` —— **投稿区（submissions / flagged）的备注改写**。
+      //
+      // 为什么另开一条，而不是让 `/compat/note` 顺手管两个区（业主 2026-10-12 裁定）：
+      //   · **字段语义不同**：compat 记录把 `note` 与 `compatNote` 写成**同一句**，
+      //     `pages/mods.html` 把这一对**只画一次**、带「**兼容说明：**」标签；
+      //     投稿记录只有 `note` 有意义，公网**不带标签**地画它。
+      //     若让 `/compat/note` 也写投稿记录的 `compatNote`，公网会把一条**普通投稿**的备注
+      //     标成「兼容说明」—— 那条记录根本没有兼容改写，这是**说假话**。
+      //   · 与站点既有模式一致：`decide`（投稿）与 `compat/decide`（兼容包）就是**按区拆成两条**，
+      //     各自**明确拒绝**另一区；合并会让本端点成为全站唯一例外。
+      //
+      // 报文：`{ "id": "<编号>", "note": "<新备注>" }` —— 与 `/compat/note` 同形。
+      // **只写 `meta.note` 一栏**（外加一笔 `revisions` 留痕）；**不碰 `compatNote`** ——
+      // 那是 compat 区的「兼容说明」，投稿记录没有这一栏。
+      //
+      // ⚠️ 铁律（与 `/compat/decide`、`/compat/link`、`/compat/note` 顶上那条同源）：
+      //   本端点**只认一个明确指定的 id**。报文里出现任何「一批」的形状一律 400 拒掉 ——
+      //   永远不要写「把筛出来的一批循环喂进来」的脚本。
+      //
+      // 判定次序（业主 2026-10-12 裁定）：**区域检查排在长度检查之前**。
+      // ================================================================
+      if (req.method === 'POST' && p === `${ADMIN_API}/note`) {
+        const raw = await readBody(req, NOTE_BODY_MAX);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        // ① 必须是一个普通对象
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        // ② 只认一个 id：任何「一批」的形状直接拒
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，不收「一批」（多了这些键：${batchKeys.join(' / ')}）。要改 N 条就发 N 次，每条单独核对。`,
+          });
+        }
+        // ③ id 是字符串且形状对
+        if (typeof inObj.id !== 'string' || !ID_RE.test(inObj.id.trim())) {
+          return sendJson(res, 400, { error: 'id 形状不对（必须是字符串：6–32 位小写字母/数字）' });
+        }
+        const id = inObj.id.trim();
+        // ④ note 是字符串
+        if (typeof inObj.note !== 'string') {
+          return sendJson(res, 400, { error: 'note 形状不对（必须是字符串，不能是数组 / 对象）' });
+        }
+        const nextNote = inObj.note.trim();
+        // ⑤ 不许清空
+        if (!nextNote) {
+          return sendJson(res, 400, { error: 'note 不能是空的 —— 本端点只用来把备注换成一句正常文案' });
+        }
+        // ⑥ 区域检查：本端点只服务投稿区（submissions / flagged）—— **排在长度之前**
+        const P = pathsOf(id);
+        if (!P) return sendJson(res, 404, { error: '没有这条记录' });
+        if (P.area === 'compat') {
+          return sendJson(res, 400, {
+            error: `这是兼容包（compat/ 区），请用 POST ${ADMIN_API}/compat/note —— 那一条会把 note 与 compatNote 写成同一句（公网页按「兼容说明」只画一次）。`,
+          });
+        }
+        const meta = readJson(P.meta);
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta) || typeof meta.name !== 'string') {
+          return sendJson(res, 404, { error: '这条记录的 meta.json 读不出来（形状不对），不动它' });
+        }
+        // ⑦ 长度上限
+        if (nextNote.length > NOTE_MAX) return sendJson(res, 400, { error: `备注太长（最多 ${NOTE_MAX} 字）` });
+        // 全过了才开始算要写什么。幂等在前：已经是这句，就什么都不写。
+        if (meta.note === nextNote) {
+          return sendJson(res, 200, { ok: true, id, area: P.area, changed: false, note: nextNote, at: nowIso() });
+        }
+        const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+        // 只动 note 一栏（已有的键 ⇒ 键序不变），其余字段靠展开原样带过去。**不写 compatNote。**
+        writeJson(P.meta, {
+          ...meta,
+          note: nextNote,
+          revisions: [...hist, {
+            at: nowIso(), by: 'admin',
+            changed: { note: meta.note ?? null },
+            to: { note: nextNote },
+            why: '站上备注改写（投稿区）：只动 note 一栏，其余字段一字未动；不写 compatNote（那是 compat 区的「兼容说明」）。',
+          }],
+        });
+        audit('note', { id, ip, actor: 'admin', admin: true, detail: { noteLen: nextNote.length } });
+        return sendJson(res, 200, {
+          ok: true, id, area: P.area, changed: true, note: nextNote,
+          note_old: meta.note ?? null,
+          at: nowIso(),
+          untouched: 'mod.zip / decision.json 未动；name / author / uploadedAt / size / kind / sha256 原样；compatNote 未创建、未改动。',
+        });
+      }
+      // ================================================================
+      // `POST ${ADMIN_API}/packkind` —— 把「这条包装上到底会不会生效」这一栏写进记录。
+      //
+      // 为什么需要它（业主 2026-10-12）：`packKind` 一直是**只读**的 —— `server.mjs` 里只有
+      // `/api/mods` 那一处读（`packKind: s.packKind || 'unknown'`），**没有任何写入端点**，
+      // 于是「判了分类」这件事**落不到公网**：判成 functional 的记录在 `/mods` 上照样显示 `unknown`，
+      // 而 `/api/mods` 的注释逐字说「缺省**绝不可能是 functional**」⇒ 分类白判，下载者看到的是「判不了」。
+      //
+      // 报文：`{ "id": "<编号>", "packKind": "functional" | "documentation" | "unknown" }`
+      //   · **闭枚举**：写一个拼错的值 ⇒ 400（不许把一个拼错的分类落进记录 —— 与 slot / component
+      //     那些闭枚举同一条道理）；
+      //   · **一次一个明确写出的 id**（与 `/note`、`/compat/note` 同一条铁律）；
+      //   · **只动 `meta.packKind` + 一笔 `revisions`**，其余字段一字未动；幂等；
+      //   · **区无关**：submissions / flagged / compat 都能设（compat 记录本来就有这一栏）。
+      //
+      // ⚠️ 2026-10-12 增补（裁定 ⑥）：**发布者也能填自己那条的分类** —— 走的是
+      //    `POST /api/publisher/update` 的 `packKind` 那一栏（发布者令牌鉴权、同样进 revisions）。
+      //    本端点**行为一个字没改**，仍然是管理员覆盖用的那条路；两条路都留痕，管理员随时可覆盖。
+      // ================================================================
+      if (req.method === 'POST' && p === `${ADMIN_API}/packkind`) {
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { error: '报文必须是一个 JSON 对象' });
+        }
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            error: `本端点只认一个明确指定的 id，不收「一批」（多了这些键：${batchKeys.join(' / ')}）。要改 N 条就发 N 次，每条单独核对。`,
+          });
+        }
+        if (typeof inObj.id !== 'string' || !ID_RE.test(inObj.id.trim())) {
+          return sendJson(res, 400, { error: 'id 形状不对（必须是字符串：6–32 位小写字母/数字）' });
+        }
+        const id = inObj.id.trim();
+        const nextKind = typeof inObj.packKind === 'string' ? inObj.packKind.trim() : '';
+        if (!PACK_KINDS.includes(nextKind)) {
+          return sendJson(res, 400, {
+            error: `packKind 只能是 ${PACK_KINDS.join(' / ')} 之一（闭枚举：拼错的值不许落进记录）`,
+          });
+        }
+        const P = pathsOf(id);
+        if (!P) return sendJson(res, 404, { error: '没有这条记录' });
+        const meta = readJson(P.meta);
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta) || typeof meta.name !== 'string') {
+          return sendJson(res, 404, { error: '这条记录的 meta.json 读不出来（形状不对），不动它' });
+        }
+        if ((meta.packKind ?? null) === nextKind) {
+          return sendJson(res, 200, { ok: true, id, area: P.area, changed: false, packKind: nextKind, at: nowIso() });
+        }
+        const hist = Array.isArray(meta.revisions) ? meta.revisions : [];
+        writeJson(P.meta, {
+          ...meta,
+          packKind: nextKind,
+          revisions: [...hist, {
+            at: nowIso(), by: 'admin',
+            changed: { packKind: meta.packKind ?? null },
+            to: { packKind: nextKind },
+            why: '站侧分类改写（装上到底会不会生效）：只动 packKind 一栏，其余字段一字未动。',
+          }],
+        });
+        audit('packKind', { id, ip, actor: 'admin', admin: true, detail: { from: meta.packKind ?? null, to: nextKind } });
+        return sendJson(res, 200, {
+          ok: true, id, area: P.area, changed: true, packKind: nextKind,
+          packKind_old: meta.packKind ?? null,
+          at: nowIso(),
+          untouched: 'mod.zip / decision.json / 其余 meta 字段未动；name / author / uploadedAt / size / kind / sha256 原样。',
+        });
+      }
       // `POST ${ADMIN_API}/hide` —— 那条「不再显示」勾选框（业主 2026-10-11）。
       //
       // 报文：`{ "id": "<编号>", "hidden": true|false }`
@@ -1385,6 +2883,10 @@ const server = createServer(async (req, res) => {
       //
       // ⚠️ 公开面：这个端点**只改 meta.json 这一栏**。`/api/mods` 与 `/mods` 从不读它，
       //   `/api/file/*` 也不读它 —— 「隐藏」是审核页的显示开关，不是下架。（要下架用「打回」。）
+      //
+      // ⚠️ 2026-10-12：**不许把 `hidden` 当下架用**（业主已认过的一条）——「下架」这件事
+      //   现在有了正规的路：发布者 `POST /api/publisher/withdraw`（申请）+ 管理员
+      //   `POST ${ADMIN_API}/withdraw-decide`（确认）。本端点保持原语义**一个字没改**。
       // ================================================================
       if (req.method === 'POST' && p === `${ADMIN_API}/hide`) {
         const raw = await readBody(req, 16 * 1024);
@@ -1444,6 +2946,7 @@ const server = createServer(async (req, res) => {
               : '审核页「不再显示」取消勾选：这条重新显示（可逆）',
           }],
         });
+        audit('hide', { id, ip, actor: 'admin', admin: true, detail: { hidden: want } });
         return sendJson(res, 200, {
           ok: true, id, hidden: want, changed: true, at: hAt,
           area: HP.area, state: readJson(HP.decision)?.decision || 'pending',
@@ -1476,7 +2979,7 @@ server.listen(PORT, HOST, () => {
   console.log(`工坊包上传站已起：${BASE_URL}`);
   console.log(`  监听     ${HOST}:${PORT}`);
   console.log(`  上传页   ${BASE_URL}/`);
-  console.log(`  已上线   ${BASE_URL}/mods`);
+  console.log(`  已上线   ${BASE_URL}/mods（分类筛选：/mods?kind=functional,documentation —— 不传即现状）`);
   console.log(`  审核页   ${BASE_URL}/${ADMIN_PATH}   （浏览器会弹登录框；用户名 admin，密码是 ADMIN_TOKEN）`);
   console.log(`  审核 API ${ADMIN_API}/*`);
   console.log(`  兼容包   ${ADMIN_API}/compat-submit?publish=1（投稿详情页那一个上传按钮：上传即发布，双署名）`);
@@ -1484,13 +2987,18 @@ server.listen(PORT, HOST, () => {
   console.log(`  改备注   ${ADMIN_API}/compat/note（只改 note + compatNote 两栏文案；一次只认一个 id，见端点注释）`);
   console.log(`  不再显示 ${ADMIN_API}/hide（勾选框：hidden:true/false，可逆；只影响审核页三视图，公开面不动；一次只认一个 id、绝不批量）`);
   console.log(`  人工确认 ${ADMIN_API}/compat-submit?publish=1&confirmBlockers=1&confirmReason=…（逐条确认真素材路径，不是放宽档位；留痕到决定记录）`);
+  console.log(`  发布者   /mine（我的投稿）· POST /api/publisher/claim|update|blob|withdraw（认领码换令牌；改动一律回待审，绝不直改公开面）`);
+  console.log(`  自撤确认 ${ADMIN_API}/withdraw-decide（发布者申请自撤的一键确认 / 拒绝；确认后 decision=superseded 且 replacedBy:null）`);
+  console.log(`  批准包体 ${ADMIN_API}/promote-blob（发布者换上候选包体后，核过哈希才切换；旧包改名留档，不删）`);
+  console.log(`  手工发码 ${ADMIN_API}/issue-claim（老记录认领 / 令牌丢失找回；明文只出现一次，盘上只存哈希）`);
   console.log(`  数据目录 ${DATA_DIR}`);
+  console.log(`  审计日志 ${AUDIT_LOG}（追加式 JSONL；不记令牌明文）`);
   console.log(`  上传上限 ${(MAX_BYTES / 1048576).toFixed(0)} MB`);
   if (ADMIN_IPS.length) console.log(`  管理白名单 ${ADMIN_IPS.join(', ')}（外加本机回环）`);
   else if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
     console.log('  ⚠ 没有设 ADMIN_IPS，而这个实例对外监听 —— 管理口只靠令牌保护。');
     console.log('    只有 HTTP 时令牌是明文过网的。建议设 ADMIN_IPS，或用 SSH 隧道访问 /admin：');
-    console.log('      ssh -L 8787:127.0.0.1:8787 <user>@<服务器>');
+    console.log('      ssh -L 25570:127.0.0.1:25570 <user>@<服务器>');
   }
   if (TRUST_PROXY) console.log('  （TRUST_PROXY=1：按 x-forwarded-for 判客户端地址 —— 仅当确实挂在反代后面时才该这样）');
 });

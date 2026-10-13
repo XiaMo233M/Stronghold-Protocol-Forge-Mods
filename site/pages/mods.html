@@ -14,19 +14,108 @@
   <nav class="navlinks">
     <a href="/">上传</a>
     <a href="/mods" class="on">已上线</a>
+    <a href="/mine">我的投稿</a>
   </nav>
 </header>
 
 <h1>已上线的 mod</h1>
-<p class="sub">这一页只列<b>已通过审核</b>的包。想投稿请去 <a href="/">上传页</a>。
+<p class="sub">这一页只列<b>已通过审核</b>的包，并按<b>「装上会不会生效」分成两处</b>：
+  <b>真功能 mod</b>（<b>装上即生效</b> —— 每条都满足「pack.json 在 ZIP 根」并在引擎 0.16.0 的
+  干净 workshop 根<b>单独装载过、errors=0</b>）与
+  <b>说明包</b>（<b>装上不会启用任何功能</b>，下载下来是给你看的，不是给你装的）。
+  另有一处放<b>安装器 / 补丁形态</b>的包（ZIP 根没有 pack.json，要按包内说明手动安装）。<br>
+  想投稿请去 <a href="/">上传页</a>。
   规则见 <a href="https://github.com/XiaMo233M/Stronghold-Protocol-Forge-Mods/blob/main/SKILL.md">SKILL.md</a>。</p>
-<div id="list"><p class="dim">正在载入…</p></div>
+
+<!-- ================================================================
+     分类筛选（业主 2026-10-12 需求 ③：让需要的人更快找到对应分类的模组）
+     ================================================================
+     ⚠️ 三条约束，写在这里免得下一个人改歪：
+       ① **不新增分类字段**：用的就是既有的 `packKind`（闭集 functional /
+          documentation / unknown，缺省 unknown）。老记录一个都不用回填。
+       ② **筛选走 URL**：`/mods?kind=functional`、`?kind=functional,documentation`。
+          服务端**白名单校验**过这个值再注进下面的 `data-kinds`（不把 URL 上的任意值写进 HTML），
+          并且已经在服务端把数据筛过一遍了。所以这一页**收藏、分享、刷新都还原得回来**。
+       ③ **不传 kind = 现状**：三个分区、两份数据、一条判据都不变；下面这排按钮只是
+          「点一下就跳到一个带 kind 的地址」，**没有 JS 也能用**（退化成普通链接）。
+     按钮是**真链接**（`<a href>`，不是 JS 拦截），所以中键新开、复制链接、分享都正常。 -->
+<nav class="kindbar" id="kindbar" aria-label="按分类筛选">
+  <span class="kindbar__label">按「装上会不会生效」筛：</span>
+</nav>
+<div id="list" data-kinds="__KINDS__"><p class="dim">正在载入…</p></div>
 
 <script>
 const list = document.getElementById('list');
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 
-function card(m, flagged) {
+// ---- 当前筛选（服务端白名单校验过，只可能是闭集里的值或空串）--------------------
+// 空串 = 不筛 = **现状**（三个分区照旧、顺序照旧）。
+// ⚠️ `dataset` 要**防一手**：真实浏览器一定有，但极简的 DOM 桩（自测里那种）未必有 ——
+//    读不到就当作「不筛」，绝不让它把整个脚本打挂（那样整页就白屏了）。
+const ACTIVE = String((list.dataset && list.dataset.kinds) || '').split(',').map((s) => s.trim()).filter(Boolean);
+
+// ---- 「装上会不会生效」这一栏（指令③④）----------------------------------------
+// 与 `m.kind`（compat / submission）**不是一回事**：`kind` 说的是这条**记录是怎么来的**
+// （兼容改写来的，还是原样投上来的）；这里说的是**装上到底会不会生效**。两者正交，所以分开画。
+//   functional    真功能   —— 装上即生效（pack.json 在 ZIP 根 + 干净根单独装载 errors=0）；
+//   documentation 说明包   —— **装上不会启用任何功能**，下载下来是给你看的；
+//   unknown       安装器 / 补丁形态 —— ZIP 根没有 pack.json，不能直接丢进 workshop 目录。
+// ⚠️ 记录里缺这一栏一律按 **unknown** 画：**缺省绝不可能是「真功能」** ——
+// 否则新批一条没分类的记录，又会在「真功能」区里漏出一个装不上的包。
+const KIND_OF = (m) => (m.packKind === 'functional' || m.packKind === 'documentation') ? m.packKind : 'unknown';
+const KIND_TITLE = { functional: '真功能 mod', documentation: '说明包', unknown: '其他（未分类 / 安装器·补丁形态）' };
+const KIND_HINT = {
+  functional: '这些包**装上即生效**：pack.json 在 ZIP 根，并已在引擎 0.16.0 的干净 workshop 根**单独装载过，errors=0**。',
+  documentation: '**说明包（装上不会启用任何功能）**：参考 / 说明 / 补丁留档。下载下来是给你看的，不是给你装的。',
+  unknown: '这些包**没有通过「真功能」的那三道核**（或者本身就是安装器 / 补丁形态，ZIP 根没有 pack.json）：**不保证装上即生效**，下之前请先看包内说明。',
+};
+const KIND_BADGE = {
+  functional: ['badge ok', '真功能'],
+  documentation: ['badge info', '说明包（装上不会启用任何功能）'],
+  unknown: ['badge warn', '未核实是否装上即生效'],
+};
+
+// ---- 「同一个 pack id」的成对记录（指令㉑）--------------------------------------
+// 引擎**不允许同 id 的两个包并存**：目录名与 `pack.json` 的 `id` 不一致即 `PACK_ID_MISMATCH` 整包被拒；
+// 实测同一 workshop 根放两份 id 相同的包，只会装载 1 条、后者**静默覆盖**前者。
+// ⇒ 玩家**一次只能装一条**。这件事以前只写在备注里，不看备注就不知道 —— 所以在卡片上直接点出来。
+// **拿不到 pack.json id 的记录（packId 是 null）一律不猜、不画**。
+function sameIdPeers(all, m) {
+  if (!m.packId) return [];
+  return all.filter((x) => x.id !== m.id && x.packId === m.packId);
+}
+
+// ---- 筛选按钮 ----------------------------------------------------------------
+// 每一枚都是**真链接**：点「真功能 mod」就跳到 `?kind=functional`；点「全部」跳回 `/mods`
+//（不带参数 = 现状）。当前选中那一枚标 .on。
+// URL 也支持多选（`?kind=a,b`）：别人把多选地址发给你，这一页照样**如实显示当前在按哪几档筛**。
+function renderKindbar(counts) {
+  const bar = document.getElementById('kindbar');
+  bar.textContent = '';
+  const mk = (label, value, extra) => {
+    const on = value === null ? ACTIVE.length === 0 : (ACTIVE.length === 1 && ACTIVE[0] === value);
+    const a = el('a', 'kindbtn' + (on ? ' on' : ''), label + (extra != null ? `（${extra}）` : ''));
+    a.href = value === null ? '/mods' : `/mods?kind=${encodeURIComponent(value)}`;
+    if (on) a.setAttribute('aria-current', 'true');
+    return a;
+  };
+  const c = counts || {};
+  bar.append(el('span', 'kindbar__label', '按「装上会不会生效」筛：'));
+  bar.append(mk('全部', null, c.total));
+  bar.append(mk(KIND_TITLE.functional, 'functional', c.functional));
+  bar.append(mk(KIND_TITLE.documentation, 'documentation', c.documentation));
+  bar.append(mk(KIND_TITLE.unknown, 'unknown', c.unknown));
+  if (ACTIVE.length) {
+    // 当前地址带了筛选：把「正在按什么筛」和「怎么退回全部」说清楚（可收藏、可分享）。
+    const hint = el('span', 'kindbar__hint', `当前只显示：${ACTIVE.map((k) => KIND_TITLE[k] || k).join(' + ')} · `);
+    const back = el('a', null, '看全部');
+    back.href = '/mods';
+    hint.append(back);
+    bar.append(hint);
+  }
+}
+
+function card(m, flagged, peers) {
   const c = el('div', 'panel' + (flagged ? ' brackets' : ''));
   if (flagged) c.style.borderLeft = '4px solid var(--gold)';
   const body = el('div', 'panel__body');
@@ -35,9 +124,20 @@ function card(m, flagged) {
   head.append(h);
   // 兼容改写版：这是「谁由谁改来」的那个改写版，原件只留档、不在这里发。
   if (m.kind === 'compat') head.append(el('span', 'badge ok', flagged ? '兼容版 · 含疑似素材' : '兼容改写版'));
+  // 「装上会不会生效」这个徽标**每一条都画**（含疑似素材那一组）：说明包与安装器形态
+  // 必须在名字旁边就看得出来，不能等下完了才发现装不上。
+  const kb = KIND_BADGE[KIND_OF(m)];
+  head.append(el('span', kb[0], kb[1]));
   if (flagged) head.append(el('span', 'badge warn', '含疑似官方素材'));
   body.append(head);
   body.append(el('div', 'kv dim', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
+
+  // 同 id 提示（指令㉑）：同一行里把「另一条是谁」和「为什么一次只能装一条」都说清。
+  if (peers && peers.length) {
+    body.append(el('div', 'kv dim',
+      `⚠ 与 ${peers.map((p) => `「${p.name}」（编号 ${p.id}）`).join('、')} 同为 pack id 「${m.packId}」`
+      + ` —— 引擎不允许同 id 的两个包并存，装第二份会覆盖第一份，所以一次只能装一条。`));
+  }
 
   // 两个署名**分开两栏**显示，谁也不覆盖谁：
   // 原作者来自包自带的 pack.json（兼容包发布时预填、普通投稿由站点在读的时候现读，都不改记录）；
@@ -100,7 +200,12 @@ function card(m, flagged) {
     body.append(el('div', 'note', m.note));
   }
 
-  const a = el('a', 'btn btn--primary', m.kind === 'compat' ? '下载兼容改写版 zip' : '下载 zip');
+  // 按钮文案也照实写：说明包点下去不会被当成「装上去就生效的功能包」。
+  const kk = KIND_OF(m);
+  const dlLabel = kk === 'documentation' ? '下载说明包 zip（不会启用任何功能）'
+    : kk === 'unknown' ? '下载 zip（未核实是否装上即生效）'
+      : (m.kind === 'compat' ? '下载兼容改写版 zip' : '下载 zip');
+  const a = el('a', 'btn btn--primary', dlLabel);
   a.href = m.download;
   a.style.marginTop = '10px';
   body.append(a);
@@ -117,16 +222,43 @@ function card(m, flagged) {
   return c;
 }
 
-fetch('/api/mods').then((r) => r.json()).then(({ mods, flagged }) => {
+// 带筛选时把 kind 交给服务端（**服务端过滤**，不是前端把数据藏起来）：
+// 这样「筛了之后还剩几条」与服务端算的一致，页面也不用先下载全量再丢掉。
+// 不筛时**一个参数都不带** —— 现状那条请求逐字不变。
+const apiUrl = ACTIVE.length ? `/api/mods?kind=${encodeURIComponent(ACTIVE.join(','))}` : '/api/mods';
+fetch(apiUrl).then((r) => r.json()).then(({ mods, flagged, counts }) => {
   list.textContent = '';
+  mods = mods || []; flagged = flagged || [];
+  // 同 id 的「另一条」可能落在**任何一组**里（含疑似素材那一组），所以并起来找。
+  const all = mods.concat(flagged);
+  // 筛选条：不筛时 counts 是**全站每类计数**（服务端给）；筛过时服务端不给 counts
+  //（免得「functional 只有 1 条」这种被筛小的数误导）——那时退回按当前这批自己数。
+  const shown = {
+    total: all.length,
+    functional: all.filter((m) => KIND_OF(m) === 'functional').length,
+    documentation: all.filter((m) => KIND_OF(m) === 'documentation').length,
+    unknown: all.filter((m) => KIND_OF(m) === 'unknown').length,
+  };
+  renderKindbar(counts || shown);
   if (!mods.length && !flagged.length) {
-    list.append(el('p', 'dim', '还没有通过审核的包。'));
+    list.append(el('p', 'dim', ACTIVE.length
+      ? `当前筛选（${ACTIVE.map((k) => KIND_TITLE[k] || k).join(' + ')}）下没有已上线的包。`
+      : '还没有通过审核的包。'));
     return;
   }
-  if (mods.length) {
-    list.append(el('h2', 'sec', `正常的 mod（${mods.length}）`));
-    for (const m of mods) list.append(card(m, false));
+  // 主分区：按「装上会不会生效」分成**三处**，真功能与说明包各占一处、各画各的标题与提示。
+  // 业主 2026-10-12：「站点要加一个说明包和实际功能 mod 分开的地方，
+  // 不能出现下载 mod 但是不能用的情况」⇒ 说明包不再混在功能包那一列里，
+  // 它那一区的标题、提示、徽标、下载按钮**四处都写明「装上不会启用任何功能」**。
+  for (const k of ['functional', 'documentation', 'unknown']) {
+    const arr = mods.filter((m) => KIND_OF(m) === k);
+    if (!arr.length) continue;
+    list.append(el('h2', 'sec', `${KIND_TITLE[k]}（${arr.length}）`));
+    list.append(el('p', 'sub', KIND_HINT[k]));
+    for (const m of arr) list.append(card(m, false, sameIdPeers(all, m)));
   }
+  // 疑似素材**照旧单独一组、明确标注**：这一组说的是「素材版权」，与上面三区**正交** ——
+  // 一条既可以是真功能，也可以带疑似素材。所以它不并进任何分区，只把分类徽标照实画在每条上。
   if (flagged.length) {
     const box = el('div', 'warnbox');
     box.append(el('h3', null, `含疑似官方素材的 mod（${flagged.length}）`));
@@ -135,7 +267,7 @@ fetch('/api/mods').then((r) => r.json()).then(({ mods, flagged }) => {
       '也请勿据此再分发素材本身。仓库正式收录的 packs/ 不含这类素材。'));
     list.append(box);
     for (const m of flagged) {
-      const c = card(m, true);
+      const c = card(m, true, sameIdPeers(all, m));
       if (m.suspectedReasons && m.suspectedReasons.length) {
         const b = c.querySelector('.panel__body');
         b.append(el('div', 'kv dim', '命中的特征：' + m.suspectedReasons.join('、')));

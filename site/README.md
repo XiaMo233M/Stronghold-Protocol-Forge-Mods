@@ -26,32 +26,26 @@
 
 上线这类包**必须勾一次确认**（服务端要 `acknowledge:true`，少了给 409）—— 可以放行，但不允许默默放过。
 
-> **仓库那一端不是「清掉」，是「标注」**（业主 2026-10-12 改）：从上传站进 GitHub 仓库的
-> [`packs/`](../packs/README.md) 之前，含官方素材的包**照收**，但包内 `PROVENANCE.md` 与站上备注
-> **必须写明「含官方素材」+ 实测清点 + 版权与用途**（[`../AGENTS.md`](../AGENTS.md) §3「素材口径」）。
-> 上传站是收件的漏斗（宽进），仓库是发布物 —— **未标注才是问题**。
+> **仓库的红线不变**：从上传站进 GitHub 仓库的 [`packs/`](../packs/README.md) 之前，**必须把素材清掉**。
+> 上传站是收件的漏斗（宽进），仓库是发布物（严出）。
 
 ---
 
 ## 维护者侧：兼容包上传与发布
-
-> 维护者的**操作纪律**（批准 / 决定类端点绝不批量调、绝不打印凭据、只改该改的地方…）在
-> [`../AGENTS.md`](../AGENTS.md) §8；**发布工作流**（重打 zip 根形状 → 修包契约 → 干净 workshop 根装载
-> 要 `errors=0` → 一包一 zip → 补 `PROVENANCE.md`）在 [`../AGENTS.md`](../AGENTS.md) §6；本节只讲**这个站怎么点**。
 
 组员把**未兼容的原件**投到公网上传页（`/`）；维护者把它兼容改写好之后，**从审核页把改写版发出去**。
 这条路不是给组员的，它整套挂在管理 API 下，和 `/api/submit` 不是一回事 —— `ADMIN_IPS` 白名单与令牌两道防线照旧先过。
 
 ### 怎么用（照着做）
 
-1. `ssh -L 8787:127.0.0.1:8787 <user>@<服务器>`，浏览器开 `http://127.0.0.1:8787/<ADMIN_PATH>`，登录（用户名 `admin`，密码 = `ADMIN_TOKEN`）。
+1. `ssh -L 25570:127.0.0.1:25570 <user>@<服务器>`，浏览器开 `http://127.0.0.1:25570/<ADMIN_PATH>`，登录（用户名 `admin`，密码 = `ADMIN_TOKEN`）。
 2. 在**投稿列表**里点一条投稿看详情。入口就在**那条投稿的详情视图、下载按钮那一行**：
    点那个**独立的上传按钮**「上传并发布兼容包…」，表单**内联展开**在详情下方（不跳页、也不跳到同页另一个区 ——
    详情里的编号、原件名、包内结构与三档结果就在眼前，「由哪个待审原件改写来」还会**预填成当前这一条的编号**）。填：
 
    | 栏位 | 必填 | 说明 |
    |---|---|---|
-   | zip 文件 | 要 | **已经兼容改写完的成品包**，且 `pack.json` **必须在 zip 根**：直接是 zip 的第一层条目名（`site/server.mjs:180-185 packJsonFor` 精确匹配条目名、`site/zip.mjs:110`），**套一层顶层目录即 400 拒收**。<br>**别与装包器混淆** —— 装包器**两种都收**：`pack.json` 在 zip 根，**或**在一个唯一的顶层目录里（见引擎 `tools/workshop-pack.mjs:191-200`、`:252-255`，装出来的目录名一律取 `pack.json.id`） |
+   | zip 文件 | 要 | **已经兼容改写完的成品包**。包内文件放 zip 根，且必须有能解析的 `pack.json`；否则拒收（400） |
    | 上线显示名 | 要 | 列表里显示的名字（按当前那条预填成「某包（兼容版）」） |
    | **原作者** | 要 | **留空会从包里的 `pack.json` 的 `author` 自动预填**，可核对后改写。包里没有、人也不填 → 400 拒收 |
    | **兼容者** | **字段必填，值可以为空** | 做兼容改写的那个人。**不预填、不兜底**：留空就如实存空并显示「未填」；报文里**缺这一栏**才拒收（400，点名「缺少兼容者字段」）。存下来用 `compatAuthorSource` 标明是 `form`（手填）还是 `empty`（未填）——**没有兜底这一档**。`Mo233` 只可能是维护者自己敲进去的字面值 |
@@ -89,7 +83,7 @@
 
 ```bash
 # 勾上（不再显示）／取消（重新显示）—— 一次只认一个 id
-curl -sX POST http://127.0.0.1:8787/api/<ADMIN_PATH>/hide \
+curl -sX POST http://127.0.0.1:25570/api/<ADMIN_PATH>/hide \
   -H "x-admin-token: <ADMIN_TOKEN>" -H 'content-type: application/json' \
   -d '{"id":"<记录编号>","hidden":true}'
 ```
@@ -105,7 +99,7 @@ curl -sX POST http://127.0.0.1:8787/api/<ADMIN_PATH>/hide \
 ——与上面那套逻辑不一致。补链走**同一套实现**，一次只认**一个**明确指定的 id：
 
 ```bash
-curl -sX POST http://127.0.0.1:8787/api/<ADMIN_PATH>/compat/link \
+curl -sX POST http://127.0.0.1:25570/api/<ADMIN_PATH>/compat/link \
   -H "x-admin-token: <ADMIN_TOKEN>" -H 'content-type: application/json' \
   -d '{"compatId":"<兼容包编号>","originId":"<原投稿编号>"}'
 ```
@@ -170,9 +164,10 @@ compat/<编号>/decision.json          ← 审核决定（写清发布了哪个�
 ### 自测
 
 ```bash
-node site/selftest-compat.mjs     # 兼容包整条链 + 反例（临时数据目录，不碰你的数据，不联网）
-node site/selftest-admin.mjs      # 审核台/公网列表**页面**跑不跑得起来（见下）
-node site/selftest.mjs            # 原来那条公网投稿链（没被改）
+node site/selftest.mjs             # ① 公网投稿链（上传 → 下载 → 审核 → 上线）
+node site/selftest-admin.mjs       # ② 审核台 / 公网列表**页面**跑不跑得起来（见下）
+node site/selftest-compat.mjs      # ③ 兼容包整条链 + 反例（临时数据目录，不碰你的数据，不联网）
+node site/selftest-publisher.mjs   # ④ 发布者自助（认领 / 改元数据 / 换包体 / 自撤）+ 管理员确认 + 分类筛选 + 审计日志
 ```
 
 `selftest-admin.mjs` 专治一类「接口全好、页面却是死的」故障：审核台是一整个内联 `<script>`，
@@ -238,12 +233,16 @@ node site/selftest.mjs            # 原来那条公网投稿链（没被改）
 ADMIN_TOKEN=$(node -e "console.log(require('crypto').randomBytes(24).toString('hex'))") node site/server.mjs
 ```
 
-打开 `http://127.0.0.1:8787/`。**先把上面那串令牌抄下来** —— 审核页要它。
+打开 `http://127.0.0.1:8787/`（本机临时实例的默认口）。**先把上面那串令牌抄下来** —— 审核页要它。
+
+> ⚠️ **线上生产实例不是 8787**：`/etc/sp-modsite.env` 里 `PORT=25570`、`HOST=0.0.0.0`，
+> 公开入口就是 `http://47.103.14.217:25570/`（`BASE_URL` 同值）。下面这张表的 `PORT` 只是
+> **本机试跑的代码默认值**；照它去访问线上会打不开 —— 全网没有反向代理，**必须带 `:25570`**。
 
 | 环境变量 | 默认 | 说明 |
 |---|---|---|
 | `ADMIN_TOKEN` | **必填**（≥16 位） | 审核动作的凭据。没设就拒绝启动 |
-| `PORT` | `8787` | 监听端口 |
+| `PORT` | `8787`（**线上是 `25570`**） | 监听端口。这里写的是**本机试跑的默认值**；生产实例以 `/etc/sp-modsite.env` 为准 |
 | `HOST` | `127.0.0.1` | **默认只绑回环**（本机试跑不会意外暴露）。对外要显式设 `0.0.0.0` |
 | `DATA_DIR` | `site/data` | 投稿与决定的存放处。**要备份的就是它** |
 | `MAX_MB` | `100` | 单个 zip 的上限 |
@@ -282,8 +281,8 @@ git clone https://github.com/XiaMo233M/Stronghold-Protocol-Forge-Mods.git
 cd Stronghold-Protocol-Forge-Mods/site
 
 sudo bash deploy.sh \
-  --port 8787 \
-  --base-url http://47.103.14.217:8787 \
+  --port 25570 \
+  --base-url http://47.103.14.217:25570 \
   --admin-ips <你的固定IP>          # 强烈建议：管理口只对你开放
 ```
 
@@ -312,8 +311,8 @@ sudo bash deploy.sh --uninstall
 
 ```bash
 # 审核页必须走隧道（把本机的 25570 接到服务器的回环 25570）
-ssh -L 8787:127.0.0.1:8787 <user>@<服务器>
-# 然后浏览器开 http://127.0.0.1:8787/<ADMIN_PATH>
+ssh -L 25570:127.0.0.1:25570 <user>@<服务器>
+# 然后浏览器开 http://127.0.0.1:25570/<ADMIN_PATH>
 ```
 
 **审核登录用浏览器原生登录框**（HTTP Basic）：用户名 `admin`，密码就是 `ADMIN_TOKEN`。
@@ -335,7 +334,7 @@ sudo systemctl restart sp-modsite     # 改了之后旧名字立刻 404
 
 ### 挂到已有 nginx 上（**可选，谨慎**）
 
-不做也完全能用（直接访问 `http://47.103.14.217:8787`）。真要做，**必须**按这个顺序，
+不做也完全能用（直接访问 `http://47.103.14.217:25570`）。真要做，**必须**按这个顺序，
 并且**只新增一个文件**、绝不改已有的 server 块：
 
 ```bash
@@ -346,7 +345,7 @@ server {
   server_name _;
   client_max_body_size 120m;                 # 要 ≥ MAX_MB
   location / {
-    proxy_pass http://127.0.0.1:8787;
+    proxy_pass http://127.0.0.1:25570;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;      # 用 X-Real-IP，覆盖不可信的 XFF
   }
@@ -380,30 +379,127 @@ sudo rm -f /etc/nginx/conf.d/sp-modsite.conf && sudo systemctl reload nginx
      官方语音路径 / `.ab` / `gamedata/`；另外**可执行与脚本**、**路径穿越**也在这档。
      命中的包**会被收下并单独存放**（见上面的政策），上线时要勾一次确认
    - `warn`：单文件 > 10 MB、音频 ≥ 500 个、名称里有「官方/official/鹰角」这类容易混淆的词、
-     包内所有文件套在同一层文件夹里（`WRAPPED`）
-     —— 这一条是**提醒不是拦**（三档里的 `warn`）：装包器**两种归档布局都认**
-     （`pack.json` 在 zip 根，或在一个唯一的顶层目录里），所以它**不会**让包装不上；
-     本仓库文档给作者的约定是「顶层目录 = 包 id」（见 [`../SKILL.md`](../SKILL.md) §3），
-     这里只是指出**站上的上传面与那条约定不一致**，列为待裁决。
+     包内所有文件套在同一层文件夹里（装包器要的是包内文件放 zip 根）
    - `info`：文件数与解压后大小、有没有 `pack.json`（有 = 已做好的包；没有 = 原件）
 3. 看完点**通过并上线**（可以顺手改上线显示名）或**打回**（要写理由，投稿人用回执能查到）
 
 `blocker` 是**提醒不是判决** —— 逐条看文本，确认是误报或可以放行，就勾上确认后上线。
 脚本不做「替人下结论」这件事，所以它既不自动拒收，也不自动放行。
 
+> 审核台 2026-10-13 又添三件事：**发布者自撤待确认**（`withdraw-decide`）、
+> **批准候选包体**（`promote-blob`，旧包改名留档）、**手工发认领码**（`issue-claim`）；
+> 外加「改了什么」那一栏。三件都在下面〈发布者自助管理〉一节里。
+
 ## 通过之后怎么进 GitHub 仓库
 
 上传站只是入口，**仓库里的 [`packs/`](../packs/README.md) 才是正式收录**：
 
 ```bash
-# 从审核页下载 zip（或 curl http://127.0.0.1:8787/api/file/<编号> -H "x-admin-token: ..."）
+# 从审核页下载 zip（或 curl http://127.0.0.1:25570/api/file/<编号> -H "x-admin-token: ..."）
 mkdir -p /tmp/pkg && cd /tmp/pkg && tar -xf ~/Downloads/<编号>-xxx.zip
-# 归档里若有一个顶层目录，上面这条解出来的就是那个目录（两种布局都能装，见上）
-# 把解出来的**包目录内容**（`pack.json` 那一层）放进仓库的 packs/<包 id>/
+# 包内文件放在 zip 根，所以直接就是一个包目录的内容 → 放进仓库的 packs/<包 id>/
 cp -r /tmp/pkg /path/to/Stronghold-Protocol-Forge-Mods/packs/<包 id>
 node tools/check-packs.mjs --engine <引擎目录> --root packs     # 闸门必须过
 git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" && git push
 ```
+
+---
+
+## 发布者自助管理：认领码 → 发布者令牌 → `/mine`（2026-10-13 上线）
+
+投稿人交完包**不用再找维护者**：他拿一枚**一次性认领码**换一枚**发布者令牌**，之后自己在
+`/mine`（「我的投稿」）里管自己那一条。**自助写一律「改记录 → 强制回待审 → 公开面不动」。**
+
+### 发布者能做什么
+
+| 他能做的 | 端点 | 结果 |
+|---|---|---|
+| 换令牌 | `POST /api/publisher/claim` | 认领码**只生效一次**：换完就从 `pendingClaim` 里划掉，往 `publisherTokens` 落一枚**哈希** |
+| 看自己那条 | `GET /api/publisher/mine` | 凭令牌（`x-publisher-token` 头或 `Authorization: Bearer`）列出；**只读、不限流** |
+| 改元数据 | `POST /api/publisher/update` | `name` / `note` / `homepage` / `packKind` 四栏 ⇒ **强制回待审** |
+| 换包体 | `POST /api/publisher/blob` | 新包写成**候选**（`candidate`）；公开面**照旧展示旧包**，等管理员批准 |
+| 自撤 | `POST /api/publisher/withdraw` | `withdrawRequested: true` ⇒ 公开列表与下载口**立刻**不再列它；等管理员确认 |
+
+共同边界：**自助写不得直改公开面**。「改元数据 ⇒ 回待审」走的是 `clearDecision()` ——
+把那一份 `decision.json` **逐字搬进 `meta.revisions`**（含 `decisionSnapshot`），文件不再存在 ⇒
+`state` 读出来就是 `pending`。公开面立刻少一条，而**记录、包体、决定一个字都没丢**。
+
+### 管理员负责审核：三件
+
+1. **自撤要管理员确认** —— `POST /api/<ADMIN_PATH>/withdraw-decide`，
+   报文 `{ "id": "<编号>", "action": "confirm" | "reject", "note": "…" }`。
+   - `confirm` ⇒ `decision = superseded` 且 **`replacedBy: null`**（这是全站**唯一**允许
+     `superseded` 不带 `replacedBy` 的例外，标志是 `reason: 'publisher-withdraw'`）；理由取发布者填的 `withdrawReason`。
+   - `reject` ⇒ 清掉 `withdrawRequested`，这条**恢复公开** —— 它本来就没被改动过（自撤申请只影响「列不列出来」）。申请照样进 `withdrawHistory` 留痕。
+   - 审核台首页的响应里就带一个 **`withdrawQueue`**（自撤待确认队列；只数数、不改盘）。
+2. **换包体要管理员批准才切换** —— `POST /api/<ADMIN_PATH>/promote-blob`，
+   报文 `{ "id": "…", "expectedSha256": "…" }`（后者可选，带上就**当场核哈希**）。
+   核过才切；**旧的 `mod.zip` 改名留档**（`mod.superseded-<时间戳>.zip`），**不删**；切完这条**回到待审**
+   —— 上线与否仍由管理员明确给一次。
+3. **「改了什么」在审核台看得见** —— 审核详情把 `revisions` 逐笔摆出来（改了哪一栏、从什么改成什么、谁改的、为什么）；
+   被发布者动过的记录带 `publisherChanged: true` 标记。
+
+**老记录怎么办**：站上早先批的条目**一个都没有** `pendingClaim`，也就**认领不了**（系统不猜）。
+要让原作者自助管理，或者发布者把令牌弄丢了（盘上只有哈希，**找不回明文**），都由管理员
+`POST /api/<ADMIN_PATH>/issue-claim` 手工发一枚认领码，**带外**（群里/微信）交给本人。
+
+### 分类筛选：`/mods?kind=…`（URL 可分享）
+
+复用既有的 `packKind` 闭集，**不新增字段、不回填老记录**：
+
+| 值 | 意思 |
+|---|---|
+| `functional` | 装上即生效 |
+| `documentation` | 说明包 / 参考 / 补丁 —— 装上不启用任何功能 |
+| `unknown` | 判不了（**缺省就是它**，绝不可能是 `functional`） |
+
+- 单个：`/mods?kind=functional`；多选：`/mods?kind=functional,documentation`（逗号分隔，服务端去重）。
+- **不传 = 现状**（三个分区、两份数据、一条判据全不变）。`?kind=`、`?kind=,` 这种空值也按不传算。
+- 值不在闭集里 ⇒ **400**，**不悄悄忽略** —— 否则「我筛了但列表没变」会变成查不出来的误会。
+- 筛选在**服务端**做（不是前端把数据藏起来）：页面把当前档位交给 `GET /api/mods?kind=…`。
+- 每枚按钮都是**真链接**（`<a href>`）：**没有 JS 也能用**，**URL 复制给别人照样显示同一批**；
+  别人发来一个多选地址，页面会如实写明「当前只显示：真功能包 + 说明包」。
+- **计数口径 = 只数主分区**：「含疑似官方素材的 mod」在 `/mods` 上另起一块，与三个分类区**正交** ——
+  既不并进分类区、也不进计数。这样按钮上的数与点进去看到的条数**对得上**：
+  线上的 `e3a5d09eb6d3` 正是 approved + documentation + suspected，它落在疑似那一组
+  （计数 22、点进去 21）。
+- **筛过之后服务端不给 `counts`**：筛完再报「functional 有 3 条」会让人误以为站上只有 3 条功能包；
+  此时页面按当前这批**自己数**（那才是屏幕上真实的条数）。
+- 管理员侧的改写走 `POST /api/<ADMIN_PATH>/packkind`（**只动 `meta.packKind` 一栏**、进 `revisions`、
+  幂等、一次只认一个 id）；发布者那一栏走 `POST /api/publisher/update`。两处都只收闭集。
+
+### 安全口径
+
+- **只存哈希**：`pendingClaim[].h` 与 `publisherTokens[].h` 都是 sha256（带域分隔前缀
+  `sp-modsite/claim/v1:` 与 `sp-modsite/publisher-token/v1:`），**盘上没有明文**；
+  比对走 `timingSafeEqual` 定长比较。
+- **失败同码同句**：认领码不对、编号不存在，返回**同一个**响应 —— 不泄露「这条记录存不存在」。
+- **写端点限流**（`publisherRateLimited`，按来源 IP）；只读的 `/api/publisher/mine` **不限流**
+  （否则刷新几下就被锁）。
+- **审计日志** `<DATA_DIR>/audit.jsonl`：一行一条 JSON，**只追加**，从不改写、从不删除。
+  形状 `{ at, action, id, ip, actor, admin, detail }`，`actor` ∈ `admin` / `publisher` / `public`。
+  ⚠️ **一个凭据字节都不写** —— 认领码、发布者令牌、`ADMIN_TOKEN`、Basic 头一律不进日志；
+  记的是**事件**（`submit` / `tokenClaimed` / `claimIssued` / `publisherUpdate` / `publisherBlob` /
+  `withdrawRequested` / `withdrawConfirmed` / `withdrawRejected` / `promoteBlob` / `packKind` /
+  `approved` / `superseded` / `hide` / `note` / `compatLink` / `compatNote`），不是凭据。
+  写不进去也不影响请求（留痕不是业务）。
+- 令牌存在发布者**自己的浏览器**里（`localStorage` 键 `sp-modsite-publisher-token`）；
+  站点只存哈希 —— 丢了让管理员重发一枚即可，**旧令牌不回收**。
+
+### 零删除：自助「删除」= 自撤 + 管理员确认 → `superseded`
+
+发布者在 `/mine` 上点的是**申请撤下**，不是删除。整条链上**没有任何一处删数据**：
+
+| 环节 | 盘上发生什么 |
+|---|---|
+| 发布者申请自撤 | 加 `withdrawRequested: true` + `withdrawReason` + `withdrawRequestedAt` + 一笔 `withdrawHistory`；`meta.json` / `mod.zip` / `decision.json` **全在** |
+| 管理员确认 | `decision.json` 写成 `decision = superseded` 且 `replacedBy: null`；**记录与文件全留** |
+| 管理员拒绝 | 清 `withdrawRequested`、恢复公开；申请照样进 `withdrawHistory` |
+| 换包体 | 旧 `mod.zip` **改名留档** `mod.superseded-<时间戳>.zip`，**不删** |
+| 改元数据 ⇒ 回待审 | 原 `decision.json` 逐字进 `revisions.decisionSnapshot` 再移除该文件 —— 这是**唯一**会移除它的地方，且内容一字未丢 |
+| 令牌轮换 | `publisherTokens` 只保留最近 8 枚（`TOKEN_MAX = 8`），换发**不删记录** |
+
+公开面的可见性判据只有一条：`isPubliclyVisible = state === 'approved' && withdrawRequested !== true`。
 
 ## 数据与备份
 
@@ -417,7 +513,7 @@ git add packs/<包 id> && git commit -m "收录 <包 id>（来源：<URL>）" &&
 
 ## 更新服务器上这一个服务
 
-代码只有三个 `.mjs` 加一个 `pages/`。更新时**先备份、再换文件、再重启**，全程只碰 `/opt/sp-modsite` 与 `sp-modsite.service`：
+运行时代码只有 `server.mjs` / `review.mjs` / `zip.mjs` 三个 `.mjs`，加一个 `pages/`（5 个 `.html` + `theme.css`）；目录里另有四个 `selftest*.mjs`，同一次一起传。更新时**先备份、再换文件、再重启**，全程只碰 `/opt/sp-modsite` 与 `sp-modsite.service`：
 
 ```bash
 # ① 备份 + 记下旧版哈希（可回滚的硬条件）
@@ -430,6 +526,7 @@ sha256sum /opt/sp-modsite/{server.mjs,review.mjs,zip.mjs} | tee /opt/sp-modsite.
 # ② 本机（Windows）传上去。--exclude runtime 免得动服务器上自装的 Node
 scp site\server.mjs site\review.mjs site\zip.mjs sp:/opt/sp-modsite/
 scp site\pages\*.html site\pages\theme.css sp:/opt/sp-modsite/pages/
+scp site\selftest.mjs site\selftest-admin.mjs site\selftest-compat.mjs site\selftest-publisher.mjs sp:/opt/sp-modsite/
 ```
 
 ```bash
@@ -446,6 +543,20 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:25570/review-2228     
 cp -a /opt/sp-modsite.bak-<时间戳>/. /opt/sp-modsite/ && systemctl restart sp-modsite
 ```
 
+### 改完必跑的**四个**自测（2026-10-13 起）
+
+```bash
+cd /opt/sp-modsite
+/opt/sp-modsite/runtime/node/bin/node selftest.mjs             # ① 公网投稿链
+/opt/sp-modsite/runtime/node/bin/node selftest-admin.mjs       # ② 审核台 / 公网列表**页面**跑不跑得起来
+/opt/sp-modsite/runtime/node/bin/node selftest-compat.mjs      # ③ 兼容包整条链 + 反例
+/opt/sp-modsite/runtime/node/bin/node selftest-publisher.mjs   # ④ 发布者自助 + 管理员确认 + 分类筛选 + 审计日志
+```
+
+**四个全绿才算改完**（`selftest-publisher.mjs` 是 2026-10-13 新增的那一个，专测本次这条链）。
+四个都跑在**临时数据目录**（`/tmp/...`）上，**不碰** `/var/lib/sp-modsite`，不联网。
+服务器上 `node` 不在 `PATH` 里，用单元文件里那个绝对路径（`/opt/sp-modsite/runtime/node/bin/node`）。
+
 > `/var/lib/sp-modsite`（数据）**不在**这套步骤里 —— 更新代码不碰数据；回滚也不会回退数据。
 > 服务器上的 `sync.service`、gunicorn、nginx 等都不属于本服务，别动。
 
@@ -456,3 +567,68 @@ cp -a /opt/sp-modsite.bak-<时间戳>/. /opt/sp-modsite/ && systemctl restart sp
 - **不自动拒收疑似素材** —— 它只把特征挑出来、单独存放、标注；收不收、上不上线都归人
 - **不自动改仓库** —— 通过之后要不要进 `packs/`、要不要发 release，都由人跑
 - **不是 Git 的替代品**：它是让不会 git 的人也能投稿的入口，正式收录仍在仓库里
+
+
+## 取件：`?variant=orig`（留档原件）到底怎么取 —— 实测矩阵（2026-10-12）
+
+**这一节的由来**：有人拿**公网入口** + 有效 `x-admin-token` 去取 `?variant=orig`，拿到 **403**，
+于是怀疑"留档原件存了却取不到 / 是不是回归"。实测结论：**设计如此，不是回归**，只是取用规则没写下来过。
+
+**根因（一行）**：`isAdmin = adminAllowed(req) && (tokenOk(x-admin-token) || basicOk(req))` ——
+**先看来源 IP，再看凭据**。`ADMIN_IPS` 非空时，只有**回环**（或白名单里的 IP）才可能通过；
+公网入口进来的请求**连凭据那一步都走不到**。
+
+**实测矩阵**（同一请求，只换来源 / 凭据）：
+
+| 取法 | 结果 | 说明 |
+|---|---|---|
+| 回环 `http://127.0.0.1:<PORT>` + `x-admin-token` | **200** | ✅ **这是可用取法** |
+| 回环 + Basic（`admin:<ADMIN_TOKEN>`） | **200** | ✅ 同样可用 |
+| 回环 + 无凭据 | 403 | 凭据没过（`adminAllowed` 已过） |
+| 公网入口 + `x-admin-token` | 403 | **来源 IP 不过白名单 —— 先于凭据** |
+| 公网入口 + 无凭据 | 403 | 同上 |
+| 伪造 `X-Forwarded-For: 127.0.0.1` | 403 | `TRUST_PROXY=0` ⇒ **不认这个头**（这正是不被绕过的证据） |
+| `?variant=mod`（正常发布物）无凭据 | 200 | 发布物本来公开 |
+
+**两种 403 的正文不一样，可以据此定位**：
+
+- `原件只是留档，不对外发布；管理口只允许回环地址（ADMIN_IPS），走 SSH 隧道再看。` ⇒ **来源 IP 没过白名单**（先那一半）
+- `原件只是留档，不对外发布：请从审核页进入（浏览器会弹登录框），或用 x-admin-token 头带上令牌。` ⇒ 来源过了、**凭据没过**（后那一半）
+
+**所以正确的取法**：
+
+```bash
+# 把服务器的回环 25570 接到本机某端口（8787 随便挑）
+ssh -N -L 8787:127.0.0.1:<PORT> root@<服务器>
+# 然后走**回环那一路**取；token 用 /etc/sp-modsite.env 里的 ADMIN_TOKEN
+curl -o orig.zip -H "x-admin-token: $ADMIN_TOKEN" "http://127.0.0.1:8787/api/file/<编号>?variant=orig"
+```
+
+**为什么保留这个次序**（业主 2026-10-12 裁定「不改」）：**IP 白名单先于凭据**更安全 ——
+公网上**拿到令牌也没用**；而且两种 403 的正文本身就把"只允许回环"与"缺令牌"分开了，排查不吃力。
+
+**实测覆盖**：22 条有 `orig.zip` 的兼容包，在回环 + `x-admin-token` 下 **22/22 = HTTP 200 且与磁盘逐字节一致**
+（另 4 条本来就没有 `orig.zip` —— 是**没留档**，不是取不到）。
+
+
+## 纪律：站侧更正「投稿人自述」时怎么改（`compatNote` / `note` / `description`）
+
+**适用范围**：`meta.compatNote`、`meta.note`、以及记录里任何**由投稿人/改写者自己写的话**。
+（`decision.json.reason` 那一栏是**站侧**写的，不受本节约束。）
+
+**为什么要有这一节**：站侧确实需要更正投稿人自述里**事实上错的东西**（例如 `979a39c35fd0` 的
+「19 个文件里只有 5 个 CSS」—— 实测 `+++` 文件头 19 个 = **4 个 CSS + 15 个 JS**）。
+但**不能因此把作者的原话抹掉**：那是"他当时说了什么"的证据。
+
+**四条纪律**：
+
+1. **一律加前缀**：`站侧更正 YYYY-MM-DD：` —— 谁改的、什么时候改的，一眼看得出来。
+2. **保留原文数字 / 原句**：**不许覆盖掉作者的原始说法**（例如写成
+   `19 个文件里只有 4 个 CSS（站侧更正 2026-10-12：… 实测 19 个 = 4 个 CSS + 15 个 JS，原文写 5）`），
+   而不是直接把 `5` 改成 `4` 了事。
+3. **`revisions` 留痕**：`changed` = **声称值**、`to` = **实测值**、`why` = 理由。
+4. **只改事实上错的**；**作者的判断 / 估计不动** —— 例如「约 17 处 hunk 能用样式表表达」是作者对
+   "可转换成样式表的量"的**判断**（实测全量 81 处 hunk、其中 CSS 文件里 21 处），站侧**只补记实测、不改他的判断**。
+
+**配套**：`decision.json.reason` 里写"站侧核实（日期）：…"那一段，与本节的更正**成对出现** ——
+一处是"哪句错了、真值是什么"，一处是"我们据此判了什么"。

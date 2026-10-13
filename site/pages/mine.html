@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的投稿 · 卫戍协议 Forge 工坊包</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' fill='%230c0f0e'/%3E%3Cpath fill='%234ed8af' d='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v7l2 2v2H5v-2l2-2v-7L5 8z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="__CSS__">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="/">工坊包 <b>·</b> 上传站 <span class="sub2">SP MODSITE</span></a>
+  <nav class="navlinks">
+    <a href="/">上传</a>
+    <a href="/mods">已上线</a>
+    <a href="/mine" class="on">我的投稿</a>
+  </nav>
+</header>
+
+<h1>我的投稿</h1>
+<p class="sub">
+  这一页给<b>投稿的人</b>自己管自己那条：改名称 / 备注 / 分类、换包体（上新版本）、<b>申请撤下</b>。<br>
+  <b>规矩写在这儿</b>：你改完的东西<b>不会直接上公开列表</b> —— 每一次改动都会把这条<b>打回待审</b>，
+  由维护者复审通过后才重新上线。<b>撤下申请则立刻生效</b>：公开列表与下载口马上不再显示它，
+  维护者确认后转为终态（记录与文件都不会被删）。<br>
+  想投稿请去 <a href="/">上传页</a>。
+</p>
+
+<!-- ================================================================
+     ① 换令牌（认领码 → 发布者令牌）
+     ================================================================
+     认领码有两个来源：**投稿成功那一页显示的那一串**（只显示一次），
+     或**维护者带外发给你的那一串**（老记录认领、或令牌丢了以后重发）。
+     令牌只存在你自己的浏览器里（localStorage），站点只存它的**哈希** —— 丢了找维护者重发即可。
+     零依赖：没有框架、没有外链，本页的 JS 全部内联手写。 -->
+<section class="panel brackets">
+  <div class="panel__head">
+    <div class="panel__titles">
+      <span class="panel__title">① 用认领码换发布者令牌</span>
+      <span class="panel__sub">投稿成功时那一串 16 位的码，或维护者发给你的那一串</span>
+    </div>
+  </div>
+  <div class="panel__body">
+    <div class="field">
+      <label class="field__label" for="cid">投稿编号 <span class="field__hint">12 位十六进制，投稿成功那一页上有</span></label>
+      <input id="cid" type="text" maxlength="32" placeholder="例如：3f6b1c9a2d4e" autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="field__label" for="ccode">认领码 <span class="field__hint">16 位（大写字母 + 数字，不含 0/O/1/I/L）</span></label>
+      <input id="ccode" type="text" maxlength="16" placeholder="例如：2K7QM4XR9TZPVDHN" autocomplete="off"
+             style="text-transform:uppercase;font-family:var(--font-label);letter-spacing:.12em">
+    </div>
+    <button id="claimgo" class="btn btn--primary">换令牌</button>
+    <div class="out" id="claimout"></div>
+  </div>
+</section>
+
+<!-- ② 令牌（存在本机；可清掉） -->
+<section class="panel">
+  <div class="panel__head">
+    <div class="panel__titles">
+      <span class="panel__title">② 发布者令牌（存在这台浏览器里）</span>
+      <span class="panel__sub">只在本机保存；站点只存哈希，谁也看不到明文</span>
+    </div>
+  </div>
+  <div class="panel__body">
+    <div class="field">
+      <label class="field__label" for="ptok">令牌 <span class="field__hint">留着它才能管自己那条；丢了就找维护者再发一枚认领码</span></label>
+      <input id="ptok" type="text" placeholder="（还没有：先在上面用认领码换一枚）" autocomplete="off">
+    </div>
+    <div class="flex">
+      <button id="save" class="btn btn--ghost btn--sm">存到本机</button>
+      <button id="load" class="btn btn--primary btn--sm">载入我的投稿</button>
+      <button id="forget" class="btn btn--danger btn--sm">从本机忘掉这枚令牌</button>
+    </div>
+    <div class="out" id="msg"></div>
+  </div>
+</section>
+
+<div id="mine"><p class="dim">载入中…</p></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const KEY = 'sp-modsite-publisher-token';
+const tok = () => ($('ptok').value || '').trim();
+
+const STATE_LABEL = { approved: '已上线', pending: '待审', rejected: '已打回', superseded: '已取代 / 已撤下' };
+const KIND_TITLE = { functional: '真功能 mod', documentation: '说明包', unknown: '其他（未分类 / 安装器·补丁形态）' };
+
+function say(node, text, kind) {
+  node.textContent = '';
+  const p = el('p', kind ? 'kv ' + kind : 'kv', text);
+  node.append(p);
+}
+/** 统一调发布者 API：令牌走 x-publisher-token 头（与站点文档一致）。 */
+async function api(path, init = {}, withToken = true) {
+  const headers = { ...(init.headers || {}) };
+  if (withToken && tok()) headers['x-publisher-token'] = tok();
+  const r = await fetch(path, { ...init, headers });
+  let body = null;
+  const text = await r.text();
+  try { body = JSON.parse(text || '{}'); } catch { body = null; }
+  return { ok: r.ok, status: r.status, body, text };
+}
+const apiJson = (path, obj) => api(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(obj) });
+
+// ---- ① 换令牌
+$('claimgo').onclick = async () => {
+  const id = $('cid').value.trim();
+  const claimCode = $('ccode').value.trim().toUpperCase();
+  if (!id || !claimCode) { say($('claimout'), '编号与认领码都要填。'); return; }
+  $('claimgo').disabled = true;
+  const r = await api('/api/publisher/claim', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, claimCode }),
+  }, false);
+  $('claimgo').disabled = false;
+  if (!r.ok || !r.body?.publisherToken) {
+    say($('claimout'), '没成：' + (r.body?.error || ('HTTP ' + r.status)), 'dim');
+    return;
+  }
+  $('ptok').value = r.body.publisherToken;
+  try { localStorage.setItem(KEY, r.body.publisherToken); } catch { /* 隐私模式：存不进也没关系 */ }
+  $('claimout').textContent = '';
+  $('claimout').append(el('p', 'kv', '换到了，已经存进这台浏览器。下面就是你的投稿。'));
+  loadMine();
+};
+
+// ---- ② 令牌与列表
+$('save').onclick = () => {
+  try { localStorage.setItem(KEY, tok()); say($('msg'), '已存到本机。'); }
+  catch { say($('msg'), '这台浏览器不让存（隐私模式）—— 那就先手动留着这串令牌。'); }
+};
+$('forget').onclick = () => {
+  try { localStorage.removeItem(KEY); } catch { /* 忽略 */ }
+  $('ptok').value = '';
+  $('mine').textContent = '';
+  $('mine').append(el('p', 'dim', '已从本机忘掉这枚令牌。要再管自己的投稿，就再用认领码换一枚（丢了找维护者重发）。'));
+};
+$('load').onclick = () => loadMine();
+
+function statusBadge(m) {
+  const wrap = el('div', 'flex');
+  wrap.append(el('span', 'badge', STATE_LABEL[m.state] || m.state));
+  if (m.withdrawRequested) wrap.append(el('span', 'badge warn', '已申请撤下 · 待维护者确认'));
+  if (m.candidate) wrap.append(el('span', 'badge info', '有待批的新包体'));
+  return wrap;
+}
+
+function card(m) {
+  const c = el('div', 'panel brackets');
+  const body = el('div', 'panel__body');
+  const head = el('div', 'flex');
+  const h = el('h2'); h.style.margin = '0'; h.textContent = m.name || '(没名字)';
+  head.append(h);
+  head.append(statusBadge(m));
+  body.append(head);
+  body.append(el('div', 'kv dim',
+    `编号 ${m.id} · ${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)}`
+    + ` · 分类 ${KIND_TITLE[m.packKind] || m.packKind} · 改动留痕 ${m.revisions} 笔`));
+  if (m.withdrawRequested) {
+    body.append(el('div', 'kv dim', '撤下申请已提交：**公开列表与下载口已经不显示它了**，等维护者确认。'
+      + (m.withdrawReason ? `你填的理由：${m.withdrawReason}` : '')));
+  }
+  if (m.candidate) {
+    body.append(el('div', 'kv dim', `待批的新包体：${(m.candidate.size / 1048576).toFixed(2)} MB · `
+      + `${m.candidate.sha256}（维护者批准前，公开面照旧是旧的包）`));
+  }
+
+  // ---- 改元数据（改完就回待审）
+  const edit = el('div', 'field');
+  edit.append(el('div', 'field__label', '改名称 / 备注 / 分类（改完这条回到待审，等维护者复审）'));
+  const nameI = el('input'); nameI.type = 'text'; nameI.value = m.name || ''; nameI.maxLength = 60;
+  nameI.placeholder = 'mod 名';
+  const noteI = document.createElement('textarea'); noteI.value = m.note || ''; noteI.maxLength = 20000;
+  noteI.rows = 4; noteI.placeholder = '备注（原件叫什么、从哪来、原作者、许可、改了什么、素材哪来的）';
+  noteI.style.cssText = 'width:100%;margin:6px 0';
+  const kindS = document.createElement('select');
+  for (const k of ['functional', 'documentation', 'unknown']) {
+    const o = document.createElement('option'); o.value = k; o.textContent = KIND_TITLE[k];
+    if ((m.packKind || 'unknown') === k) o.selected = true;
+    kindS.append(o);
+  }
+  kindS.style.cssText = 'margin:0 0 8px';
+  edit.append(nameI, noteI, kindS);
+  const saveB = el('button', 'btn btn--primary btn--sm', '保存改动（回到待审）');
+  saveB.onclick = async () => {
+    if (!confirm('保存后这一条会**回到待审**、暂时从公开列表上下来，等维护者复审通过才重新上线。继续吗？')) return;
+    saveB.disabled = true;
+    const r = await apiJson('/api/publisher/update', {
+      id: m.id, name: nameI.value, note: noteI.value, packKind: kindS.value,
+    });
+    saveB.disabled = false;
+    alert(r.ok ? (r.body.changed ? '改好了：已回到待审。' : '字段没变化，没有写盘。') : ('没成：' + (r.body?.error || r.status)));
+    if (r.ok) loadMine();
+  };
+  edit.append(saveB);
+
+  // ---- 换包体 / 上新版本（写成候选，公开面照旧展示旧包）
+  const blobRow = el('div', 'flex');
+  blobRow.style.marginTop = '10px';
+  const fileI = document.createElement('input'); fileI.type = 'file'; fileI.accept = '.zip,application/zip';
+  const upB = el('button', 'btn btn--ghost btn--sm', '上传新包体（先存为候选）');
+  upB.onclick = async () => {
+    const f = fileI.files[0];
+    if (!f) { alert('先选一个 zip。'); return; }
+    if (!/\.zip$/i.test(f.name)) { alert('只收 zip。'); return; }
+    if (!confirm('这会把新包体存成**候选**：公开列表在维护者批准前**照旧是旧的包**。继续吗？')) return;
+    upB.disabled = true; upB.textContent = '上传中…';
+    const r = await api(`/api/publisher/blob?id=${encodeURIComponent(m.id)}`, {
+      method: 'POST', headers: { 'content-type': 'application/zip', 'x-filename': encodeURIComponent(f.name) }, body: f,
+    });
+    upB.disabled = false; upB.textContent = '上传新包体（先存为候选）';
+    alert(r.ok ? (r.body.changed ? '候选包体已收下。公开面照旧是旧包，等维护者批准。' : '这一份与现在公开的包逐字节相同，没有留候选。')
+      : ('没成：' + (r.body?.error || r.status)));
+    if (r.ok) loadMine();
+  };
+  blobRow.append(fileI, upB);
+
+  // ---- 申请撤下（立刻生效；维护者确认后转终态）
+  const wdRow = el('div', 'flex');
+  wdRow.style.marginTop = '10px';
+  const whyI = el('input'); whyI.type = 'text'; whyI.maxLength = 1000;
+  whyI.placeholder = '撤下理由（可以留空）'; whyI.style.flex = '1';
+  const wdB = el('button', 'btn btn--danger btn--sm', m.withdrawRequested ? '已申请，再点一次也无妨' : '申请撤下这一条');
+  wdB.onclick = async () => {
+    if (!confirm('申请撤下：公开列表与下载口**立刻**不再显示它（记录与文件不会删）。维护者确认后转为终态；拒绝则恢复公开。继续吗？')) return;
+    wdB.disabled = true;
+    const r = await apiJson('/api/publisher/withdraw', { id: m.id, reason: whyI.value });
+    wdB.disabled = false;
+    alert(r.ok ? '撤下申请已提交：公开面立刻不再显示这一条。' : ('没成：' + (r.body?.error || r.status)));
+    if (r.ok) loadMine();
+  };
+  wdRow.append(whyI, wdB);
+
+  body.append(edit, blobRow, wdRow);
+  c.append(body);
+  return c;
+}
+
+async function loadMine() {
+  const box = $('mine');
+  box.textContent = '';
+  if (!tok()) {
+    box.append(el('p', 'dim', '还没有发布者令牌：在上面用认领码换一枚，或者把已存的令牌填进②。'));
+    return;
+  }
+  box.append(el('p', 'dim', '载入中…'));
+  const r = await api('/api/publisher/mine');
+  box.textContent = '';
+  if (!r.ok) {
+    box.append(el('p', 'kv', '载入失败：' + (r.body?.error || ('HTTP ' + r.status))));
+    return;
+  }
+  const mine = r.body?.mine || [];
+  if (!mine.length) {
+    box.append(el('p', 'dim', '这枚令牌名下还没有投稿。'));
+    return;
+  }
+  box.append(el('h2', 'sec', `我的投稿（${mine.length}）`));
+  for (const m of mine) box.append(card(m));
+}
+
+// 打开就带出本机存的令牌，并自动载一次。
+try {
+  const saved = localStorage.getItem(KEY);
+  if (saved) { $('ptok').value = saved; loadMine(); }
+} catch { /* 隐私模式：忽略 */ }
+</script>
+</body>
+</html>

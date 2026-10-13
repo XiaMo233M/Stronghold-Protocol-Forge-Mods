@@ -78,6 +78,26 @@
 <!-- 「当前在哪一页」写死一行字，一眼可见（导航上那一格同时高亮）。 -->
 <p class="viewhead" id="viewHead"><b id="viewNow">当前：待审</b> <span class="dim" id="viewNowSub"></span></p>
 
+<!-- ================================================================
+     ⭐ 发布者自撤待确认（业主 2026-10-12 裁定 ②：自撤要管理员二次确认）
+     ================================================================
+     发布者在「我的投稿」点「申请撤下」的那一刻，**公开列表与下载口就已经不再显示那一条了**
+     （这是「他想删掉要立刻见效」那一半）。管这一块只决定**终态**：
+       · 确认 ⇒ 落 `decision=superseded` 且 **`replacedBy: null`**（自撤，没有取代者）；
+       · 拒绝 ⇒ 清掉标志位，这条**恢复公开**（它本来就没被改动过）。
+     两条路都**不删**记录 / 包体 / 决定 —— 拒绝只是清一个布尔标志位并留痕。
+     一次只处理一个明确写出的 id（与全站同一条铁律），所以这里是**一条一行、各点各的**。
+     ================================================================ -->
+<section class="panel brackets" id="wdPanel" style="display:none">
+  <div class="panel__head">
+    <div class="panel__titles">
+      <span class="panel__title">发布者自撤待确认</span>
+      <span class="panel__sub">公开面已经不再显示这些了；这里只决定终态（确认转 superseded，拒绝则恢复公开）</span>
+    </div>
+  </div>
+  <div class="panel__body" id="wdList"></div>
+</section>
+
 <div class="grid2">
   <div>
     <section class="panel brackets">
@@ -726,8 +746,54 @@ async function reloadList() {
   return true;
 }
 
-function renderList({ submissions }) {
+// ---- ⭐ 发布者自撤待确认（见页面上那一块的注释）--------------------------------
+// 判据与审核页三视图**无关**：它属于「记录状态」那一层，所以在三页上都画同一块。
+// ⚠️ 这里**只**改 `withdrawRequested` 那个标志位与终态，一笔都不碰 mod.zip / 别的字段。
+async function withdrawDecide(id, action) {
+  const reason = action === 'reject' ? (prompt('拒绝自撤要写一句理由（会留痕）：', '') || '') : '';
+  if (action === 'reject' && !reason.trim()) { alert('拒绝要写理由。'); return; }
+  const r = await api('/withdraw-decide', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id, action, reason: reason.trim() }),
+  });
+  const j = await r.json();
+  if (!r.ok) { alert('没成：' + (j.error || r.status)); return; }
+  alert(action === 'confirm'
+    ? '已确认自撤：decision=superseded 且 replacedBy:null（记录、包体、留档全部保留）。'
+    : '已拒绝：这一条恢复公开（它本来就没被改动过）。拒绝那一笔已进 withdrawHistory 留痕。');
+  await reloadList();
+}
+
+function renderWithdrawQueue(queue) {
+  const panel = $('wdPanel');
+  const box = $('wdList');
+  if (!panel || !box) return;
+  const q = queue || [];
+  panel.style.display = q.length ? '' : 'none';
+  box.textContent = '';
+  if (!q.length) return;
+  for (const w of q) {
+    const row = el('div', 'flex');
+    row.style.cssText = 'align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)';
+    const info = el('div');
+    info.append(el('b', null, w.name || '(没名字)'));
+    info.append(el('div', 'dim', `编号 ${w.id} · 申请于 ${String(w.at || '—').replace('T', ' ').slice(0, 19)}`
+      + (w.reason ? ` · 发布者写的理由：${w.reason}` : ' · 发布者没填理由')));
+    info.style.flex = '1';
+    const open = el('button', 'btn btn--ghost btn--sm', '看这条');
+    open.onclick = () => detail(w.id);
+    const yes = el('button', 'btn btn--primary btn--sm', '确认自撤');
+    yes.onclick = () => withdrawDecide(w.id, 'confirm');
+    const no = el('button', 'btn btn--danger btn--sm', '拒绝（恢复公开）');
+    no.onclick = () => withdrawDecide(w.id, 'reject');
+    row.append(info, open, yes, no);
+    box.append(row);
+  }
+}
+
+function renderList({ submissions, withdrawQueue }) {
   lastList = { submissions: submissions || [] };
+  renderWithdrawQueue(withdrawQueue);
   // 先按控件当前值读一次 —— 自动载入可能发生在维护者已经敲了关键字之后，
   // 那一路也要吃筛选（不能只吃初始化时快照下来的那一份）。
   readFilter();
@@ -957,7 +1023,12 @@ async function detail(id) {
   inner.textContent = '载入中…';
   const r = await api('/detail/' + id);
   if (!r.ok) { inner.textContent = '载入失败：HTTP ' + r.status; return; }
-  const { meta, entries, topLevel, download } = await r.json();
+  // ⭐ 新增的三栏（服务端**只加字段**，老读法不受影响）：
+  //   · `publisherRevisions` —— 「发布者改了什么」（需求 B）；
+  //   · `candidate`         —— 待批的候选包体（发布者换的包体 / 上新版本，裁定 ⑦）；
+  //   · `revisions`         —— 照旧读 `meta.revisions`（上面那一栏就是从中挑出来的）。
+  const { meta, entries, topLevel, download, publisherRevisions, candidate } = await r.json();
+  const revisions = publisherRevisions || (Array.isArray(meta.revisions) ? meta.revisions.filter((x) => x && x.by && x.by !== 'admin') : []);
   inner.textContent = '';
 
   const head = el('div', 'flex');
@@ -995,6 +1066,120 @@ async function detail(id) {
     }
   }
   inner.append(el('div', 'kv dim', `编号 ${meta.id}\n大小 ${(meta.size / 1048576).toFixed(3)} MB\nsha256 ${meta.sha256}\n上传 ${meta.uploadedAt}\n来自 ${meta.ip}`));
+
+  // ================================================================
+  // ⭐ 发布者改了什么（业主 2026-10-12 需求 B：「审核页显示发布者改了什么」）
+  // ================================================================
+  // 数据来自记录自己的 `revisions`（**既有字段**，这里只挑出 `by !== 'admin'` 的那些来读，
+  // 一个字节都不写）。发布者每一次自助改动都会留一笔：改了哪几栏、从什么改成什么、为什么。
+  // 另外把「上一份被搬走的决定快照」也照实摆出来 —— 发布者改元数据会**强制回待审**，
+  // 这一步的证据就在 revisions[].decisionSnapshot 里（见 server.mjs 的 clearDecision）。
+  const pubRevs = revisions.filter((r) => r && r.by && r.by !== 'admin');
+  if (pubRevs.length) {
+    inner.append(el('h2', 'sec', `发布者改动留痕（${pubRevs.length} 笔）`));
+    for (const r of pubRevs.slice().reverse()) {
+      const box = el('div', 'flag warn');
+      box.append(el('span', 'lv', r.by === 'publisher' ? '发布者' : String(r.by || '—')));
+      const from = r.changed ? Object.entries(r.changed).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' · ') : '（—）';
+      const to = r.to ? Object.entries(r.to).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' · ') : '（—）';
+      box.append(document.createTextNode(
+        ` ${String(r.at || '—').replace('T', ' ').slice(0, 19)}：${from} ⇒ ${to}`));
+      inner.append(box);
+      if (r.why) inner.append(el('div', 'kv dim', '· ' + r.why));
+      // 被搬走的那份决定：这是「改动 ⇒ 强制回待审」的凭据（本条现在读出来是 pending）。
+      if (r.decisionSnapshot) {
+        const d = r.decisionSnapshot;
+        inner.append(el('div', 'kv dim',
+          `· 改动前的决定：${d.decision}（${String(d.at || '—').replace('T', ' ').slice(0, 19)} · ${d.by || '—'}）`
+          + (d.reason ? ` 理由：${d.reason}` : '')));
+      }
+    }
+  }
+
+  // ================================================================
+  // ⭐ 待批的候选包体（发布者换的包体 / 上新版本）
+  // ================================================================
+  // 裁定 ⑦：**批准前公开面继续展示旧包**。所以这里给的是「候选」那一份的下载口与哈希，
+  // 并在核过哈希之后才允许「批准」——批准会：旧 mod.zip 改名留档（不删）、候选转正、
+  // 本条回到待审（上线与否仍然由维护者在决定区明确给一次）。
+  if (candidate) {
+    inner.append(el('h2', 'sec', '待批的候选包体（公开面现在仍是旧包）'));
+    const box = el('div', 'flag warn');
+    box.append(el('span', 'lv', '候选'));
+    box.append(document.createTextNode(
+      ` ${String(candidate.at || '—').replace('T', ' ').slice(0, 19)} 由发布者换上 · `
+      + `${((candidate.size || 0) / 1048576).toFixed(3)} MB · ${candidate.entries ?? '?'} 个文件`
+      + (candidate.hashMatches ? ' · 哈希核对一致' : ' · ⚠ 磁盘上的哈希与记录不一致，先别批')));
+    inner.append(box);
+    inner.append(el('div', 'kv dim', `候选 sha256 ${candidate.sha256}`));
+    inner.append(el('div', 'kv dim', `当前公开的 sha256 ${meta.sha256}`));
+    if (candidate.blobName) inner.append(el('div', 'kv dim', `发布者报的文件名 ${candidate.blobName}`));
+    const cbar = el('div', 'flex');
+    cbar.style.margin = '10px 0';
+    const cdl = el('button', 'btn btn--ghost', '下载候选包体（拿去跑测试）');
+    cdl.onclick = async () => {
+      cdl.disabled = true; cdl.textContent = '下载中…';
+      try {
+        const sameOrigin = (u) => { try { const x = new URL(u, location.href); return x.pathname + x.search; } catch { return u; } };
+        await saveBlob(sameOrigin(candidate.download), `${meta.id}-候选-${String(candidate.blobName || 'candidate.zip').replace(/[\\/:*?"<>|]/g, '_')}`, cdl);
+      } catch (e) { cdl.textContent = '下载出错：' + e.message; } finally { cdl.disabled = false; }
+    };
+    const cok = el('button', 'btn btn--primary', '批准候选包体（切换公开包体）');
+    cok.onclick = async () => {
+      if (!confirm('批准候选包体：公开包体切到这一份，旧的 mod.zip 会改名留档（不删），本条回到待审。继续吗？')) return;
+      cok.disabled = true;
+      const r2 = await api('/promote-blob', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, expectedSha256: candidate.sha256 }),
+      });
+      const j2 = await r2.json();
+      if (!r2.ok) { alert('没成：' + (j2.error || r2.status)); cok.disabled = false; return; }
+      alert('已切换公开包体；旧包档名留档：' + (j2.archived || '(没有旧的)')
+        + '\n本条已回到待审 —— 请在决定区给它一次明确的「通过并上线」。');
+      await reloadList(); detail(id);
+    };
+    cbar.append(cdl, cok);
+    inner.append(cbar);
+    if (!candidate.hashMatches) {
+      inner.append(el('div', 'kv dim', '⚠ 哈希对不上时「批准」会被服务端 409 拒掉（先算不写，磁盘一个字节都不动）。'));
+    }
+  }
+
+  // ================================================================
+  // ⭐ 发布者认领状态 + 手工发认领码（裁定 ④ / ⑨）
+  // ================================================================
+  // 老记录（115 条里没有 publisherTokens 的那些）默认**谁都认领不了**——
+  // 这是有意的：它们没有提交时的那枚认领码，等于无主。要让人能自助管理，
+  // 就在这里**带外**发一枚给他（微信/群里）。令牌丢了也走这条路重发。
+  if (meta.kind !== 'compat') {
+    const tokens = Array.isArray(meta.publisherTokens) ? meta.publisherTokens : [];
+    const claims = Array.isArray(meta.pendingClaim) ? meta.pendingClaim : [];
+    inner.append(el('h2', 'sec', '发布者认领'));
+    inner.append(el('div', 'kv dim',
+      `已发出的发布者令牌 ${tokens.length} 枚 · 待用认领码 ${claims.length} 枚（都只存哈希，这里看不到明文）`));
+    const ib = el('button', 'btn btn--ghost btn--sm', '发一枚认领码（带外交给发布者）');
+    ib.onclick = async () => {
+      if (!confirm('发一枚新的认领码？它只显示这一次，盘上只存哈希 —— 请**带外**交给这条的发布者。')) return;
+      ib.disabled = true;
+      const r2 = await api('/issue-claim', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }),
+      });
+      const j2 = await r2.json();
+      ib.disabled = false;
+      if (!r2.ok) { alert('没成：' + (j2.error || r2.status)); return; }
+      prompt('这一枚认领码只显示这一次（盘上只存哈希）。带外发给发布者，让他去 /mine 换令牌：', j2.claimCode);
+      detail(id);
+    };
+    inner.append(ib);
+    if (meta.withdrawRequested === true) {
+      const w = el('div', 'flag warn');
+      w.append(el('span', 'lv', '自撤待确认'));
+      w.append(document.createTextNode(' 发布者申请撤下这一条，公开面已经不再显示它了。'
+        + '上面「发布者自撤待确认」那一块可以一键确认 / 拒绝。'));
+      inner.append(w);
+    }
+  }
+
   if (meta.note) { const n = el('div', 'note'); n.style.marginTop = '10px'; n.textContent = meta.note; inner.append(n); }
   if (meta.homepage) {
     const p = el('div'); p.append(document.createTextNode('原件来源：'));
