@@ -1173,6 +1173,10 @@ try {
   //      `/decide` 多收一个 `superseded`（必须带 `replacedBy`）。
   //   ② **`packKind` 可写**：这一栏原先只有读、没有写 ⇒ 判了分类落不到公网。
   //
+  // ⭐ 2026-10-13 追加（业主总政策「以新为准」）：上面那条「取代者不能是兼容包」**已删除**
+  //    （6g-9 随之从 400 改成「不再拒」）；判据搬进 `checkSupersede()`，与新端点
+  //    `POST ${ADMIN}/supersede` 共用一份实现。那两种组合的真跑在下面的 ⑥h。
+  //
   // ⚠️ 这一节**先**钉住「compat→投稿 那条老路径的产出与改动前逐字相同」，再去动别的 ——
   //    老路径零变化是这次补丁的硬要求。
   console.log('\n⑥g superseded（投稿取代投稿）+ packkind（分类可写）');
@@ -1237,7 +1241,13 @@ try {
     const g4 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: 'zzzzzzzzzzzz' });
     check(g4.status === 404, '6g-8 replacedBy 那条不存在 ⇒ 404', `HTTP ${g4.status}`);
     const g5 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: cid });
-    check(g5.status === 400, '6g-9 replacedBy 是**兼容包** ⇒ 400（并点名 compat/link）', `HTTP ${g5.status}`);
+    // ⭐ 【政策改动 2026-10-13】这一条**原先是 400**（「取代者不能是兼容包」）。
+    //    「以新为准」把那一栏放开了 —— 取代者可以是兼容包，也可以普通投稿。
+    //    而 `target` 此刻**已经**被 `cid` 取代着 ⇒ 这里命中的是**幂等分支**：
+    //    200 + changed:false，**不写盘**（下面 6g-13 的逐字节断言照旧成立）。
+    check(g5.status === 200 && g5.body?.changed === false,
+      '6g-9 【政策改动】replacedBy 是兼容包**不再拒**（以新为准放开）；这一对本来就是这个关系 ⇒ 幂等 changed:false',
+      `HTTP ${g5.status} · changed=${g5.body?.changed}`);
     const g6 = await post(`${ADMIN}/decide`, { id: target, decision: 'superseded', replacedBy: newId });
     check(g6.status === 409, '6g-10 **取代者还没 approved** ⇒ 409（防公网「两份都没有」）', `HTTP ${g6.status}`);
     const g7 = await post(`${ADMIN}/decide`, { ids: [target], decision: 'superseded', replacedBy: newId });
@@ -1294,6 +1304,166 @@ try {
     await sleep(200);
   }
 
+  // ================================================================
+  // ⑥h ⭐ **「以新为准」**（业主 2026-10-13 总政策）：`POST ${ADMIN}/supersede`
+  //     「以后所有 mod 以新为准：新的上线、旧的下架但不删除」。
+  //
+  // 这一段把政策要求的**两种组合**都真跑一遍：
+  //   ① 旧的普通投稿 ← 新的普通投稿 / 新的兼容包；
+  //   ② **旧的本身是兼容包** —— 改动前 `markReplacedBy` 第 1042 行对 `area === 'compat'` 直接
+  //      `return null`，这条路**根本做不到**；放开之后才做得到（本任务就是把它做成能做的）。
+  // 外加四道守卫（自己取代自己 / 成环 / 不同 pack.id / 读不出 pack.id）与「下架 ≠ 删除」。
+  //
+  // 夹具**直接写盘**（不走上传口）：唯一的目的是把两条记录包内 `pack.json` 的 `id`
+  // 精确控制成**同一个** —— 那正是这条端点要核的那件事。
+  console.log(`\n⑥h ⭐「以新为准」：${ADMIN}/supersede（同 pack.id 的一对 ⇒ 旧的 superseded + replacedBy；下架不删）`);
+  {
+    const mkRec = (area, id, { name, packId = null, decision = null, noPack = false }) => {
+      const dir = join(dataDir, area, id);
+      mkdirSync(dir, { recursive: true });
+      const files = noPack
+        ? [{ name: 'ui/a.js', data: `export const ${id} = 1;\n` }]
+        : [
+          { name: 'pack.json', data: `${JSON.stringify({ id: packId, name, version: '1.0.0', author: '夹具作者', license: 'CC-BY-NC-4.0' }, null, 2)}\n` },
+          { name: 'ui/a.js', data: `export const ${id} = 1;\n` },
+        ];
+      writeFileSync(join(dir, 'mod.zip'), makeZip(files));
+      const meta = { name, size: 128, uploadedAt: '2026-10-13T00:00:00.000Z', note: '「以新为准」自测夹具' };
+      if (area === 'compat') {
+        meta.kind = 'compat'; meta.compatOf = null; meta.compatAuthor = '维护者';
+        if (packId) meta.pack = { id: packId };
+      }
+      writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta, null, 2));
+      if (decision) writeFileSync(join(dir, 'decision.json'), JSON.stringify(decision, null, 2));
+      return dir;
+    };
+    const appr = (name) => ({ decision: 'approved', reason: null, at: '2026-10-13T00:00:00.000Z', by: 'admin', displayName: name });
+    const shaOf = (p) => sha(readFileSync(p));
+    const pubIds = async () => {
+      const j = await (await fetch(`${BASE}/api/mods`)).json();
+      return [...j.mods, ...j.flagged].map((m) => m.id);
+    };
+
+    // ① 普通投稿 ↔ 普通投稿（同一个 pack.id）
+    mkRec('submissions', 'aa1100000001', { name: '夹具甲·旧版', packId: 'pair-pack-a', decision: appr('夹具甲·旧版') });
+    mkRec('submissions', 'aa1100000002', { name: '夹具甲·新版', packId: 'pair-pack-a', decision: appr('夹具甲·新版') });
+    // ② 旧的是**兼容包**，新的是普通投稿
+    mkRec('compat', 'bb2200000001', { name: '夹具乙·旧兼容版', packId: 'pair-pack-b', decision: appr('夹具乙·旧兼容版') });
+    mkRec('submissions', 'bb2200000002', { name: '夹具乙·新投稿', packId: 'pair-pack-b', decision: appr('夹具乙·新投稿') });
+    // ③ 旧的是普通投稿，新的是**兼容包**
+    mkRec('submissions', 'cc3300000001', { name: '夹具丙·旧投稿', packId: 'pair-pack-c', decision: appr('夹具丙·旧投稿') });
+    mkRec('compat', 'cc3300000002', { name: '夹具丙·新兼容版', packId: 'pair-pack-c', decision: appr('夹具丙·新兼容版') });
+    // 守卫用的夹具
+    mkRec('submissions', 'dd4400000001', { name: '夹具丁·另一个 mod', packId: 'pair-pack-e', decision: appr('夹具丁·另一个 mod') });
+    mkRec('submissions', 'dd4400000002', { name: '夹具丁·这个 mod', packId: 'pair-pack-d', decision: appr('夹具丁·这个 mod') });
+    mkRec('submissions', 'ee5500000001', { name: '夹具戊·包里没有 pack.json', packId: null, noPack: true, decision: appr('夹具戊') });
+    mkRec('submissions', 'ee5500000002', { name: '夹具戊·另一个', packId: 'pair-pack-x', decision: appr('夹具戊·另一个') });
+    mkRec('submissions', 'ff6600000001', { name: '夹具己·已被取代的', packId: 'pair-pack-f',
+      decision: { decision: 'superseded', reason: '夹具：先造一条已被取代的', at: '2026-10-13T00:00:00.000Z', by: 'admin', displayName: '夹具己·已被取代的', replacedBy: { id: 'ff6600000002', name: '夹具己·取代者', area: 'normal', at: '2026-10-13T00:00:00.000Z' } } });
+    mkRec('submissions', 'ff6600000002', { name: '夹具己·取代者', packId: 'pair-pack-f', decision: appr('夹具己·取代者') });
+    mkRec('submissions', 'ii9900000001', { name: '夹具辛·还没批', packId: 'pair-pack-g' });
+    mkRec('submissions', 'ii9900000002', { name: '夹具辛·已批', packId: 'pair-pack-g', decision: appr('夹具辛·已批') });
+
+    const before = await pubIds();
+    check(before.includes('aa1100000001') && before.includes('aa1100000002'),
+      '6h-1 夹具就绪：同一个 pack.id 的两条都在公开面上（这是取代的起点）');
+
+    // ---- ① 普通投稿取代普通投稿
+    const z1 = shaOf(join(dataDir, 'submissions', 'aa1100000001', 'mod.zip'));
+    const m1Before = JSON.parse(readFileSync(join(dataDir, 'submissions', 'aa1100000001', 'meta.json'), 'utf8'));
+    const r1 = await post(`${ADMIN}/supersede`, { newId: 'aa1100000002', oldId: 'aa1100000001' });
+    check(r1.status === 200 && r1.body?.changed === true && r1.body?.replacedBy === 'aa1100000002' && r1.body?.packId === 'pair-pack-a',
+      '6h-2 同 pack.id 的一对 ⇒ 200，旧的转 superseded、replacedBy 指向新的，并回显 packId',
+      `HTTP ${r1.status} · ${JSON.stringify({ changed: r1.body?.changed, packId: r1.body?.packId })}`);
+    const d1 = JSON.parse(readFileSync(join(dataDir, 'submissions', 'aa1100000001', 'decision.json'), 'utf8'));
+    check(d1.decision === 'superseded' && d1.replacedBy?.id === 'aa1100000002',
+      '6h-3 旧的 decision.json 逐字落下：superseded + replacedBy', JSON.stringify(d1.replacedBy));
+    const after1 = await pubIds();
+    check(!after1.includes('aa1100000001') && after1.includes('aa1100000002'),
+      '6h-4 公开面**只剩新的**：旧的不再列出，新的照旧在', `旧在=${after1.includes('aa1100000001')} 新在=${after1.includes('aa1100000002')}`);
+    check(existsSync(join(dataDir, 'submissions', 'aa1100000001', 'mod.zip'))
+      && shaOf(join(dataDir, 'submissions', 'aa1100000001', 'mod.zip')) === z1,
+      '6h-5 **下架 ≠ 删除**：旧的 mod.zip 还在，而且逐字节没变');
+    const oldPub = await fetch(`${BASE}/api/file/aa1100000001`);
+    const oldAdm = await adm('/api/file/aa1100000001');
+    check(oldPub.status === 403 && oldAdm.status === 200,
+      '6h-6 旧的**仍可下载**：公开口 403（不再对外发布）、管理口 200（维护者照旧取得到）',
+      `公开 ${oldPub.status} · 管理 ${oldAdm.status}`);
+    const m1b = JSON.parse(readFileSync(join(dataDir, 'submissions', 'aa1100000001', 'meta.json'), 'utf8'));
+    const stripRev = (o) => { const c = { ...o }; delete c.revisions; return JSON.stringify(c); };
+    check(stripRev(m1b) === stripRev(m1Before)
+      && Array.isArray(m1b.revisions) && m1b.revisions.length === ((m1Before.revisions || []).length) + 1
+      && m1b.revisions[m1b.revisions.length - 1].to?.replacedBy === 'aa1100000002'
+      && shaOf(join(dataDir, 'submissions', 'aa1100000001', 'mod.zip')) === z1,
+      '6h-7 旧的 meta.json **只多一笔 revisions**（其余键、mod.zip 一字未动）', `revisions=${m1b.revisions?.length}`);
+    const mA1 = shaOf(join(dataDir, 'submissions', 'aa1100000001', 'meta.json'));
+    const dA1 = shaOf(join(dataDir, 'submissions', 'aa1100000001', 'decision.json'));
+    const r1b = await post(`${ADMIN}/supersede`, { newId: 'aa1100000002', oldId: 'aa1100000001' });
+    check(r1b.status === 200 && r1b.body?.changed === false
+      && shaOf(join(dataDir, 'submissions', 'aa1100000001', 'meta.json')) === mA1
+      && shaOf(join(dataDir, 'submissions', 'aa1100000001', 'decision.json')) === dA1,
+      '6h-8 幂等：同一对再发一次 ⇒ 200 changed:false，而且**没写盘**（meta 与 decision 的 sha 都没变）');
+
+    // ---- ② 新的普通投稿取代**旧的兼容包**（改动前 markReplacedBy 直接 return null 的那一种）
+    const z2 = shaOf(join(dataDir, 'compat', 'bb2200000001', 'mod.zip'));
+    const r2 = await post(`${ADMIN}/supersede`, { newId: 'bb2200000002', oldId: 'bb2200000001' });
+    const d2 = JSON.parse(readFileSync(join(dataDir, 'compat', 'bb2200000001', 'decision.json'), 'utf8'));
+    check(r2.status === 200 && d2.decision === 'superseded' && d2.replacedBy?.id === 'bb2200000002',
+      '6h-9 ⭐ **旧的兼容包也能下课**（改动前这条路 return null 做不到）：转 superseded + replacedBy',
+      `HTTP ${r2.status} · replacedBy=${JSON.stringify(d2.replacedBy)}`);
+    const after2 = await pubIds();
+    check(!after2.includes('bb2200000001') && after2.includes('bb2200000002'),
+      '6h-10 公开面上旧的兼容包消失、新的投稿在');
+    check(existsSync(join(dataDir, 'compat', 'bb2200000001', 'mod.zip'))
+      && shaOf(join(dataDir, 'compat', 'bb2200000001', 'mod.zip')) === z2,
+      '6h-11 旧的兼容包的包体也**一个字节没删**（下架 ≠ 删除）');
+    const cOldPub = await fetch(`${BASE}/api/file/bb2200000001`);
+    const cOldAdm = await adm('/api/file/bb2200000001');
+    check(cOldPub.status === 403 && cOldAdm.status === 200,
+      '6h-12 旧的兼容包**仍可下载**：公开口 403 / 管理口 200', `公开 ${cOldPub.status} · 管理 ${cOldAdm.status}`);
+
+    // ---- ③ 新的**兼容包**取代旧的普通投稿
+    const r3 = await post(`${ADMIN}/supersede`, { newId: 'cc3300000002', oldId: 'cc3300000001' });
+    const d3 = JSON.parse(readFileSync(join(dataDir, 'submissions', 'cc3300000001', 'decision.json'), 'utf8'));
+    check(r3.status === 200 && d3.decision === 'superseded' && d3.replacedBy?.id === 'cc3300000002' && d3.replacedBy?.area === 'compat',
+      '6h-13 ⭐ 取代者**可以是兼容包**（政策放开的那一半）：replacedBy.area === compat',
+      `HTTP ${r3.status} · ${JSON.stringify(d3.replacedBy)}`);
+
+    // ---- 四道守卫：全都要在**写盘之前**拒掉
+    const gBefore = {
+      a: shaOf(join(dataDir, 'submissions', 'aa1100000002', 'meta.json')),
+      b: shaOf(join(dataDir, 'submissions', 'dd4400000001', 'meta.json')),
+      c: shaOf(join(dataDir, 'submissions', 'ff6600000002', 'decision.json')),
+      d: shaOf(join(dataDir, 'submissions', 'ee5500000002', 'decision.json')),
+    };
+    const gSelf = await post(`${ADMIN}/supersede`, { newId: 'aa1100000001', oldId: 'aa1100000001' });
+    check(gSelf.status === 400 && gSelf.body?.code === 'SUPERSEDE_SELF',
+      '6h-14 **自己取代自己 ⇒ 拒**（400 · SUPERSEDE_SELF）', `HTTP ${gSelf.status} · ${gSelf.body?.code}`);
+    const gCyc = await post(`${ADMIN}/supersede`, { newId: 'ff6600000001', oldId: 'ff6600000002' });
+    check(gCyc.status === 409 && gCyc.body?.code === 'SUPERSEDE_CYCLE' && Array.isArray(gCyc.body?.chain),
+      '6h-15 **会形成取代环 ⇒ 拒**（409 · SUPERSEDE_CYCLE，并把整条链给出来）',
+      `HTTP ${gCyc.status} · ${gCyc.body?.code} · chain=${(gCyc.body?.chain || []).join('→')}`);
+    const gPack = await post(`${ADMIN}/supersede`, { newId: 'dd4400000002', oldId: 'dd4400000001' });
+    check(gPack.status === 409 && gPack.body?.code === 'SUPERSEDE_PACK_ID_MISMATCH',
+      '6h-16 **不同 pack.id ⇒ 拒**（409 · SUPERSEDE_PACK_ID_MISMATCH —— 绝不误下架无关 mod）',
+      `HTTP ${gPack.status} · 旧=${gPack.body?.packIdOld} 新=${gPack.body?.packIdNew}`);
+    const gNoPack = await post(`${ADMIN}/supersede`, { newId: 'ee5500000002', oldId: 'ee5500000001' });
+    check(gNoPack.status === 422 && gNoPack.body?.code === 'SUPERSEDE_PACK_ID_UNREADABLE',
+      '6h-17 **读不出 pack.id ⇒ 拒**（422 · SUPERSEDE_PACK_ID_UNREADABLE —— 不猜、不动它）',
+      `HTTP ${gNoPack.status} · ${gNoPack.body?.code}`);
+    const gBatch = await post(`${ADMIN}/supersede`, { ids: ['aa1100000001'], newId: 'aa1100000002', oldId: 'aa1100000001' });
+    check(gBatch.status === 400 && gBatch.body?.code === 'SUPERSEDE_BATCH',
+      '6h-18 **一次只处理一对**：报文里出现「一批」的形状 ⇒ 400', `HTTP ${gBatch.status} · ${gBatch.body?.code}`);
+    const gPend = await post(`${ADMIN}/supersede`, { newId: 'ii9900000001', oldId: 'ii9900000002' });
+    check(gPend.status === 409 && gPend.body?.code === 'SUPERSEDE_NEW_NOT_APPROVED',
+      '6h-19 取代者还没上线 ⇒ 409（防公网「两份都没有」）', `HTTP ${gPend.status} · ${gPend.body?.code}`);
+    check(shaOf(join(dataDir, 'submissions', 'aa1100000002', 'meta.json')) === gBefore.a
+      && shaOf(join(dataDir, 'submissions', 'dd4400000001', 'meta.json')) === gBefore.b
+      && shaOf(join(dataDir, 'submissions', 'ff6600000002', 'decision.json')) === gBefore.c
+      && shaOf(join(dataDir, 'submissions', 'ee5500000002', 'decision.json')) === gBefore.d,
+      '6h-20 上面这一串被拒的请求**一个字节都没写**（先算不写）');
+  }
+
   // 收尾总检查：整场测试跑完（成功的、被拒的、抛错的路径都走过），
   // 数据目录根下**一个 .part 都不该有** —— 临时文件只该以「已经改名成正式 mod.zip」的形式存在。
   const leftover = await partFilesSettled();
@@ -1322,4 +1492,6 @@ if (failures) { console.log(`✖ ${failures} 项没通过`); process.exit(1); }
 console.log('✔ 兼容包：上传 → 三档检查 → 双署名 → 通过 → 公开列表给改写版、原件留档；'
   + '详情页那个按钮一步到位（publish=1）发布并把原投稿按 B 口径标 superseded；'
   + 'compat/link 补关联、compat/note 只改备注文案（一次一个 id · 数据零变化）、'
-  + 'compat-submit 的「维护者人工确认」逐条放行 blocker（档位定义一条没改），整条链通过');
+  + 'compat-submit 的「维护者人工确认」逐条放行 blocker（档位定义一条没改），整条链通过；'
+  + '「以新为准」（/supersede：同 pack.id 的一对 ⇒ 旧的 superseded + replacedBy，'
+  + '旧的**是兼容包也行**，下架不删文件、拒环、拒跨 id、拒读不出 pack.id）');

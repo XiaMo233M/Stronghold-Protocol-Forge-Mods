@@ -63,6 +63,9 @@
 //   POST ${ADMIN_API}/promote-blob        ← 管理员批准候选包体（切换公开包体）
 //   POST ${ADMIN_API}/issue-claim         ← 管理员手工发认领码（老记录 / 找回令牌）
 //   POST ${ADMIN_API}/funkind             ← 管理口**功能类目**归类（6 类，一次一条，记 revisions + audit）
+//   POST ${ADMIN_API}/supersede           ← ⭐ **「以新为准」**：一对（newId + oldId，必须同 pack.id）⇒ 旧的
+//                                            superseded + replacedBy（**旧的是 compat 也行**，2026-10-13 放开）；
+//                                            只追加 decision.json 与一笔 meta.revisions，零删除
 //   GET  /mods?kind=…  与  GET /api/mods?kind=…   ← 技术维度筛选，**不传 = 现状**（一字未改）
 //   GET  /mods?func=…  与  GET /api/mods?func=…   ← 功能类目筛选（6 类；可与 kind 叠加）
 import { createServer } from 'node:http';
@@ -1030,6 +1033,14 @@ function writeCompatDecision(P, M, { decision, reason = null, displayName = null
  * 于是 `replacedBy.area` **按取代者的实际区给**（不再写死 `'compat'`）、理由文案也按区换词。
  * ⚠️ 兼容性：既有三个调用点传的都是 compat 记录 ⇒ `byArea === 'compat'` ⇒ 产出的 `reason` 与
  * `replacedBy.area` 与从前**逐字相同**（老路径零变化）。
+ *
+ * ⭐ **2026-10-13 政策「以新为准」**（业主原话：以后所有 mod 以新为准 —— 新的上线、旧的下架但不删除）：
+ * 本函数原先那道 `q.area === 'compat'` 的硬拦**已删除** —— **被取代者也可以是兼容包**
+ * （同一个 `pack.id` 的旧兼容版被新版本下课时，走的正是这条路）。取代者的类型本来就不设限
+ * （投稿、兼容包都行）。判据不再按 area 拦，改为**由调用方在写盘前**走 `checkSupersede()`
+ * 统一核「两条都存在 / 不是自己 / 不构成取代环」，新端点再外加一道「同 `pack.id`」。
+ * ⚠️ 本函数的**输出形状一个字没改**（`decision.json` 的键与顺序与改动前逐字相同）——
+ *    老路径的回归钉子（selftest-compat 的 6g-1/2/3）照旧钉着它。
  * 这个状态**不是锁**：日后要人工纠错，维护者照样可以用 `/decide` 覆盖这一条
  * （本站的原则是「不许把记录弄成不可处置」）。
  *
@@ -1039,7 +1050,8 @@ function writeCompatDecision(P, M, { decision, reason = null, displayName = null
 function markReplacedBy(origId, byId, byName) {
   if (!origId || origId === byId) return null;
   const q = dirOf(origId);
-  if (!q || q.area === 'compat') return null;                    // 只取代普通投稿（含 flagged）
+  // ⭐ 「以新为准」(2026-10-13)：被取代者**可以是 compat** —— 不再按 area 拦，只要求这条记录在。
+  if (!q) return null;
   const bq = dirOf(byId);
   const byArea = bq ? bq.area : null;                            // 取代者住在哪个区（不再写死 'compat'）
   const om = readJson(join(q.dir, 'meta.json'));
@@ -1053,6 +1065,124 @@ function markReplacedBy(origId, byId, byName) {
     replacedBy: { id: byId, name: byName || null, area: byArea, at },
   });
   return { id: origId, at };
+}
+
+/**
+ * 一条记录的 `pack.id`（**「以新为准」的同一性判据**）—— 两处证据，按强度取：
+ *   ① `mod.zip` 里 `pack.json` 的 `id`（真正会发布的那一份；与 `signatureOf` 同一个读取器）；
+ *   ② 退回记录里预填的那一栏 `meta.pack.id`（兼容包发布时从包内抄下来的，见 compat-submit）。
+ * 两处都读不到 ⇒ 返回 `null`：**不猜、不编**，调用方据此报 `SUPERSEDE_PACK_ID_UNREADABLE`。
+ */
+const packIdOfRecord = async (id) => {
+  const P = pathsOf(id);
+  if (!P) return { packId: null, source: null };
+  let packId = '';
+  let source = null;
+  try {
+    const pj = await packJsonFor(P.blobPath);
+    if (pj && typeof pj.id === 'string' && pj.id.trim()) { packId = pj.id.trim(); source = 'mod.zip 的 pack.json'; }
+  } catch { /* 读不了 zip：下面退回记录里那一栏 */ }
+  if (!packId) {
+    const m = readJson(P.meta) || {};
+    const fromMeta = m.pack && typeof m.pack.id === 'string' ? m.pack.id.trim() : '';
+    if (fromMeta) { packId = fromMeta; source = 'meta.pack.id（记录里预填的）'; }
+  }
+  return { packId: packId || null, source };
+};
+
+/**
+ * 取代链：从 `id` 起顺着 `decision.json` 的 `replacedBy` 走一遍，返回经过的编号（含起点）。
+ * 盘上本来就成环时**见到重复就停**（别在这里转不出来 —— 判据要能对坏数据作出判断）。
+ */
+function supersedeChain(id, max = 64) {
+  const seen = [];
+  let cur = id;
+  while (cur && seen.length < max) {
+    if (seen.includes(cur)) break;
+    seen.push(cur);
+    const d = readJson(decisionPath(cur));
+    cur = d && d.replacedBy && typeof d.replacedBy.id === 'string' ? d.replacedBy.id : null;
+  }
+  return seen;
+}
+
+/**
+ * ⭐ **「以新为准」的唯一一份判据**（业主 2026-10-13 总政策）。取代这件事只在这里判一次，
+ * 两个入口共用：
+ *   · `POST ${ADMIN_API}/supersede` —— 「以新为准」的安全操作，**强制同 `pack.id`** + **要求新的已在公开面**；
+ *   · `POST ${ADMIN_API}/decide` 的 `superseded` 分支 —— 管理员的明确指令，历史用法允许跨 id
+ *     （人工纠正/合并），因此**不核 pack.id**；可见性也只要求 approved（老口径，一个字没放宽）。
+ *
+ * **先算不写**：任何一道不过就返回错误对象，磁盘上什么都不改。错误一律带机器可读的 `code`：
+ *   SUPERSEDE_OLD_ID_SHAPE       400  oldId 形状不对
+ *   SUPERSEDE_NEW_ID_SHAPE       400  newId 形状不对
+ *   SUPERSEDE_SELF               400  自己取代自己
+ *   SUPERSEDE_OLD_NOT_FOUND      404  被取代的那条不存在
+ *   SUPERSEDE_NEW_NOT_FOUND      404  取代者那条不存在
+ *   SUPERSEDE_PACK_ID_UNREADABLE 422  读不出 pack.id ⇒ **不猜**、不动它
+ *   SUPERSEDE_PACK_ID_MISMATCH   409  两条不是同一个 pack.id（只有 requireSamePack 的入口核这一道）
+ *   SUPERSEDE_CYCLE              409  会构成取代环（A→B→A），`chain` 里给出整条链
+ *   SUPERSEDE_NEW_NOT_APPROVED   409  取代者还没 approved（防公网「两份都没有」）
+ *   SUPERSEDE_NEW_NOT_VISIBLE    409  取代者 approved 但有待确认的自撤申请 ⇒ 现在并不在公开面上
+ *
+ * ⚠️ 判据顺序：**结构性的排在状态性的之前**（形状 → 自己 → 存在 → pack.id → 环 → 可见性）。
+ *    于是「A 已被 B 取代、又反过来要 B 被 A 取代」这种请求报的是**环**（真正的原因），
+ *    而不是先甩一句「B 还没 approved」把人引到错的方向。
+ */
+async function checkSupersede(oldId, newId, { requireSamePack = false, requireVisible = false } = {}) {
+  const bad = (status, code, error, extra = {}) => ({ error, code, status, ...extra });
+  const o = String(oldId || '').trim();
+  const n = String(newId || '').trim();
+  if (!ID_RE.test(o)) return bad(400, 'SUPERSEDE_OLD_ID_SHAPE', 'oldId 形状不对（6–32 位小写字母/数字）');
+  if (!ID_RE.test(n)) return bad(400, 'SUPERSEDE_NEW_ID_SHAPE', 'newId 形状不对（6–32 位小写字母/数字）');
+  if (o === n) return bad(400, 'SUPERSEDE_SELF', '新旧不能是同一条 —— 一条记录不能自己取代自己。');
+  if (!existsSync(metaPath(o))) return bad(404, 'SUPERSEDE_OLD_NOT_FOUND', `找不到被取代的那条编号 ${o}（旧的）`);
+  if (!existsSync(metaPath(n))) return bad(404, 'SUPERSEDE_NEW_NOT_FOUND', `找不到取代者那条编号 ${n}（新的）`);
+
+  let packId = null;
+  if (requireSamePack) {
+    const a = await packIdOfRecord(o);
+    const b = await packIdOfRecord(n);
+    if (!a.packId || !b.packId) {
+      return bad(422, 'SUPERSEDE_PACK_ID_UNREADABLE',
+        `读不出包内 pack.id（旧 ${o}：${a.packId || '读不到'}；新 ${n}：${b.packId || '读不到'}）—— `
+        + '「以新为准」必须先证明这是**同一个 mod 的两个版本**；读不出就不猜、也不动它。',
+        { packIdOld: a.packId, packIdNew: b.packId });
+    }
+    if (a.packId !== b.packId) {
+      return bad(409, 'SUPERSEDE_PACK_ID_MISMATCH',
+        `两条不是同一个 pack.id（旧 ${o} = ${a.packId}；新 ${n} = ${b.packId}）—— `
+        + '不相关的 mod 不许走这条路（避免误下架无关记录）。',
+        { packIdOld: a.packId, packIdNew: b.packId });
+    }
+    packId = a.packId;
+  }
+
+  const chain = supersedeChain(n);
+  if (chain.includes(o)) {
+    // 展示的是**闭环本身**：从新的那条一路走到旧的那条，再回到新的那条。
+    const loop = [...chain, n];
+    return bad(409, 'SUPERSEDE_CYCLE',
+      `会形成取代环：${loop.join(' → ')} —— 取代链必须是一条线，不许绕回自己。`,
+      { chain: loop });
+  }
+
+  const newMeta = readJson(metaPath(n)) || {};
+  const newDec = readJson(decisionPath(n));
+  if (!newDec || newDec.decision !== 'approved') {
+    return bad(409, 'SUPERSEDE_NEW_NOT_APPROVED',
+      `取代者 ${n} 还不是 approved（当前 ${newDec ? newDec.decision : 'pending'}）—— `
+      + '先把它批上线再来取代，否则公网上会出现「两份都没有」。');
+  }
+  if (requireVisible) {
+    // 判据复用同一份实现（approved + 没有待确认的自撤申请），不许在这里再写一遍。
+    if (!isPubliclyVisible({ ...newMeta, state: newDec.decision })) {
+      return bad(409, 'SUPERSEDE_NEW_NOT_VISIBLE',
+        `取代者 ${n} 虽然 approved，但还带着**待确认的自撤申请**（withdrawRequested）—— 它现在并不在公开面上，`
+        + '这样换过去等于「两份都没有」。先把那条申请处理掉再来。');
+    }
+  }
+  return { ok: true, oldId: o, newId: n, packId, chain, newMeta, newDec };
 }
 
 const allSubs = () => {
@@ -2324,8 +2454,14 @@ const server = createServer(async (req, res) => {
         if (!existsSync(blobPath(id))) return sendJson(res, 404, { error: '没有这条投稿' });
         // 兼容包走自己的那一段（它有「两个署名 + 原件留档 + 原注释不变」几条硬检查）。
         // 从这里放它过去，等于把那些检查全部绕开 —— 所以直接挡住。
+        // ⚠️ **唯一的例外**是「按『以新为准』把一条旧兼容包下课」：那件事不属于「给兼容包做决定」，
+        //    它有自己的门（判据多一道「两条同 pack.id」），见 `POST ${ADMIN_API}/supersede`。
         if (isCompat(id)) {
-          return sendJson(res, 400, { error: `这是维护者侧的兼容包，请用专门的那一段：POST ${ADMIN_API}/compat/decide` });
+          return sendJson(res, 400, {
+            error: decision === 'superseded'
+              ? `这是兼容包（compat/ 区）：要给**兼容包**下课请用 POST ${ADMIN_API}/supersede（它另外核「两条同 pack.id」）。`
+              : `这是维护者侧的兼容包，请用专门的那一段：POST ${ADMIN_API}/compat/decide`,
+          });
         }
         const meta = readJson(metaPath(id)) || {};
         // ---- `superseded`：把这一条投稿标成「已被另一条**投稿**取代」（业主 2026-10-12 扩展）
@@ -2333,9 +2469,12 @@ const server = createServer(async (req, res) => {
         //   而原先只有「兼容包取代投稿」一条路能写 superseded ⇒ 高版本上线后旧版本一直挂在待审队列/公网。
         //   判据（缺一个就拒，**先算不写**）：
         //     · `replacedBy` 必填、形状对、不等于 id、那条记录存在；
-        //     · **取代者不能是兼容包**（与 markReplacedBy 同一条约束，反着说一遍，早点给明确错误）；
+        //     · **不构成取代环**（2026-10-13 新加：原先没有这一道）；
         //     · **取代者必须已经 approved** —— 否则公网上会出现「两份都没有」；
         //     · 幂等：已经是 superseded 且指向同一个 ⇒ `changed:false`，不写盘。
+        //   ⭐ 2026-10-13 政策「以新为准」：原先那条「**取代者不能是兼容包**」**已删除** ——
+        //      取代者可以是投稿、也可以是兼容包（被取代者同样两种都行，见 `markReplacedBy`）。
+        //      判据本身搬到 `checkSupersede()`（**只有一份实现**，与 `/supersede` 共用，错误带码）。
         //
         //   ⭐ 2026-10-12 增补（裁定 ①）：**`replacedBy: null` 只对「发布者自撤」那条路放宽**，
         //      而且必须**同时带上 `reason: 'publisher-withdraw'`** 这个标志 ——
@@ -2360,28 +2499,29 @@ const server = createServer(async (req, res) => {
         if (decision === 'superseded') {
           const byId = String(replacedBy || '').trim();
           if (!ID_RE.test(byId)) {
-            return sendJson(res, 400, { error: 'superseded 必须同时给 replacedBy（取代它的那条投稿编号），且形状要对。'
+            return sendJson(res, 400, { code: 'SUPERSEDE_NEW_ID_SHAPE',
+              error: 'superseded 必须同时给 replacedBy（取代它的那条投稿编号），且形状要对。'
               + '（唯一的例外是**发布者自撤**：那条走 reason:\'publisher-withdraw\' + replacedBy:null，见本段注释。）' });
           }
-          if (byId === id) return sendJson(res, 400, { error: 'replacedBy 不能是它自己' });
-          if (!existsSync(metaPath(byId))) return sendJson(res, 404, { error: `找不到编号 ${byId} 的那条记录` });
-          if (isCompat(byId)) {
-            return sendJson(res, 400, { error: `编号 ${byId} 是兼容包 —— 兼容包取代投稿请走 POST ${ADMIN_API}/compat/link` });
-          }
-          const byMeta = readJson(metaPath(byId)) || {};
-          const byDec = readJson(decisionPath(byId));
-          if (!byDec || byDec.decision !== 'approved') {
-            return sendJson(res, 409, {
-              error: `取代者 ${byId} 还不是 approved（当前 ${byDec ? byDec.decision : 'pending'}）—— `
-                + '先把它批上线再来取代，否则公网上会出现「两份都没有」。',
-            });
+          // 判据只有一份：与 `POST ${ADMIN_API}/supersede` 共用 `checkSupersede()`（见它上面的说明）。
+          // ⚠️ 本入口**不强制同 `pack.id`** —— 它是管理员的明确指令，历史上允许跨 id 的人工纠正/合并；
+          //    「两条同 pack.id」那道门只开在「以新为准」的新端点里（那条路是给常规版本更替用的）。
+          // ⭐ 2026-10-13 政策「以新为准」：`replacedBy` 是**兼容包**也放行了（原先一律 400 拦下）。
+          //    取代者必须已经 approved 那一条**一个字没放宽**（防公网「两份都没有」）。
+          const chk = await checkSupersede(id, byId, { requireVisible: false });
+          if (chk.error) {
+            const { error, code, status, ...rest } = chk;
+            return sendJson(res, status, { error, code, ...rest });
           }
           const prev = readJson(decisionPath(id));
           if (prev && prev.decision === 'superseded' && prev.replacedBy && prev.replacedBy.id === byId) {
             return sendJson(res, 200, { ok: true, id, state: 'superseded', replacedBy: byId, changed: false });
           }
-          const r = markReplacedBy(id, byId, byMeta.name || null);
-          if (!r) return sendJson(res, 400, { error: '这条记录不能这样取代（被取代者不能是兼容包）' });
+          const r = markReplacedBy(id, byId, chk.newMeta.name || null);
+          if (!r) {
+            return sendJson(res, 500, { code: 'SUPERSEDE_WRITE_FAILED',
+              error: '这条记录不能这样取代（它的 meta.json 读不出来）—— 磁盘上什么都没改。' });
+          }
           audit('superseded', { id, ip, actor: 'admin', admin: true, detail: { replacedBy: byId } });
           return sendJson(res, 200, { ok: true, id, state: 'superseded', replacedBy: byId, replaced: r, changed: true });
         }
@@ -2431,6 +2571,98 @@ const server = createServer(async (req, res) => {
           id, ip, actor: 'admin', admin: true, detail: { reason: reason || null, cleared },
         });
         return sendJson(res, 200, { ok: true, id, state: decision, area: meta.area, suspected: meta.suspected === true, cleared });
+      }
+
+      // ================================================================
+      // ⭐⭐ `POST ${ADMIN_API}/supersede` —— **「以新为准」的安全操作**（业主 2026-10-13 总政策）。
+      //
+      // 政策原话：「以后所有 mod 以新为准：新的上线、旧的下架但不删除」。
+      //   同一个 mod 出了新版 ⇒ **新的进公开面**（它先走 `/decide` 或 `/compat/decide` 上线）、
+      //   **旧的转 `superseded` 并写 `replacedBy` 指向新的**、**文件与记录一律保留**（下架 ≠ 删除）。
+      //
+      // 报文：`{ "newId": "<新的编号>", "oldId": "<旧的编号>", "reason": "<可选，只进 revisions 的 why>" }`
+      //   · **一次只处理一对**（禁批量：`ids` / `batch` / `items` / `list` 一律 400）；
+      //   · **两条必须同 `pack.id`**（读的是 `mod.zip` 里的 `pack.json`；兼容包退回 `meta.pack.id`）——
+      //     不同 `pack.id` 直接 409，**绝不误下架无关 mod**；读不出 `pack.id` ⇒ 422，**不猜**；
+      //   · 不得自己取代自己、不得构成取代环（A→B→A）⇒ 400 / 409，**都带明确错误码**；
+      //   · 取代者必须**已经在公开面**（approved 且没有待确认的自撤申请）⇒ 否则 409，
+      //     免得公网上「两份都没有」；
+      //   · 幂等：旧的已经指向这个新的 ⇒ 200 `changed:false`，**不写盘**。
+      //
+      // 覆盖两种组合（政策要求两种都行）：
+      //   ① 旧的普通投稿 ← 新的普通投稿／新的兼容包；
+      //   ② **旧的兼容包** ← 新的普通投稿／新的兼容包（原先 `markReplacedBy` 硬拦，本端点放开）。
+      //
+      // 落盘只两处（都是**追加**，零删除）：
+      //   · 旧记录的 `decision.json` —— 由**同一个** `markReplacedBy` 写（superseded + replacedBy）；
+      //   · 旧记录的 `meta.json` —— **只追加**一笔 `revisions`（谁取代的、从什么变成什么、为什么）；
+      //     其余键一个不动；`mod.zip` / `orig.zip` / `pack-json.orig.json` **一个字节都不动**。
+      //
+      // ⚠️ 与既有三个调用点（`compat-submit?publish=1` / `/compat/decide` / `/compat/link`）的差别：
+      //    那三条**只写 `decision.json`**（历史口径，测试里逐字节钉着）—— 本端点多一笔 `revisions`。
+      // ================================================================
+      if (req.method === 'POST' && p === `${ADMIN_API}/supersede`) {
+        const raw = await readBody(req, 16 * 1024);
+        let inObj = null;
+        try { inObj = JSON.parse(raw.toString('utf8') || '{}'); } catch { return sendJson(res, 400, { code: 'SUPERSEDE_BODY', error: 'JSON 读不了' }); }
+        if (!inObj || typeof inObj !== 'object' || Array.isArray(inObj)) {
+          return sendJson(res, 400, { code: 'SUPERSEDE_BODY', error: '报文必须是一个 JSON 对象' });
+        }
+        const batchKeys = ['ids', 'batch', 'items', 'list'].filter((k) => k in inObj);
+        if (batchKeys.length) {
+          return sendJson(res, 400, {
+            code: 'SUPERSEDE_BATCH',
+            error: `本端点只认**一对**（newId + oldId），不收「一批」（多了这些键：${batchKeys.join(' / ')}）。`
+              + '要处理 N 对就发 N 次，每对单独核对。',
+          });
+        }
+        if (inObj.reason != null && typeof inObj.reason !== 'string') {
+          return sendJson(res, 400, { code: 'SUPERSEDE_REASON_SHAPE', error: 'reason 形状不对（必须是字符串）' });
+        }
+        const oldId = String(inObj.oldId || '').trim();
+        const newId = String(inObj.newId || '').trim();
+        const chk = await checkSupersede(oldId, newId, { requireSamePack: true, requireVisible: true });
+        if (chk.error) {
+          const { error, code, status, ...rest } = chk;
+          return sendJson(res, status, { error, code, ...rest });
+        }
+        const oldDec = readJson(decisionPath(oldId));
+        if (oldDec && oldDec.decision === 'superseded' && oldDec.replacedBy && oldDec.replacedBy.id === newId) {
+          return sendJson(res, 200, {
+            ok: true, newId, oldId, packId: chk.packId, state: 'superseded', replacedBy: newId, changed: false,
+            note: '旧的那条早就指向这个新的了 —— 幂等：**没写盘**（记录、包体、留档照旧）。',
+          });
+        }
+        const replaced = markReplacedBy(oldId, newId, chk.newMeta.name || null);
+        if (!replaced) {
+          return sendJson(res, 500, { code: 'SUPERSEDE_WRITE_FAILED',
+            error: `取代没落成（${oldId} 的 meta.json 读不出来？）—— 磁盘上什么都没改。` });
+        }
+        // 只追加一笔 revisions（旧记录的 meta.json；其余键、其余文件一个字节不动）。
+        const om = readJson(metaPath(oldId)) || {};
+        const hist = Array.isArray(om.revisions) ? om.revisions : [];
+        const why = String(inObj.reason || '').trim()
+          || `「以新为准」：同一个 pack.id（${chk.packId}）的新版本 ${newId}（${chk.newMeta.name || '未命名'}）`
+            + '已上线，这一条转为 superseded 下架；记录、包体、留档全部保留（下架 ≠ 删除）。';
+        writeJson(metaPath(oldId), {
+          ...om,
+          revisions: [...hist, {
+            at: replaced.at, by: 'admin',
+            changed: { decision: oldDec ? oldDec.decision : 'pending', replacedBy: (oldDec && oldDec.replacedBy) || null },
+            to: { decision: 'superseded', replacedBy: newId },
+            why,
+          }],
+        });
+        audit('supersede', {
+          id: oldId, ip, actor: 'admin', admin: true,
+          detail: { newId, packId: chk.packId, oldArea: dirOf(oldId)?.area ?? null, newArea: dirOf(newId)?.area ?? null, chain: chk.chain },
+        });
+        return sendJson(res, 200, {
+          ok: true, newId, oldId, packId: chk.packId,
+          state: 'superseded', replacedBy: newId, replaced, changed: true, at: replaced.at,
+          note: '旧的转 superseded 并写下 replacedBy（公开面与公开下载口立刻不再提供这一条）；'
+            + '只追加了 decision.json 与一笔 meta.revisions —— 记录、mod.zip、留档原件一个都没删。',
+        });
       }
 
       // ================================================================
@@ -3649,6 +3881,8 @@ server.listen(PORT, HOST, () => {
   console.log(`  发布者   /mine（我的投稿）· POST /api/publisher/claim|update|blob|withdraw（认领码换令牌；改动一律回待审，绝不直改公开面）`);
   console.log(`  自撤确认 ${ADMIN_API}/withdraw-decide（发布者申请自撤的一键确认 / 拒绝；确认后 decision=superseded 且 replacedBy:null）`);
   console.log(`  批准包体 ${ADMIN_API}/promote-blob（发布者换上候选包体后，核过哈希才切换；旧包改名留档，不删）`);
+  console.log(`  以新为准 ${ADMIN_API}/supersede（同一个 pack.id 的新版上线后，把旧的转 superseded + replacedBy；`
+    + '只认一对、必须同 pack.id、不得成环；下架不删文件）');
   console.log(`  手工发码 ${ADMIN_API}/issue-claim（老记录认领 / 令牌丢失找回；明文只出现一次，盘上只存哈希）`);
   console.log(`  数据目录 ${DATA_DIR}`);
   console.log(`  审计日志 ${AUDIT_LOG}（追加式 JSONL；不记令牌明文）`);

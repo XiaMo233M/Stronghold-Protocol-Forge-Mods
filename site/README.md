@@ -109,6 +109,50 @@ curl -sX POST http://127.0.0.1:25570/api/<ADMIN_PATH>/compat/link \
 幂等：同一条重复调返回 `alreadyLinked: true`，不再产生第二笔改动。
 ⚠️ **绝不要写「把筛出来的一批 id 循环喂进来」的脚本** —— 一次请求只处理一条，这样每次改动都能单独核对。
 
+### ⭐ 「以新为准」：同一个 `pack.id` 的新版上线后，把旧的按规矩下课（2026-10-13）
+
+业主总政策原话：「**以后所有 mod 以新为准：新的上线、旧的下架但不删除**」。
+机制上的老障碍是 `markReplacedBy` 第 1042 行 `if (!q || q.area === 'compat') return null;`
+—— 它**只取代普通投稿**，一条已发布的兼容包没有任何办法下课；`/decide` 的 `superseded`
+分支也明确拒绝「兼容包当取代者」。本次把这两处按政策放开，并补上唯一的安全入口：
+
+```bash
+curl -sX POST http://127.0.0.1:25570/api/<ADMIN_PATH>/supersede \
+  -H "x-admin-token: <ADMIN_TOKEN>" -H 'content-type: application/json' \
+  -d '{"newId":"<新的编号>","oldId":"<旧的编号>","reason":"<可选，只进 revisions 的 why>"}'
+```
+
+它只做一件事，而且**一次只处理一对**：旧的转 `decision=superseded` + `replacedBy` 指向新的，
+**记录、`mod.zip`、`orig.zip`、留档一个都不删**（下架 ≠ 删除）。
+两条记录的 `pack.id` **必须相同**（读的是 `mod.zip` 里的 `pack.json`，兼容包退回 `meta.pack.id`）
+—— 不同 `pack.id` 一律 409，**绝不误下架无关 mod**；读不出 `pack.id` 一律 422，**不猜**。
+
+**覆盖两种组合**（政策要求两种都行）：旧的是普通投稿、**旧的是兼容包**；
+新的可以是普通投稿、也可以是兼容包（新的那一条**得先上线**，否则公网会出现「两份都没有」⇒ 409）。
+
+**错误码清单**（一律带 `code`，不静默）：
+
+| HTTP | `code` | 什么时候 |
+|---|---|---|
+| 400 | `SUPERSEDE_SELF` | 自己取代自己 |
+| 400 | `SUPERSEDE_BATCH` / `SUPERSEDE_BODY` / `SUPERSEDE_REASON_SHAPE` | 报文里出现「一批」的形状 / 不是 JSON 对象 / `reason` 不是字符串 |
+| 400 | `SUPERSEDE_OLD_ID_SHAPE` / `SUPERSEDE_NEW_ID_SHAPE` | 编号形状不对 |
+| 404 | `SUPERSEDE_OLD_NOT_FOUND` / `SUPERSEDE_NEW_NOT_FOUND` | 那一条不存在 |
+| 409 | `SUPERSEDE_PACK_ID_MISMATCH` | 两条不是同一个 `pack.id` |
+| 409 | `SUPERSEDE_CYCLE` | 会构成取代环（A→B→A），响应里给出整条链 |
+| 409 | `SUPERSEDE_NEW_NOT_APPROVED` | 取代者还不是 `approved` |
+| 409 | `SUPERSEDE_NEW_NOT_VISIBLE` | 取代者 `approved` 但带着**待确认的自撤申请** ⇒ 现在并不在公开面上 |
+| 422 | `SUPERSEDE_PACK_ID_UNREADABLE` | 读不出 `pack.id` |
+| 500 | `SUPERSEDE_WRITE_FAILED` | 旧记录的 `meta.json` 读不出来（磁盘上什么都没改） |
+
+同理，`/decide` 的 `superseded` 分支：**取代者可以是兼容包了**（原先一律 400），
+并新增**环检测**（原先没有这一道）。判据只有一份实现（`checkSupersede()`），两个入口共用。
+⚠️ `/decide` **不核** `pack.id`（它是管理员的明确指令，历史上允许跨 id 的人工纠正），
+要「同 `pack.id`」这道门请走 `/supersede`。
+
+只有两处落盘、都是**追加**：旧记录的 `decision.json`（`markReplacedBy` 写）与
+旧记录 `meta.json` 的**一笔 `revisions`**；其余键、其余文件一个字节不动。
+
 ### 四条硬要求落在哪
 
 | 硬要求 | 怎么保证的 |
