@@ -23,12 +23,19 @@
 //   ⑭  **档 2 恢复**：撤自己的软删 ⇒ 200 且重新公开；别人的 ⇒ 403；不是软删来的 ⇒ 409
 //   ⑮  **档 3 硬删**（物理，全站唯一会删数据的路）：一次调用不删 · 凭据/包名少一个都不删 ·
 //       有引用 ⇒ 409 先报人 · 二次确认后真删 + 墓碑在位 + 记录确实不在 + 再删/恢复 ⇒ 410
+//   ⑯  **服务端预渲染**（业主 2026-10-15 批「做」）：不跑任何 JS 读 `/mods` 的 HTML，
+//       `#list` 里就有列表与搜索结果，且**卡片行数 == /api/mods 同查询条数**；
+//       三路空文案（搜索无结果 / 筛选无结果 / 还没有包）各自如实说清
+//   ⑰  注入页面的那一份行渲染源码**自包含**（空上下文里跑得起来）—— `toString()` 注入的
+//       代价就在这一条上：引用了模块作用域的东西，浏览器里必炸而服务端预渲染照样是好的
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// ⑰ 要在**空上下文**里跑那段源码：只用内置，不加依赖（本项目零依赖）。
+import { runInNewContext } from 'node:vm';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = 8807;
@@ -824,6 +831,108 @@ try {
   check(!pgEvil.includes(evil), '自由文本里的标签**没有**被原样写进 HTML（反射型 XSS 挡住了）');
   check(pgEvil.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), '注入的是**转义后**的形式',
     (pgEvil.match(/data-q="[^"]*"/) || [''])[0]);
+
+  // ================================================================
+  console.log('⑯ 服务端预渲染：不跑 JS 读 /mods，`#list` 里就有列表与搜索结果');
+  // 判据一句话：把 /mods 的 HTML 当**字符串**读（一个字节的 JS 都不执行），抠出 `#list` 的内层；
+  // 它必须是服务端画好的卡片（不是「正在载入…」），且**卡片行数 == /api/mods 同查询条数**。
+  // ⚠️ 这条判据对着改前代码**必须红**：改前 `#list` 内恒为 `<p class="dim">正在载入…</p>`
+  //    （0 行卡片），而接口照旧给得出条数 ⇒ 「行数 == 条数」当场不成立。
+  // 抠法：`#list` 的开标签 与 它后面那个 `<script` 之间，就是内层 HTML + `#list` 自己的收标签。
+  // 不按 `[\s\S]*?</div>` 抠 —— 卡片里全是嵌套 div，那样只会抠到第一个 `</div>`。
+  const listInnerOf = (html) => {
+    const a = html.indexOf('<div id="list"');
+    const b = html.indexOf('<script', a);
+    if (a < 0 || b < 0) return null;
+    const seg = html.slice(a, b);
+    return seg.slice(seg.indexOf('>') + 1).replace(/<\/div>\s*$/, '');
+  };
+  // 一张卡片 = 一个 `<div class="panel">` 或 `<div class="panel brackets">`。
+  // ⚠️ 不能用 `class="panel` 裸匹配 —— `class="panel__body"` 也长这样，会把每张卡多数一次。
+  const rowsOf = (inner) => (inner.match(/<div class="panel(?:\s|")/g) || []).length;
+
+  const preCases = [
+    ['', '不筛不搜'],
+    [`q=${encodeURIComponent(term)}`, '只搜'],
+    ['func=utility', '只筛功能类目'],
+    ['kind=documentation', '只筛技术维度'],
+    ['kind=documentation&func=assets%2Cutility', '两个维度同时筛'],
+    [`func=gameplay&q=${encodeURIComponent(term)}`, '搜索 + 功能叠加'],
+    ['q=zzz-nope-zzz', '搜不到（空结果）'],
+  ];
+  for (const [qs, label] of preCases) {
+    const html = await (await fetch(`${BASE}/mods${qs ? '?' + qs : ''}`)).text();
+    const api = await (await fetch(`${BASE}/api/mods${qs ? '?' + qs : ''}`)).json();
+    const inner = listInnerOf(html);
+    const rows = inner == null ? -1 : rowsOf(inner);
+    const want = (api.mods || []).length + (api.flagged || []).length;
+    check(inner != null && inner.trim().length > 0 && !/正在载入/.test(inner),
+      `【预渲染】${label}：无 JS 时 #list 里就有服务端画好的内容（不是「正在载入…」）`,
+      `#list 内 ${inner == null ? '抠不到' : inner.length} 字符`);
+    check(rows === want, `【预渲染】${label}：#list 卡片行数 == /api/mods 同查询条数`,
+      `${rows} 行 vs 接口 ${want} 条`);
+    check(!html.includes('__LIST_HTML__') && !html.includes('__LIST_RENDER__'),
+      `【预渲染】${label}：两个占位符都已替换（不留占位符）`);
+  }
+  // 三路空文案的**搜索**那一路（另两路见下）
+  const pgNoneQ = await (await fetch(`${BASE}/mods?q=zzz-nope-zzz`)).text();
+  check(listInnerOf(pgNoneQ).includes('当前搜索（搜索「zzz-nope-zzz」）下没有已上线的包。'),
+    '搜不到时的空文案**如实点出是按什么搜空的**（不是让人以为站上一条都没有）',
+    listInnerOf(pgNoneQ).trim());
+  // **筛选**那一路：找一个**真的筛不出东西**的 (kind, func) 组合 —— 按当前夹具现算，不写死。
+  let emptyFilter = null;
+  for (const k of ['functional', 'documentation', 'unknown']) {
+    for (const f of ['gameplay', 'expansion', 'utility', 'assets', 'documentation', 'uncategorized']) {
+      const r = await (await fetch(`${BASE}/api/mods?kind=${k}&func=${f}`)).json();
+      if ((r.mods || []).length === 0 && (r.flagged || []).length === 0) { emptyFilter = { k, f }; break; }
+    }
+    if (emptyFilter) break;
+  }
+  check(emptyFilter != null, '夹具里找得到一个「筛不出东西」的组合（否则这一路验不到）',
+    emptyFilter ? `kind=${emptyFilter.k} func=${emptyFilter.f}` : '没找到');
+  if (emptyFilter) {
+    const pgEmptyF = await (await fetch(`${BASE}/mods?kind=${emptyFilter.k}&func=${emptyFilter.f}`)).text();
+    check(/当前筛选（.+）下没有已上线的包。/.test(listInnerOf(pgEmptyF)),
+      '筛选筛空时的空文案**如实点出是按什么筛空的**', listInnerOf(pgEmptyF).trim());
+  }
+  // 「一份实现、两个调用方」：页面里只注入**一份** `makeModListRenderer`，
+  // 客户端 fetch 回来后调的是它（`__R.renderList`）—— 不许页面里再有一份自己的卡片渲染。
+  check((pgNone.match(/function makeModListRenderer\(/g) || []).length === 1,
+    '页面里只注入**一份**行渲染实现（一份实现、两个调用方）');
+  check(pgNone.includes('__R.renderList('), '客户端重渲染调的是**同一份**实现（__R.renderList）');
+
+  // ================================================================
+  console.log('⑰ 注入页面的那一份源码**自包含** + 第三路空文案（空站）');
+  // 为什么必须验：那段文本是 `makeModListRenderer.toString()` 注进页面的 ——
+  // 只要它引用了 server.mjs **模块作用域**里的任何东西，浏览器里就 ReferenceError，
+  // 而服务端预渲染照样是好的（两边不对称，这种最难查）。所以这里在**空上下文**里跑它。
+  const srcStart = pgNone.indexOf('(function makeModListRenderer()');
+  check(srcStart >= 0, '页面里注入了行渲染实现的源码文本（toString 注入）');
+  if (srcStart >= 0) {
+    // 配平大括号找函数体结束（这段源码里没有会让计数失衡的括号）
+    let depth = 0, end = -1;
+    for (let k = pgNone.indexOf('{', srcStart); k < pgNone.length; k++) {
+      if (pgNone[k] === '{') depth++;
+      else if (pgNone[k] === '}') { depth--; if (depth === 0) { end = k + 1; break; } }
+    }
+    const fnSrc = pgNone.slice(srcStart + 1, end);   // 去掉外层那个 `(`
+    const Dstub = {
+      el: (tag, cls, text) => ({ tag, cls: cls || '', text: text == null ? null : String(text), kids: [],
+        style: {}, append(...ks) { this.kids.push(...ks); }, setAttribute() {} }),
+      text: (t) => ({ tag: '#text', text: String(t) }),
+    };
+    try {
+      const R = runInNewContext(`(${fnSrc})()`, {});
+      const root = { kids: [], textContent: '', append(...ks) { this.kids.push(...ks); } };
+      const hits = R.renderList(root, { mods: [], flagged: [], active: { kinds: [], funcs: [], q: '' } }, Dstub);
+      check(hits === 0 && JSON.stringify(root.kids).includes('还没有通过审核的包。'),
+        '注入的那份源码在**空上下文**里跑得起来（自包含）；空站的文案是「还没有通过审核的包。」',
+        `命中 ${hits} 条`);
+    } catch (e) {
+      check(false, '注入的那份源码在**空上下文**里跑得起来（自包含）',
+        `${e.constructor.name}: ${e.message}`);
+    }
+  }
 
   // ---- 发布者自己填功能类目（走 /api/publisher/update，改完回待审）
   const pubFk = await postJsonRead('/api/publisher/update', { id: idB, funcKind: 'expansion' }, tokB);

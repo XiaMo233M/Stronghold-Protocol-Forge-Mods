@@ -1269,6 +1269,433 @@ const sendCss = (res) => {
  * 视图名由服务端**白名单**校验后再注入页面（不把 URL 上的任意值写进 HTML）。
  */
 const ADMIN_VIEWS = ['main', 'approved', 'rejected'];
+/* ============================================================================
+ * ⭐ 公开列表「一行 mod 怎么画」——**只有这一份实现**，两个调用方：
+ *   ① **服务端**：`/mods` 路由用它把列表**预渲染**进 `#list`（无 JS 也看得到列表与搜索结果）；
+ *   ② **浏览器**：同一个函数被 `toString()` 注进页面（`renderPage` 换 `__LIST_RENDER__`），
+ *      客户端 fetch 回来之后**用它重渲染** —— 绝不写两套行渲染逻辑。
+ *
+ * ⚠️ 纪律（改这个函数之前先读）：
+ *   · 函数体里**不许出现任何 Node API，也不许引用模块作用域里的变量** —— 它要被 `toString()`
+ *     原样搬到浏览器里跑；需要的东西一律由参数传进来（`D` 是最小 DOM 适配器 `{ el, text }`）。
+ *   · 文案一个字都不要在这里重写：它就是页面上原来那一份（空结果三路、分区标题、徽标）。
+ *   · 数据由 `data` 传进来，形状就是 `/api/mods` 的响应（`mods` / `flagged`），
+ *     外加 `active`（当前 kind / func / q）—— 空结果那一行要说清是**按什么**空的。
+ * ==========================================================================*/
+function makeModListRenderer() {
+  // ---- 「装上会不会生效」这一栏（指令③④）----------------------------------------
+  // 与 `m.kind`（compat / submission）**不是一回事**：`kind` 说的是这条**记录是怎么来的**
+  // （兼容改写来的，还是原样投上来的）；这里说的是**装上到底会不会生效**。两者正交，所以分开画。
+  //   functional    真功能   —— 装上即生效（pack.json 在 ZIP 根 + 干净根单独装载 errors=0）；
+  //   documentation 说明包   —— **装上不会启用任何功能**，下载下来是给你看的；
+  //   unknown       安装器 / 补丁形态 —— ZIP 根没有 pack.json，不能直接丢进 workshop 目录。
+  // ⚠️ 记录里缺这一栏一律按 **unknown** 画：**缺省绝不可能是「真功能」** ——
+  // 否则新批一条没分类的记录，又会在「真功能」区里漏出一个装不上的包。
+  const KIND_OF = (m) => (m.packKind === 'functional' || m.packKind === 'documentation') ? m.packKind : 'unknown';
+  const KIND_TITLE = { functional: '真功能 mod', documentation: '说明包', unknown: '其他（未分类 / 安装器·补丁形态）' };
+  const KIND_HINT = {
+    functional: '这些包**装上即生效**：pack.json 在 ZIP 根，并已在引擎 0.16.0 的干净 workshop 根**单独装载过，errors=0**。',
+    documentation: '**说明包（装上不会启用任何功能）**：参考 / 说明 / 补丁留档。下载下来是给你看的，不是给你装的。',
+    unknown: '这些包**没有通过「真功能」的那三道核**（或者本身就是安装器 / 补丁形态，ZIP 根没有 pack.json）：**不保证装上即生效**，下之前请先看包内说明。',
+  };
+  const KIND_BADGE = {
+    functional: ['badge ok', '真功能'],
+    documentation: ['badge info', '说明包（装上不会启用任何功能）'],
+    unknown: ['badge warn', '未核实是否装上即生效'],
+  };
+
+  // ---- ⭐⭐ 功能类目（业主 2026-10-14 裁定的 6 类）--------------------------------
+  // 与上面那一栏是**两个维度**，故意分开画：
+  //   · 上面那栏 = 技术维度「装上到底会不会生效」；
+  //   · 这一栏 = 功能维度「这包是干什么的」—— **业主说「现在分类不对，要按功能分」指的就是这一栏**。
+  // 缺省一律 `uncategorized`（未分类）：老记录没有这一栏 ⇒ 落未分类，**绝不替它猜一个真功能类**。
+  const FUNC_OF = (m) => (FUNC_BADGE[m && m.funcKind] ? m.funcKind : 'uncategorized');
+  const FUNC_TITLE = {
+    gameplay: '游戏玩法', expansion: '拓展包', utility: '实用工具',
+    assets: '素材替换', documentation: '说明文档', uncategorized: '未分类',
+  };
+  const FUNC_HINT = {
+    gameplay: '这一类的包**改的是玩法本身**：回合流程、对局规则、角色/技能的判定逻辑。',
+    expansion: '这一类的包**往里加东西**：新角色、新卡、新关卡、整合式的内容扩充。',
+    utility: '这一类的包**只办事、不改玩法**：面板、查询、设置、批量操作这类工具。',
+    assets: '这一类的包**换的是素材**：立绘、图标、音效、字体、界面皮肤 —— 玩法逻辑一个字不动。',
+    documentation: '这一类的包**装上不会启用任何功能**，是说明 / 参考 / 资料：下载下来是给你看的，不是给你装的。',
+    uncategorized: '**还没归类**（老记录默认落这里，等维护者一条一条看）。这里**不代表它不是好包** —— '
+      + '只代表分类这一栏还没人填过，请不要据此判断质量。',
+  };
+  const FUNC_BADGE = {
+    gameplay: ['badge ok', '游戏玩法'], expansion: ['badge ok', '拓展包'],
+    utility: ['badge ok', '实用工具'], assets: ['badge info', '素材替换'],
+    documentation: ['badge info', '说明文档'], uncategorized: ['badge warn', '未分类'],
+  };
+  // 功能类目的**固定顺序**（页面分区按它走；不按条数排序，免得每次刷新跳来跳去）。
+  const FUNC_ORDER = ['gameplay', 'expansion', 'utility', 'assets', 'documentation', 'uncategorized'];
+
+  // ---- 「同一个 pack id」的成对记录（指令㉑）--------------------------------------
+  // 引擎**不允许同 id 的两个包并存**：目录名与 `pack.json` 的 `id` 不一致即 `PACK_ID_MISMATCH` 整包被拒；
+  // 实测同一 workshop 根放两份 id 相同的包，只会装载 1 条、后者**静默覆盖**前者。
+  // ⇒ 玩家**一次只能装一条**。这件事以前只写在备注里，不看备注就不知道 —— 所以在卡片上直接点出来。
+  // **拿不到 pack.json id 的记录（packId 是 null）一律不猜、不画**。
+  function sameIdPeers(all, m) {
+    if (!m.packId) return [];
+    return all.filter((x) => x.id !== m.id && x.packId === m.packId);
+  }
+
+  /** 一张卡片。返回 `{ panel, body }` —— 调用方要往 body 里补画一行（疑似素材的命中特征）时用得上。 */
+  function card(m, flagged, peers, D) {
+    const c = D.el('div', 'panel' + (flagged ? ' brackets' : ''));
+    if (flagged) c.style.borderLeft = '4px solid var(--gold)';
+    const body = D.el('div', 'panel__body');
+    const head = D.el('div', 'flex');
+    const h = D.el('h2'); h.style.margin = '0'; h.textContent = m.name;
+    head.append(h);
+    // 兼容改写版：这是「谁由谁改来」的那个改写版，原件只留档、不在这里发。
+    if (m.kind === 'compat') head.append(D.el('span', 'badge ok', flagged ? '兼容版 · 含疑似素材' : '兼容改写版'));
+    // 「装上会不会生效」这个徽标**每一条都画**（含疑似素材那一组）：说明包与安装器形态
+    // 必须在名字旁边就看得出来，不能等下完了才发现装不上。
+    const kb = KIND_BADGE[KIND_OF(m)];
+    head.append(D.el('span', kb[0], kb[1]));
+    // ⭐ 功能类目徽标（业主 2026-10-14）：与上面那个技术徽标**并排画**，两个维度都看得见。
+    const fb = FUNC_BADGE[FUNC_OF(m)];
+    head.append(D.el('span', fb[0], fb[1]));
+    if (flagged) head.append(D.el('span', 'badge warn', '含疑似官方素材'));
+    body.append(head);
+    body.append(D.el('div', 'kv dim', `${(m.size / 1048576).toFixed(2)} MB · 上传于 ${String(m.uploadedAt).slice(0, 10)} · 编号 ${m.id}`));
+
+    // 同 id 提示（指令㉑）：同一行里把「另一条是谁」和「为什么一次只能装一条」都说清。
+    if (peers && peers.length) {
+      body.append(D.el('div', 'kv dim',
+        `⚠ 与 ${peers.map((p) => `「${p.name}」（编号 ${p.id}）`).join('、')} 同为 pack id 「${m.packId}」`
+        + ` —— 引擎不允许同 id 的两个包并存，装第二份会覆盖第一份，所以一次只能装一条。`));
+    }
+
+    // 两个署名**分开两栏**显示，谁也不覆盖谁：
+    // 原作者来自包自带的 pack.json（兼容包发布时预填、普通投稿由站点在读的时候现读，都不改记录）；
+    // 兼容者是站点侧记的（包里的元数据一个字节没动）。
+    // 两栏都带标签，免得只看到一个名字被误当成作者。
+    // 兼容改写版**一定要显示兼容者这一栏**，哪怕它是空的 —— 空就写「未填」。
+    // 把这一栏藏掉，会让人误以为这就是原件自己发的包。
+    // 反过来，**普通投稿没有「兼容」这回事** —— 那一栏整栏不画：画一个「（未记）」会让人
+    // 以为有个兼容者没填，那不是事实。普通投稿只画「原作者」这一栏。
+    const isCompat = m.kind === 'compat';
+    if (m.author || isCompat) {
+      const box = D.el('div', 'sigbox');
+      const sig = D.el('div', 'sig');
+      sig.append(D.el('span', 'sigk', '原作者'));
+      sig.append(D.el('span', 'sigv', m.author || '（未记）'));
+      if (isCompat) {
+        sig.append(D.el('span', 'sigk', '兼容改写者'));
+        sig.append(D.el('span', 'sigv', m.compatAuthor ? m.compatAuthor : '（未填）'));
+      }
+      box.append(sig);
+      if (isCompat) {
+        box.append(D.el('div', 'sighint', '原作说明与署名原样保留自包内的 pack.json；'
+          + '兼容改写是另一个人做的，记在站点侧，没有改动包里的元数据。'));
+        if (!m.compatAuthor) {
+          box.append(D.el('div', 'sighint', '「兼容改写者」这一栏**未填** —— 如实显示，站点没有代填任何名字。'));
+        }
+      }
+      body.append(box);
+    }
+    // 再补一行「这条是从哪条投稿改写来的」（业主 2026-10-11 批准加这一行）。
+    // 它说的是**记录之间的沿革**，不是人 —— 与上面那两栏署名是两回事：
+    // 原作者 / 兼容改写者说的是「谁做的」，这一行说的是「这条记录由哪条记录改来」。
+    // 所以文案里点明「不是原作者署名」，免得被误读成第三个署名。
+    // `compatOf` 有值才画；为空（早先手工批准上线的那几条兼容包就是空的）**整行不画** ——
+    // 不留「未知」「空」之类的占位：不画就是如实说「没有这条链」。
+    if (m.compatOf) {
+      const line = D.el('div', 'kv dim compatof', '由投稿 ' + m.compatOf + ' 改写来（记录沿革，不是原作者署名）');
+      line.id = 'compatof-' + m.id;
+      body.append(line);
+    }
+    // 「兼容说明」与「备注」是两个来源不同的栏位：
+    //   · `compatNote` 是站点侧的「兼容说明」（管理端点 `/compat/note` 改它）；
+    //   · `note` 是记录自己的备注栏。
+    // 站点的**存储层**在发布兼容包时会把同一段文案**同时写进两栏**（`server.mjs` 里那是有意为之，
+    // 本页不碰存储层、也不碰任何记录的数据），于是**两栏逐字相同**成了常态。
+    // 两栏都画 = 同一段字画两遍。所以这里只做**渲染层的去重**，判据一句话：
+    //   两栏都非空且（规范化空白后）逐字相同 ⇒ **只画一次**；只有一栏非空 ⇒ 画那一栏；
+    //   两栏都空 ⇒ **这一块不画**。两栏内容**不同**时两段都画（不相同就不是重复，不许并掉）。
+    // 相等判定先规范化（两端 trim + 连续空白折叠成单空格），免得只差空格还画两遍；
+    // **展示用原文**，不改写正文一个字。
+    // 相同时画 `compatNote`：它是「兼容说明」的语义栏，且带得出「兼容说明：」这个标签 ——
+    // 只画 `note` 会丢掉这个语义。
+    const noteKey = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    const cNote = noteKey(m.compatNote);
+    const pNote = noteKey(m.note);
+    if (cNote) {
+      body.append(D.el('div', 'note', '兼容说明：' + m.compatNote));
+      if (pNote && pNote !== cNote) body.append(D.el('div', 'note', m.note));
+    } else if (pNote) {
+      body.append(D.el('div', 'note', m.note));
+    }
+
+    // 按钮文案也照实写：说明包点下去不会被当成「装上去就生效的功能包」。
+    const kk = KIND_OF(m);
+    const dlLabel = kk === 'documentation' ? '下载说明包 zip（不会启用任何功能）'
+      : kk === 'unknown' ? '下载 zip（未核实是否装上即生效）'
+        : (m.kind === 'compat' ? '下载兼容改写版 zip' : '下载 zip');
+    const a = D.el('a', 'btn btn--primary', dlLabel);
+    a.href = m.download;
+    a.style.marginTop = '10px';
+    body.append(a);
+    if (m.homepage) {
+      const s = D.el('div', 'kv dim');
+      s.style.marginTop = '8px';
+      s.append(D.text('原件来源：'));
+      const hh = D.el('a', null, m.homepage);
+      hh.href = m.homepage; hh.rel = 'noopener noreferrer nofollow';
+      s.append(hh);
+      body.append(s);
+    }
+    c.append(body);
+    return { panel: c, body };
+  }
+
+  /**
+   * 把一批数据画进 `listEl`。返回**命中条数**（`mods` + `flagged` 的和）——
+   * 页面拿它画「搜索「x」· 命中 N 条」那一行，屏幕上那个数就与这里画的**同一个数**。
+   *
+   * 主分区**按功能类目**分（业主 2026-10-14：「现在分类不对，要按功能分」）：
+   * 每一区一条判据、固定顺序，标题旁给条数；技术维度（装上会不会生效）**仍然画在每条卡片的徽标上**
+   * —— 两个维度正交，谁都不吞掉谁。`说明文档` 自成一区 ⇒ 业主那条
+   * 「说明包不能混在功能包里」的要求**照旧成立**。
+   */
+  function renderList(listEl, data, D) {
+    const mods = (data && data.mods) || [];
+    const flagged = (data && data.flagged) || [];
+    const active = (data && data.active) || {};
+    const ACTIVE = active.kinds || [];
+    const ACTIVE_FUNC = active.funcs || [];
+    const ACTIVE_Q = active.q || '';
+    listEl.textContent = '';
+    // 同 id 的「另一条」可能落在**任何一组**里（含疑似素材那一组），所以并起来找。
+    const all = mods.concat(flagged);
+    if (!mods.length && !flagged.length) {
+      // 空结果要**如实说清是按什么筛空的**。⭐ 搜索也进这一行（业主 2026-10-15）：
+      // 搜了没命中时写「当前搜索（搜索「x」）下没有…」，而不是让人以为站上一条都没有。
+      // ⚠️ 没搜索时那两句**逐字保持原样**（老判据照旧）。
+      const conds = [...ACTIVE.map((k) => KIND_TITLE[k] || k), ...ACTIVE_FUNC.map((k) => FUNC_TITLE[k] || k)];
+      listEl.append(D.el('p', 'dim', ACTIVE_Q
+        ? `当前搜索（${[`搜索「${ACTIVE_Q}」`, ...conds].join(' + ')}）下没有已上线的包。`
+        : (conds.length
+          ? `当前筛选（${conds.join(' + ')}）下没有已上线的包。`
+          : '还没有通过审核的包。')));
+      return all.length;
+    }
+    for (const k of FUNC_ORDER) {
+      const arr = mods.filter((m) => FUNC_OF(m) === k);
+      if (!arr.length) continue;
+      listEl.append(D.el('h2', 'sec', `${FUNC_TITLE[k]}（${arr.length}）`));
+      listEl.append(D.el('p', 'sub', FUNC_HINT[k]));
+      for (const m of arr) listEl.append(card(m, false, sameIdPeers(all, m), D).panel);
+    }
+    // 疑似素材**照旧单独一组、明确标注**：这一组说的是「素材版权」，与上面三区**正交** ——
+    // 一条既可以是真功能，也可以带疑似素材。所以它不并进任何分区，只把分类徽标照实画在每条上。
+    if (flagged.length) {
+      const box = D.el('div', 'warnbox');
+      box.append(D.el('h3', null, `含疑似官方素材的 mod（${flagged.length}）`));
+      box.append(D.el('div', null, '这些包在自动检查里命中了「像官方解包素材」的特征（Spine 模型、官方立绘/语音路径等），' +
+        '维护者已人工看过并放行。它们不是干净的工坊包：里面的素材版权与可用范围请自行判断，' +
+        '也请勿据此再分发素材本身。仓库正式收录的 packs/ 不含这类素材。'));
+      listEl.append(box);
+      for (const m of flagged) {
+        const built = card(m, true, sameIdPeers(all, m), D);
+        if (m.suspectedReasons && m.suspectedReasons.length) {
+          built.body.append(D.el('div', 'kv dim', '命中的特征：' + m.suspectedReasons.join('、')));
+        }
+        listEl.append(built.panel);
+      }
+    }
+    return all.length;
+  }
+
+  return {
+    renderList,
+    KIND_OF, KIND_TITLE, KIND_BADGE, KIND_HINT,
+    FUNC_OF, FUNC_TITLE, FUNC_BADGE, FUNC_HINT, FUNC_ORDER,
+    sameIdPeers,
+  };
+}
+
+/** 上面那一份渲染实现的**单例**（服务端这一侧用它预渲染 `#list`）。 */
+const MOD_LIST_RENDERER = makeModListRenderer();
+/**
+ * 注进页面的那一段：就是上面那个函数的**源码文本**，就地调用一次得到同一个渲染器。
+ * ⚠️ 之所以用 `toString()` 而不是「页面里再写一份」：这个项目忌讳判据两份实现 ——
+ *    两份必然漂移（改了一处忘了另一处，服务端预渲染与客户端重渲染就会各画各的）。
+ * ⚠️ 代价：`server.mjs` **不能被压缩 / 混淆**再跑（`toString()` 拿到的会是压缩后的文本）。
+ *    本项目零构建、直接跑源码，所以这条成立；哪天要打包，这里必须一起改。
+ */
+const MOD_LIST_RENDERER_SRC = `(${makeModListRenderer.toString()})()`;
+
+/* ---------------------------------------------------------------------------
+ * 服务端侧的**最小 DOM 适配器**：只为了让上面那一个渲染函数在 Node 里跑出 HTML。
+ * ⚠️ 它不是浏览器、也不打算是：只实现渲染函数用到的那几个成员
+ *   （createElement / createTextNode / className / textContent / append / setAttribute /
+ *    style / href / rel / id），然后序列化成 HTML。
+ * ⚠️ **转义是这里的事**：页面那边走 `textContent`，浏览器替它转义；服务端拼字符串就得自己转。
+ *    文本转 `& < >`，属性值再加 `"` —— 少一个就是一个反射型 XSS 口子（`/mods` 的 `q`
+ *    已经是转义过的白名单外自由文本，但记录里的 `name` / `note` 同样是自由文本）。
+ * -------------------------------------------------------------------------*/
+const htmlEscText = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const htmlEscAttr = (s) => htmlEscText(s).replace(/"/g, '&quot;');
+/** CSS 属性名 camelCase → kebab-case（`borderLeft` → `border-left`）。 */
+const cssKebab = (k) => k.replace(/[A-Z]/g, (ch) => '-' + ch.toLowerCase());
+const htmlNode = (tag) => {
+  const n = { tag, cls: '', id: '', href: '', rel: '', attrs: {}, style: {}, children: [] };
+  n.append = (...kids) => { for (const x of kids) n.children.push(x); };
+  n.setAttribute = (k, v) => { n.attrs[k] = String(v); };
+  Object.defineProperty(n, 'className', { get: () => n.cls, set: (v) => { n.cls = String(v); } });
+  Object.defineProperty(n, 'textContent', {
+    get: () => n.children.map((x) => (x.text != null ? String(x.text) : '')).join(''),
+    set: (v) => { n.children = (v === '' || v == null) ? [] : [{ text: String(v) }]; },
+  });
+  return n;
+};
+const htmlSerialize = (x) => {
+  if (x.text != null) return htmlEscText(x.text);
+  const styleKeys = Object.keys(x.style);
+  const attrs = [
+    x.cls ? ` class="${htmlEscAttr(x.cls)}"` : '',
+    x.id ? ` id="${htmlEscAttr(x.id)}"` : '',
+    x.href ? ` href="${htmlEscAttr(x.href)}"` : '',
+    x.rel ? ` rel="${htmlEscAttr(x.rel)}"` : '',
+    ...Object.entries(x.attrs).map(([k, v]) => ` ${k}="${htmlEscAttr(v)}"`),
+    styleKeys.length
+      ? ` style="${htmlEscAttr(styleKeys.map((k) => `${cssKebab(k)}:${x.style[k]}`).join(';'))}"` : '',
+  ].join('');
+  return `<${x.tag}${attrs}>${x.children.map(htmlSerialize).join('')}</${x.tag}>`;
+};
+/** 服务端调用方：用**同一个渲染函数**把 `#list` 的内容画成 HTML 字符串。 */
+const renderModListHtml = (data) => {
+  const D = {
+    el: (tag, cls, text) => {
+      const n = htmlNode(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    },
+    text: (t) => ({ text: String(t) }),
+  };
+  const root = htmlNode('div');
+  MOD_LIST_RENDERER.renderList(root, data, D);
+  return root.children.map(htmlSerialize).join('');
+};
+
+/**
+ * ⭐ 公开面的**取数 + 三道筛选 + 计数** —— **只有这一份实现**，两个调用方：
+ *   · `GET /api/mods`（JSON，客户端 fetch 与第三方读的入口）；
+ *   · `GET /mods`（同一个结果**预渲染**进 HTML，无 JS 也看得到）。
+ * ⚠️ 这两条路**必须逐条一致**，所以过滤与计数一律在这里做完，调用方一个字节都不再筛。
+ * ⚠️ `counts` 的算法**一个字节都没动**（2026-10-15 加搜索时定的口径照旧）：
+ *    它数的是 `shaped`（全量已上线），**不按 `q` 收窄**；给不给也只由 kind / func 决定。
+ */
+async function collectPublicMods({ kf, ff, qf }) {
+  const shape = (s, sig) => ({
+    id: s.id, name: s.name, note: s.note, uploadedAt: s.uploadedAt, size: s.size,
+    homepage: s.homepage || null, suspected: s.suspected === true,
+    suspectedReasons: s.suspectedReasons || [],
+    // 兼容包：**两个署名分开给**，谁也不覆盖谁。公网列表那一页照这两栏分别显示。
+    // 普通投稿这两栏里通常只有原作者（没有「兼容者」这回事）——但**原作者照给**：
+    // 来源是包内的 pack.json，见 signatureOf（推导，不回写记录）。
+    kind: s.kind || 'submission',
+    // **另一种** kind：这条包「**装上到底会不会生效**」（指令③④）。与上面那个 `kind`
+    // （compat / submission，说的是这条记录**怎么来的**）是两回事，所以**故意不复用同一个键**：
+    //   functional    装上即生效 —— 站上每条都过了三道核：① `pack.json` 在 ZIP 根
+    //                 （否则解压进 workshop 目录根本不被装载）② 在引擎 0.16.0 的干净 workshop
+    //                 根**单独装载 errors=0** ③ `pack.json` 的 `api`/`game` 区间与当前
+    //                 MOD_API_VERSION / 上游版本相容；
+    //   documentation 说明包 / 参考 / 补丁 —— **装上不会启用任何功能**；
+    //   unknown       安装器形态等，判不了就**不放进真功能区**。
+    // ⚠️ 记录里没有这一栏（还没分类的、或日后新批的）一律按 **unknown** 给：
+    // 缺省**绝不可能是 functional** —— 否则「下载了 mod 却不能用」会从新记录那里漏回来。
+    packKind: s.packKind || 'unknown',
+    // ⭐⭐ **功能类目**（业主 2026-10-14 裁定的 6 类）—— 这才是「这包是干什么的」那一栏。
+    // 与上面的 `packKind`（技术维度：装上会不会生效）**是两个维度、两个键**，故意不复用。
+    // 缺省 `uncategorized`（未分类）：老记录没有这一栏 ⇒ 落未分类，**绝不猜**。
+    funcKind: funcKindOf(s),
+    funcKindTitle: FUNC_KIND_TITLES[funcKindOf(s)],
+    // 包内 `pack.json` 的 `id`（兼容包取记录里那一栏）。**只用来做一件事**：让公网那一页
+    // 能看出「哪几条是同一个 id」——引擎不允许同 id 并存，玩家一次只能装一条。
+    // 读不到就是 null，页面不画那一行（不猜）。
+    packId: sig.packId ?? null,
+    // 原作者：兼容包取记录里那一栏（发布时预填自包内 pack.json，或维护者手填）；
+    // 普通投稿记录里从来没有这一栏 ⇒ 去**包内 pack.json** 读（同一个来源名 pack.json）。
+    author: sig.author,
+    authorSource: sig.authorSource,           // 'pack.json' / 'maintainer' / null（没有来源就没有名字）
+    // 兼容者（**只存在站点侧记录里**，不进 pack.json）。空字符串 = 未填，是**合法值** ——
+    // 所以这里**不能用 `|| null`**：那会把「未填」和「压根不是兼容包」混成同一个 null，
+    // 公网那一页就没法如实把「未填」那一栏显示出来。
+    compatAuthor: typeof s.compatAuthor === 'string' ? s.compatAuthor : null,
+    compatAuthorSource: s.compatAuthorSource || null,   // 手填（form）还是未填（empty）
+    compatOf: s.compatOf || null,             // 由哪个待审原件改写来（追溯用）
+    compatNote: s.compatNote || null,         // 改了什么
+    // 相对路径：页面在哪个 origin（公网，或隧道里的 127.0.0.1）就打哪个。
+    // 用 BASE_URL 拼绝对地址会让隧道里的页面变成跨域 —— <a href> 时代是跳到公网 IP 被白名单挡掉，
+    // fetch 时代则直接 Failed to fetch。
+    download: `/api/file/${s.id}`,
+    // 只给维护者看的留档入口（公开下载这条路走到它会 403，见 /api/file/ 那一段）。
+    // ⚠️ 只有留档文件**真的在磁盘上**才给这一栏：没有 `orig.zip` 的兼容包（早先手工批准上线、
+    // 以及 `/compat/link` 事后补链的那几条）发出去就是必然 404 的死链。判据见 `origArchiveOf`。
+    archiveDownload: origArchiveOf(s.id),
+  });
+  // ⭐ **公开面过滤器**（2026-10-12 增补，只加不减）：
+  //   · 主判据一个字没改：`state === 'approved'`；
+  //   · **只多一条**：排除「发布者申请自撤、等管理员确认」的那些（`isPubliclyVisible`）。
+  //     「他想删掉」要立刻见效 —— 见 isPubliclyVisible 的完整说明。
+  const approved = allSubs().filter((s) => isPubliclyVisible(s));
+  // 逐条推署名来源（**只读**）。只有普通投稿真会去解一次 zip，而且结果有缓存
+  // （见 packAuthorOf）；兼容包走记录里那两栏，一次 zip 都不读。
+  // Promise.all 保序，所以列表顺序与 filter/map 时代完全一致。
+  const shaped = await Promise.all(approved.map(async (s) => ({ s, o: shape(s, await signatureOf(s)) })));
+  // 分类筛选在**分组之前**做（两组同一条判据），并且**保留三个分区标题**的既有画法：
+  // 服务端只筛数据，页面自己按 KIND_OF 分三块，标题一个没动（需求 ③ 的「保留现有三个分区标题」）。
+  const picked0 = kf.kinds ? shaped.filter((x) => kf.kinds.includes(kindOfRec(x.s))) : shaped;
+  // ⭐ 功能类目筛选（业主 2026-10-14）：与上面那条**各管一个维度**，所以是**串联叠加**，
+  //    不是二选一 —— `?kind=functional&func=utility` = 「既装得上、又是实用工具」。
+  const picked = ff.funcs ? picked0.filter((x) => ff.funcs.includes(funcKindOf(x.s))) : picked0;
+  // ⭐ 关键字搜索（业主 2026-10-15）：**再串一层**（AND）。三个条件各管一件事，
+  //    谁都不顶掉谁；而且与上面两条一样在**分组之前**筛 ⇒ 两组（普通 / 疑似素材）
+  //    同一条判据，不会出现「主列表搜到了、疑似那一组没搜」。
+  const pickedQ = qf.q ? picked.filter((x) => matchesQuery(x.o, x.s, qf.q)) : picked;
+  const body = {
+    mods: pickedQ.filter((x) => !x.s.suspected).map((x) => x.o),
+    flagged: pickedQ.filter((x) => x.s.suspected).map((x) => x.o),
+  };
+  // ⭐ 每类计数（需求 ③：「分区标题旁显示每类计数」）。
+  // **只在不筛的时候给**：筛过之后「functional 有 3 条」这种数会因为筛选而变小，
+  // 反而误导（用户以为站上只有 3 条功能包）。所以筛过时不给 `counts` 字段，
+  // 页面退回按当前这批自己数（那才是屏幕上真实的条数）。
+  // ⚠️ 数的是**主分区（非疑似素材）**里的条数 —— 与页面实际画出来的那三个区块**同一口径**：
+  //    疑似素材在 `/mods` 上另起一块（「含疑似官方素材的 mod」），不并进任何分类区。
+  //    计数若把疑似素材那条也算进「说明包」，就会比用户点进去看到的多 1 条
+  //    （实测线上 115 条里 `e3a5d09eb6d3` 正是 approved + documentation + suspected，
+  //     它进了疑似那一组 ⇒ 计数 22、点进去只有 21）。这种「数对不上」最招人问，所以数同一批。
+  const mainOnly = shaped.filter((x) => !x.s.suspected);
+  // 两个维度**各自一套计数**：技术维度叫 `counts`（老读法一字不改），
+  // 功能维度叫 `counts.func`（新读法）—— 两份都只在**不筛**的时候给。
+  // ⭐ 2026-10-15 加搜索时这一块**一个字节都没动**（业主口径：「别把 counts 也过滤掉」）：
+  //    它数的仍然是 `shaped`（全量已上线），**不按 `q` 收窄**；给不给也只由 kind / func 决定，
+  //    `q` 不参与这个条件 ⇒ 只搜不筛时，`counts` 照旧是全站每类计数。
+  if (!kf.kinds && !ff.funcs) {
+    const funcCounts = {};
+    for (const k of FUNC_KINDS) funcCounts[k] = mainOnly.filter((x) => funcKindOf(x.s) === k).length;
+    body.counts = {
+      functional: mainOnly.filter((x) => kindOfRec(x.s) === 'functional').length,
+      documentation: mainOnly.filter((x) => kindOfRec(x.s) === 'documentation').length,
+      unknown: mainOnly.filter((x) => kindOfRec(x.s) === 'unknown').length,
+      flagged: shaped.length - mainOnly.length,
+      total: mainOnly.length,
+      func: funcCounts,
+    };
+  }
+  body.kinds = kf.kinds;
+  body.funcs = ff.funcs;
+  body.funcKindTitles = FUNC_KIND_TITLES;
+  return body;
+}
+
 /**
  * 发一个「统一皮肤」的页面：把 __CSS__ 换成同源样式表链接、__ADMIN_API__ 换成当前前缀。
  * 两个替换放在一处，页面上就不会漏掉谁 —— 审核前缀是环境变量决定的，漏了就会打到不存在的地址。
@@ -1303,6 +1730,14 @@ const renderPage = (res, name, opts = {}) => {
     .split('__FUNCS__').join(funcs.join(','))
     // __Q__：上面那行转义过的当前关键字（页面只把它放进 input.value，从不拼 HTML）。
     .split('__Q__').join(qAttr)
+    // ⭐ __LIST_RENDER__（2026-10-15 服务端预渲染）：把**服务端正在用的那一份**行渲染实现
+    // 原样注进页面（`makeModListRenderer` 的源码文本）—— 一份实现、两个调用方。
+    // 它**不是**用户输入、也不是数据，是我们自己的代码文本，所以原样注入。
+    .split('__LIST_RENDER__').join(MOD_LIST_RENDERER_SRC)
+    // ⭐ __LIST_HTML__：服务端**按当前查询**（kind / func / q 三者 AND）预渲染好的 `#list` 内容。
+    // 它由 `renderModListHtml` 生成，里面的用户数据**已经转义过**（见 htmlEscText / htmlEscAttr），
+    // 所以这里是**可信的自家 HTML**，原样注入（再转一次就会把页面上的中文显示成 `&amp;`）。
+    .split('__LIST_HTML__').join(typeof opts.listHtml === 'string' ? opts.listHtml : '')
     // 上传上限（MB）：整数。只注入数字，别的什么都不拼。
     .split('__MAX_MB__').join(String(MAX_BYTES / 1048576));
   send(res, 200, html, { 'content-type': 'text/html; charset=utf-8' });
@@ -1454,7 +1889,15 @@ const server = createServer(async (req, res) => {
       // ⭐ 关键字搜索（业主 2026-10-15）：`/mods?q=…`。与上面两条**可以叠加**（AND）。
       //    它**没有** 400 那一档：`q` 是自由文本，没有闭枚举可校验。
       const qf = queryFilterOf(url);
-      return renderPage(res, 'mods.html', { kinds: kf.kinds || [], funcs: ff.funcs || [], q: qf.q || '' });
+      // ⭐⭐ **服务端预渲染**（2026-10-15）：`#list` 的内容由服务端按**当前查询**画好一起发出去，
+      //    无 JS 也能看到列表与搜索结果（改前那里恒为「正在载入…」，列表全靠客户端 fetch）。
+      //    ⚠️ 取数 / 过滤 / 计数**调用 `/api/mods` 用的同一个函数**（`collectPublicMods`）——
+      //    绝不在这里把过滤逻辑再写一遍：那样两条路必然漂移，判据就变成两份了。
+      const data = await collectPublicMods({ kf, ff, qf });
+      const active = { kinds: kf.kinds || [], funcs: ff.funcs || [], q: qf.q || '' };
+      // 预渲染与客户端重渲染用的是**同一个** `renderList`（见 MOD_LIST_RENDERER_SRC）。
+      const listHtml = renderModListHtml({ mods: data.mods, flagged: data.flagged, active });
+      return renderPage(res, 'mods.html', { kinds: active.kinds, funcs: active.funcs, q: active.q, listHtml });
     }
     // 审核页本身就要认证 —— 只有**顶层导航**的 401 才会让浏览器弹登录框
     // （fetch 拿到 401 是不弹的，所以认证必须卡在页面这一层）。
@@ -1485,108 +1928,10 @@ const server = createServer(async (req, res) => {
       //    ⚠️ **不往响应里加 `q` 这一栏**：不传 `q` 时这条响应必须与改前**逐字节相同**
       //    （老读法、老判据、老快照都能直接比），所以没搜的时候一个字节都不多给。
       const qf = queryFilterOf(url);
-      const shape = (s, sig) => ({
-        id: s.id, name: s.name, note: s.note, uploadedAt: s.uploadedAt, size: s.size,
-        homepage: s.homepage || null, suspected: s.suspected === true,
-        suspectedReasons: s.suspectedReasons || [],
-        // 兼容包：**两个署名分开给**，谁也不覆盖谁。公网列表那一页照这两栏分别显示。
-        // 普通投稿这两栏里通常只有原作者（没有「兼容者」这回事）——但**原作者照给**：
-        // 来源是包内的 pack.json，见 signatureOf（推导，不回写记录）。
-        kind: s.kind || 'submission',
-        // **另一种** kind：这条包「**装上到底会不会生效**」（指令③④）。与上面那个 `kind`
-        // （compat / submission，说的是这条记录**怎么来的**）是两回事，所以**故意不复用同一个键**：
-        //   functional    装上即生效 —— 站上每条都过了三道核：① `pack.json` 在 ZIP 根
-        //                 （否则解压进 workshop 目录根本不被装载）② 在引擎 0.16.0 的干净 workshop
-        //                 根**单独装载 errors=0** ③ `pack.json` 的 `api`/`game` 区间与当前
-        //                 MOD_API_VERSION / 上游版本相容；
-        //   documentation 说明包 / 参考 / 补丁 —— **装上不会启用任何功能**；
-        //   unknown       安装器形态等，判不了就**不放进真功能区**。
-        // ⚠️ 记录里没有这一栏（还没分类的、或日后新批的）一律按 **unknown** 给：
-        // 缺省**绝不可能是 functional** —— 否则「下载了 mod 却不能用」会从新记录那里漏回来。
-        packKind: s.packKind || 'unknown',
-        // ⭐⭐ **功能类目**（业主 2026-10-14 裁定的 6 类）—— 这才是「这包是干什么的」那一栏。
-        // 与上面的 `packKind`（技术维度：装上会不会生效）**是两个维度、两个键**，故意不复用。
-        // 缺省 `uncategorized`（未分类）：老记录没有这一栏 ⇒ 落未分类，**绝不猜**。
-        funcKind: funcKindOf(s),
-        funcKindTitle: FUNC_KIND_TITLES[funcKindOf(s)],
-        // 包内 `pack.json` 的 `id`（兼容包取记录里那一栏）。**只用来做一件事**：让公网那一页
-        // 能看出「哪几条是同一个 id」——引擎不允许同 id 并存，玩家一次只能装一条。
-        // 读不到就是 null，页面不画那一行（不猜）。
-        packId: sig.packId ?? null,
-        // 原作者：兼容包取记录里那一栏（发布时预填自包内 pack.json，或维护者手填）；
-        // 普通投稿记录里从来没有这一栏 ⇒ 去**包内 pack.json** 读（同一个来源名 pack.json）。
-        author: sig.author,
-        authorSource: sig.authorSource,           // 'pack.json' / 'maintainer' / null（没有来源就没有名字）
-        // 兼容者（**只存在站点侧记录里**，不进 pack.json）。空字符串 = 未填，是**合法值** ——
-        // 所以这里**不能用 `|| null`**：那会把「未填」和「压根不是兼容包」混成同一个 null，
-        // 公网那一页就没法如实把「未填」那一栏显示出来。
-        compatAuthor: typeof s.compatAuthor === 'string' ? s.compatAuthor : null,
-        compatAuthorSource: s.compatAuthorSource || null,   // 手填（form）还是未填（empty）
-        compatOf: s.compatOf || null,             // 由哪个待审原件改写来（追溯用）
-        compatNote: s.compatNote || null,         // 改了什么
-        // 相对路径：页面在哪个 origin（公网，或隧道里的 127.0.0.1）就打哪个。
-        // 用 BASE_URL 拼绝对地址会让隧道里的页面变成跨域 —— <a href> 时代是跳到公网 IP 被白名单挡掉，
-        // fetch 时代则直接 Failed to fetch。
-        download: `/api/file/${s.id}`,
-        // 只给维护者看的留档入口（公开下载这条路走到它会 403，见 /api/file/ 那一段）。
-        // ⚠️ 只有留档文件**真的在磁盘上**才给这一栏：没有 `orig.zip` 的兼容包（早先手工批准上线、
-        // 以及 `/compat/link` 事后补链的那几条）发出去就是必然 404 的死链。判据见 `origArchiveOf`。
-        archiveDownload: origArchiveOf(s.id),
-      });
-      // ⭐ **公开面过滤器**（2026-10-12 增补，只加不减）：
-      //   · 主判据一个字没改：`state === 'approved'`；
-      //   · **只多一条**：排除「发布者申请自撤、等管理员确认」的那些（`isPubliclyVisible`）。
-      //     「他想删掉」要立刻见效 —— 见 isPubliclyVisible 的完整说明。
-      const approved = allSubs().filter((s) => isPubliclyVisible(s));
-      // 逐条推署名来源（**只读**）。只有普通投稿真会去解一次 zip，而且结果有缓存
-      // （见 packAuthorOf）；兼容包走记录里那两栏，一次 zip 都不读。
-      // Promise.all 保序，所以列表顺序与 filter/map 时代完全一致。
-      const shaped = await Promise.all(approved.map(async (s) => ({ s, o: shape(s, await signatureOf(s)) })));
-      // 分类筛选在**分组之前**做（两组同一条判据），并且**保留三个分区标题**的既有画法：
-      // 服务端只筛数据，页面自己按 KIND_OF 分三块，标题一个没动（需求 ③ 的「保留现有三个分区标题」）。
-      const picked0 = kf.kinds ? shaped.filter((x) => kf.kinds.includes(kindOfRec(x.s))) : shaped;
-      // ⭐ 功能类目筛选（业主 2026-10-14）：与上面那条**各管一个维度**，所以是**串联叠加**，
-      //    不是二选一 —— `?kind=functional&func=utility` = 「既装得上、又是实用工具」。
-      const picked = ff.funcs ? picked0.filter((x) => ff.funcs.includes(funcKindOf(x.s))) : picked0;
-      // ⭐ 关键字搜索（业主 2026-10-15）：**再串一层**（AND）。三个条件各管一件事，
-      //    谁都不顶掉谁；而且与上面两条一样在**分组之前**筛 ⇒ 两组（普通 / 疑似素材）
-      //    同一条判据，不会出现「主列表搜到了、疑似那一组没搜」。
-      const pickedQ = qf.q ? picked.filter((x) => matchesQuery(x.o, x.s, qf.q)) : picked;
-      const body = {
-        mods: pickedQ.filter((x) => !x.s.suspected).map((x) => x.o),
-        flagged: pickedQ.filter((x) => x.s.suspected).map((x) => x.o),
-      };
-      // ⭐ 每类计数（需求 ③：「分区标题旁显示每类计数」）。
-      // **只在不筛的时候给**：筛过之后「functional 有 3 条」这种数会因为筛选而变小，
-      // 反而误导（用户以为站上只有 3 条功能包）。所以筛过时不给 `counts` 字段，
-      // 页面退回按当前这批自己数（那才是屏幕上真实的条数）。
-      // ⚠️ 数的是**主分区（非疑似素材）**里的条数 —— 与页面实际画出来的那三个区块**同一口径**：
-      //    疑似素材在 `/mods` 上另起一块（「含疑似官方素材的 mod」），不并进任何分类区。
-      //    计数若把疑似素材那条也算进「说明包」，就会比用户点进去看到的多 1 条
-      //    （实测线上 115 条里 `e3a5d09eb6d3` 正是 approved + documentation + suspected，
-      //     它进了疑似那一组 ⇒ 计数 22、点进去只有 21）。这种「数对不上」最招人问，所以数同一批。
-      const mainOnly = shaped.filter((x) => !x.s.suspected);
-      // 两个维度**各自一套计数**：技术维度叫 `counts`（老读法一字不改），
-      // 功能维度叫 `counts.func`（新读法）—— 两份都只在**不筛**的时候给。
-      // ⭐ 2026-10-15 加搜索时这一块**一个字节都没动**（业主口径：「别把 counts 也过滤掉」）：
-      //    它数的仍然是 `shaped`（全量已上线），**不按 `q` 收窄**；给不给也只由 kind / func 决定，
-      //    `q` 不参与这个条件 ⇒ 只搜不筛时，`counts` 照旧是全站每类计数。
-      if (!kf.kinds && !ff.funcs) {
-        const funcCounts = {};
-        for (const k of FUNC_KINDS) funcCounts[k] = mainOnly.filter((x) => funcKindOf(x.s) === k).length;
-        body.counts = {
-          functional: mainOnly.filter((x) => kindOfRec(x.s) === 'functional').length,
-          documentation: mainOnly.filter((x) => kindOfRec(x.s) === 'documentation').length,
-          unknown: mainOnly.filter((x) => kindOfRec(x.s) === 'unknown').length,
-          flagged: shaped.length - mainOnly.length,
-          total: mainOnly.length,
-          func: funcCounts,
-        };
-      }
-      body.kinds = kf.kinds;
-      body.funcs = ff.funcs;
-      body.funcKindTitles = FUNC_KIND_TITLES;
-      return sendJson(res, 200, body);
+      // ⭐⭐ 取数 / 过滤 / 计数**只有一份实现**（`collectPublicMods`）：`/mods` 的服务端预渲染
+      //     调的是同一个函数 —— 两条路的条目集合因此不可能漂移。
+      //     ⚠️ `counts` 的算法在这一步**一个字节都没动**（见那个函数的注释）。
+      return sendJson(res, 200, await collectPublicMods({ kf, ff, qf }));
     }
 
     // ---- 投稿人查自己的状态（要回执令牌）
