@@ -684,9 +684,12 @@ for (const m of diffPub) {
   const a = t.split(m.compatNote).length - 1, b = t.split(m.note).length - 1;
   if (a < 1 || b < 1) noteDrawBad.push(`${m.id}:两栏不同（compatNote ${a} 次 / note ${b} 次，两段都该画）`);
 }
-check(compatPub.length > 0 && noteDrawBad.length === 0,
+//   ⚠️ 防空转：两栏都有文案的记录**至少得有一条**（两栏全空时上面两个循环一次都不进，
+//      断言就变成永真 —— 本文件其他地方也是这么防的）。
+check(compatPub.length > 0 && samePub.length + diffPub.length > 0 && noteDrawBad.length === 0,
   `线上每条已发布兼容包的两栏备注**渲染判据**都对（共 ${compatPub.length} 条：两栏相同 ${samePub.length} 条 ⇒ 只画一次 · 两栏不同 ${diffPub.length} 条 ⇒ 两段都画）`,
-  noteDrawBad.length ? noteDrawBad.join(' ') : `相同 ${samePub.length} 条 / 不同 ${diffPub.length} 条`);
+  noteDrawBad.length ? noteDrawBad.join(' ')
+    : `相同 ${samePub.length} 条 / 不同 ${diffPub.length} 条（有文案的共 ${samePub.length + diffPub.length} 条，非空转）`);
 const compatWithNote = compatPub.filter((m) => typeof m.compatNote === 'string' && m.compatNote.trim() !== '');
 const compatNoNote = compatPub.filter((m) => m.compatNote === null);
 check(compatWithNote.length > 0,
