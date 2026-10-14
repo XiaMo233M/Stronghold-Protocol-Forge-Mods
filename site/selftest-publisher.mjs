@@ -28,7 +28,15 @@
 //       三路空文案（搜索无结果 / 筛选无结果 / 还没有包）各自如实说清
 //   ⑰  注入页面的那一份行渲染源码**自包含**（空上下文里跑得起来）—— `toString()` 注入的
 //       代价就在这一条上：引用了模块作用域的东西，浏览器里必炸而服务端预渲染照样是好的
+//   ⑱  **响应压缩（gzip）**（2026-10-15）：`/mods` 带 `Accept-Encoding: gzip` ⇒ 线上实体
+//       真是 gzip 且**解压后逐字节相同**；不带就不压；`/api/file/<id>` 的 zip 下载**绝不压**；
+//       可压缩响应一律带 `Vary: Accept-Encoding`（压与不压都带）；`content-length` 与压缩后
+//       实体一致；`gzip;q=0` 不压、`*` 压；小响应不压
 import { spawn } from 'node:child_process';
+// ⑱ 要发**原始** HTTP：Node 的 fetch（undici）会自动解压 gzip 并留着 content-encoding 头，
+// 用它验不到「线上实体真的是 gzip」；解压也自己来（内置 zlib，不加依赖）。
+import { request } from 'node:http';
+import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -933,6 +941,85 @@ try {
         `${e.constructor.name}: ${e.message}`);
     }
   }
+
+  // ================================================================
+  console.log('⑱ 响应压缩（gzip）：只压文本、只在客户端声明支持时压、二进制下载绝不压');
+  // 判据一句话：`/mods` 带 `Accept-Encoding: gzip` 时**线上实体真的是 gzip**（解压后逐字节相同）；
+  // 不带就不压；`/api/file/<id>` 的 zip 下载**一个字节都不压**；可压缩响应一律带 `Vary`。
+  // ⚠️ 必须用 `node:http` 发**原始**请求：Node 的 fetch（undici）会**自动解压** gzip 并留着
+  //    `content-encoding` 头 —— 用它「看起来也是 gzip」，但验不到实体，这条判据就废了。
+  // ⚠️ 这条判据对着**改前代码必须红**：改前一处压缩都没有，①（没有 content-encoding）
+  //    与④（没有 vary）当场不成立。
+  const rawGet = (path, headers = {}) => new Promise((resolve, reject) => {
+    const rq = request({ host: '127.0.0.1', port: PORT, path, method: 'GET', headers }, (r) => {
+      const chunks = [];
+      r.on('data', (c) => chunks.push(c));
+      r.on('end', () => resolve({ status: r.statusCode, h: r.headers, buf: Buffer.concat(chunks) }));
+    });
+    rq.on('error', reject);
+    rq.end();
+  });
+  const sha256 = (b) => createHash('sha256').update(b).digest('hex');
+  // 夹具里必然有已上线的记录（⑯ 刚断言过「卡片行数 == /api/mods 条数」）⇒ 从接口现取一个 id，
+  // 不写死编号 —— 写死就会在夹具调整时变成一条与本事无关的假红。
+  const gzModsApi = await (await fetch(`${BASE}/api/mods`)).json();
+  const gzId = (gzModsApi.mods || [])[0]?.id;
+  check(!!gzId, '夹具里有一条已上线的记录（否则「下载流不压」那两条验不到）', gzId || '（0 条）');
+
+  const modsPlain = await rawGet('/mods');
+  const modsGz = await rawGet('/mods', { 'accept-encoding': 'gzip' });
+  const gzOk = modsGz.h['content-encoding'] === 'gzip';
+  // ① 带 gzip 声明 ⇒ 真的压了，且**解压后与不带压缩的正文逐字节相同**
+  check(gzOk, '① `/mods` 带 `Accept-Encoding: gzip` ⇒ 响应**真有** `Content-Encoding: gzip`',
+    String(modsGz.h['content-encoding'] || '（没有这个头）'));
+  let unzipped = null;
+  if (gzOk) { try { unzipped = gunzipSync(modsGz.buf); } catch { unzipped = null; } }
+  check(unzipped != null && sha256(unzipped) === sha256(modsPlain.buf),
+    '① `/mods` 的 gzip 实体**解压后与明文正文逐字节相同**（sha256 相等）',
+    unzipped ? `${modsGz.buf.length}B → 解压 ${unzipped.length}B · 明文 ${modsPlain.buf.length}B · sha 同` : '解压失败');
+  // ⑦ content-length 必须是**压缩后**的长度（绝不能沿用压缩前的）
+  check(Number(modsGz.h['content-length']) === modsGz.buf.length,
+    '⑦ `content-length` 与**压缩后**的实体长度一致（没沿用压缩前的长度）',
+    `头 ${modsGz.h['content-length']} vs 实体 ${modsGz.buf.length}`);
+  // ② 没有 Accept-Encoding ⇒ 不压
+  check(!modsPlain.h['content-encoding'],
+    '② 不带 `Accept-Encoding` ⇒ **不带** `Content-Encoding`（不硬塞给不收 gzip 的客户端）',
+    String(modsPlain.h['content-encoding'] || '（无，对）'));
+  // ④ Vary 与「这一次压没压」无关：两种请求都得带
+  check(/accept-encoding/i.test(String(modsGz.h.vary || '')) && /accept-encoding/i.test(String(modsPlain.h.vary || '')),
+    '④ 可压缩响应一律带 `Vary: Accept-Encoding`（压与不压都带 —— 中间缓存才不会串）',
+    `带 AE: ${modsGz.h.vary || '（无）'} · 不带 AE: ${modsPlain.h.vary || '（无）'}`);
+  // ③ 下载流绝不压（zip 压了就是坏数据，且与 content-length / 文件 sha256 全对不上）
+  if (gzId) {
+    const dlPlain = await rawGet(`/api/file/${gzId}`);
+    const dlGz = await rawGet(`/api/file/${gzId}`, { 'accept-encoding': 'gzip' });
+    check(dlPlain.status === 200 && !dlGz.h['content-encoding'] && sha256(dlGz.buf) === sha256(dlPlain.buf),
+      '③ `/api/file/<id>` 的 zip 下载**不被压缩**（带 gzip 声明也一样，字节完全相同）',
+      `http=${dlGz.status} CE=${dlGz.h['content-encoding'] || '（无，对）'} ${dlGz.buf.length}B`);
+    check(Number(dlGz.h['content-length']) === dlGz.buf.length,
+      '③ 下载响应的 `content-length` 与实体一致（没被压缩碰过）',
+      `头 ${dlGz.h['content-length']} vs 实体 ${dlGz.buf.length}`);
+    // Range：站点**没有**任何 Range / 206 实现（`server.mjs` 里搜不到 `range`）⇒ 这条只钉住
+    // 「Range 请求不会被压缩碰坏」：忽略 Range 照旧回 200 整份、且不压。若哪天加了 206，这里会红。
+    const dlRange = await rawGet(`/api/file/${gzId}`, { range: 'bytes=0-99', 'accept-encoding': 'gzip' });
+    check(dlRange.status === 200 && !dlRange.h['content-encoding'] && dlRange.buf.length === dlPlain.buf.length,
+      '③ Range 请求走同一条下载路：照旧**整份 200、且不压**（站点本来就没有 206，这次没动它）',
+      `http=${dlRange.status} ${dlRange.buf.length}B`);
+  }
+  // ③ 补充：按 q 值判，不是「字符串里出现过 gzip 就算」
+  const q0 = await rawGet('/mods', { 'accept-encoding': 'gzip;q=0' });
+  const star = await rawGet('/mods', { 'accept-encoding': '*' });
+  check(!q0.h['content-encoding'] && star.h['content-encoding'] === 'gzip',
+    '③ `gzip;q=0` 不压、`*` 压（按 q 值判，不是「出现过 gzip 字样」就算）',
+    `q=0 ⇒ ${q0.h['content-encoding'] || '（无，对）'} · * ⇒ ${star.h['content-encoding'] || '（无）'}`);
+  // ⑤ 小响应不压（`/healthz` 的 JSON 只有几十字节）
+  const tiny = await rawGet('/healthz', { 'accept-encoding': 'gzip' });
+  check(tiny.status === 200 && tiny.buf.length < 1024 && !tiny.h['content-encoding'],
+    '⑤ 小响应（< 1KB）不压 —— 不为几十字节白加一层头',
+    `http=${tiny.status} ${tiny.buf.length}B CE=${tiny.h['content-encoding'] || '（无，对）'}`);
+  // 顺手报一眼压缩比（信息用，不作为判据：夹具大小与生产不同）
+  console.log(`  · 参考：/mods 明文 ${modsPlain.buf.length}B → gzip ${modsGz.buf.length}B`
+    + (modsPlain.buf.length ? `（${(100 * modsGz.buf.length / modsPlain.buf.length).toFixed(1)}%）` : ''));
 
   // ---- 发布者自己填功能类目（走 /api/publisher/update，改完回待审）
   const pubFk = await postJsonRead('/api/publisher/update', { id: idB, funcKind: 'expansion' }, tokB);

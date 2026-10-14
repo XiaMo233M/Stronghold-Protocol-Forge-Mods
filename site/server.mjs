@@ -71,7 +71,11 @@
 //   GET  /mods?q=…     与  GET /api/mods?q=…      ← 关键字搜索（业主 2026-10-15；
 //                                                    匹配 name/author/packId/funcKind，
 //                                                    大小写不敏感、可与 kind/func 叠加）
+//   ⭐ 响应压缩（gzip）   ← 文本响应（html / css / json / js…）在客户端声明支持时压一层；
+//                            二进制与下载流（`/api/file/*` 的 zip）**绝不压**（2026-10-15）
 import { createServer } from 'node:http';
+// ⭐ gzip 用 Node **内置**的 zlib —— 本项目零依赖，不为它引任何外部包。
+import { gzipSync } from 'node:zlib';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync, createReadStream, statSync, renameSync, copyFileSync, unlinkSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -1241,9 +1245,78 @@ const allSubs = () => {
 
 // ---------------------------------------------------------------- HTTP 小工具
 
+/* ============================================================================
+ * ⭐ 响应压缩（gzip）—— 2026-10-15 加。起因：`/mods` 改成服务端预渲染后，未压缩
+ *    **197,905 字节**（改前 20,101），而站点前置没有 gzip ⇒ 每次看列表多传约 178 KB。
+ *
+ * 口径（改这段之前先读这六条）：
+ *   ① **只走 `send` 这一条出口** —— 站点所有**文本**响应（页面 / JSON / 样式表）都经过它，
+ *      所以「一处写、全站生效」，不用去逐个路由挂；
+ *   ② **只对文本类型压**（`text/*`、`application/json|javascript|xml`、`image/svg+xml`）——
+ *      ⚠️ 二进制 / 下载流（`/api/file/*` 的 zip）走的是**另一个出口 `sendFile`**，它压根不经过
+ *      这里；这里再按 content-type 判一道，是为了「哪天有人拿 `send` 发二进制」也不会被压坏；
+ *   ③ **只在客户端声明支持时压**（`Accept-Encoding` 里 gzip 的 `q` 不为 0；`*` 也算支持）；
+ *   ④ **一律带 `Vary: Accept-Encoding`** —— 与「这一次到底压没压」**无关**：同一个地址对不同
+ *      客户端给的内容确实不同，中间缓存必须按它分桶，否则会把 gzip 实体发给不收 gzip 的客户端；
+ *   ⑤ **小于 `GZIP_MIN_BYTES` 不压** —— 省 CPU，也免得为几十字节多一层头；压完反而更大也退回原文；
+ *   ⑥ `content-length` 必须与**压缩后**的实体一致（绝不用压缩前的长度）⇒ 这里显式写死。
+ *
+ * ⚠️ `sendFile`（`/api/file/*`）**一个字节都不碰**：那条路自己写 `content-length` 再 `pipe`
+ *    文件流，压了就会让「下载下来的字节」与 `content-length` / 文件 sha256 全对不上。
+ *    另：站点**没有任何 Range / 206 实现**（`server.mjs` 里搜不到 `range`）⇒ 这次改动
+ *    也不存在「压了就不支持 Range」这回事。
+ * ==========================================================================*/
+/** res → 本次请求的 req。**每个 res 只属于一个请求**，所以并发下也不会串。 */
+const REQ_OF = new WeakMap();
+/** 小于这个字节数不压：省 CPU，也免得为几十字节白加一层头。 */
+const GZIP_MIN_BYTES = 1024;
+/** 可压缩的类型（全是文本）。⚠️ `text/event-stream` 排除在外：流式响应压了就再也吐不出来。 */
+const COMPRESSIBLE_TYPE = /^(?:text\/(?!event-stream)|application\/(?:json|javascript|xml|manifest\+json|ld\+json)|image\/svg\+xml)/i;
+
+/** 客户端到底收不收 gzip：`gzip;q=0` 是**明确不收**，`*` 是「别的都收」⇒ 也算收。 */
+const acceptsGzip = (req) => {
+  const ae = String((req && req.headers && req.headers['accept-encoding']) || '');
+  if (!ae) return false;
+  let star = null;
+  for (const part of ae.split(',')) {
+    const segs = part.trim().split(';');
+    const name = segs[0].trim().toLowerCase();
+    if (name !== 'gzip' && name !== 'x-gzip' && name !== '*') continue;
+    let q = 1;
+    for (const prm of segs.slice(1)) {
+      const m = /^\s*q\s*=\s*([0-9.]+)\s*$/i.exec(prm);
+      if (m) q = Number(m[1]);
+    }
+    // `*` 先记下；显式写出来的 gzip 以它自己为准（`gzip;q=0, *;q=1` 仍然是不收）。
+    if (name === '*') { star = q; continue; }
+    return q > 0;
+  }
+  return star !== null && star > 0;
+};
+
+/** 按需压一层：**就地**改 `headers`（vary / content-encoding / content-length），返回真正要发出去的实体。 */
+const encodeBody = (req, body, headers) => {
+  // ② 非文本类型：一个字节都不压。
+  if (!COMPRESSIBLE_TYPE.test(String(headers['content-type'] || ''))) return body;
+  // ④ Vary 与「这一次压没压」无关 —— 它声明的是「这个地址的响应**随这个头而变**」。
+  headers.vary = headers.vary ? `${headers.vary}, Accept-Encoding` : 'Accept-Encoding';
+  if (body.length < GZIP_MIN_BYTES) return body;   // ⑤ 小响应不压
+  if (!acceptsGzip(req)) return body;              // ③ 客户端没说要，就不给
+  const gz = gzipSync(body);
+  if (gz.length >= body.length) return body;       // 压完反而更大（极少见的文本）⇒ 退回原文
+  headers['content-encoding'] = 'gzip';
+  headers['content-length'] = String(gz.length);   // ⑥ 压缩**后**的长度
+  return gz;
+};
+
 const send = (res, code, body, headers = {}) => {
-  res.writeHead(code, { 'cache-control': 'no-store', ...headers });
-  res.end(body);
+  const out = { 'cache-control': 'no-store', ...headers };
+  // 与 `res.end(body)` 同样的语义：`null` / `undefined` 是空体，其余按 UTF-8 字符串发。
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(body == null ? '' : String(body));
+  // ⚠️ 顺序有讲究：先定实体（`encodeBody` 会改 `out`），再 writeHead，最后 end。
+  const wire = encodeBody(REQ_OF.get(res), buf, out);
+  res.writeHead(code, out);
+  res.end(wire);
 };
 const sendJson = (res, code, obj, headers = {}) =>
   send(res, code, JSON.stringify(obj, null, 2), { 'content-type': 'application/json; charset=utf-8', ...headers });
@@ -1863,6 +1936,10 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, BASE_URL);
   const p = url.pathname;
   const ip = ipOf(req);
+  // ⭐ 让 `send`（文本出口）拿得到本次请求的 `Accept-Encoding`。`send` 的调用点有上百处，
+  //    签名里再塞一个 `req` 要改遍全站；这里登记一次、`send` 自己去查 —— 键是 `res`，
+  //    每个请求一个自己的 res，所以并发下不会串（也就不用碰 `send` 的调用点）。
+  REQ_OF.set(res, req);
 
   // 这一次请求万一在某条上传路径中途失败，它可能已经往数据目录写了临时文件。
   // 登记在这里，交给下面的 finally 兜住 —— 失败路径**一个都不许**在 DATA_DIR 留下 .part 垃圾。
