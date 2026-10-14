@@ -253,12 +253,18 @@ packs/<包 id>/
 └── server/*.mjs         服务端成员：preDispatch / meta / modules / battle / room
 ```
 
-**能被 import 的东西是白名单**（引擎的 kit import map，共 11 条，写别名、**不写相对路径**）：
+**能被 import 的东西是白名单**（引擎的 kit import map，共 15 条，写别名、**不写相对路径**）：
 
 ```
 @kit/tier1.js … @kit/tier6.js   @kit/summoner.js
 @sim/constants.js  @sim/dir.js  @sim/targeting.js  @battle/index.js
+@ops/op-shwaz.js  @ops/op-ray.js  @ops/op-aglna2.js  @ops/op-thumpy.js
 ```
+
+`@ops/` 那 4 条是**按文件开的官方 ops kit**（2026-10-14 起）：包里的棋子就是某名官方干员换皮时，
+直接 `import opShwaz from '@ops/op-shwaz.js'` 再调 `opShwaz.char_340_shwaz(bb, chess)`，
+**不必**把引擎子系统复制进包（那条路的依赖闭包实测 18 个文件 / 513 KB）。⚠️ `@ops/` 是**命名空间不是放行**：
+这 4 个之外，同前缀的文件（如 `@ops/op-siege.js`）**仍然被拒** —— 要用别的官方 kit 就按上面那条「做不成包」处理。
 
 想用白名单以外的东西 = **这个 mod 做不成包**（§15），不要试图用相对路径绕过去：装载器会拒。
 

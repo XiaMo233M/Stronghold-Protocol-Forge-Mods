@@ -50,7 +50,9 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）与维护者在本仓库
 - **只写 `pack.json` 认识的字段**：字段全集是引擎 `shared/workshop.js` 的 `PACK_FIELDS`。
   多写一个键，**整包被拒**（`PACK_UNKNOWN_FIELD`）。
 - **`id` 必须与目录名一致**（装载器按 `<根>/<包 id>/pack.json` 找包）。
-- **只 import 白名单别名**（`@kit/*`、`@sim/*`、`@battle/index.js`，共 11 条），不用相对路径碰引擎。
+- **只 import 白名单别名**（`@kit/*`、`@sim/*`、`@battle/index.js`，以及**按文件开的** 4 个官方 ops kit
+  `@ops/op-{shwaz,ray,aglna2,thumpy}.js`，共 15 条），不用相对路径碰引擎。`@ops/` 是命名空间不是放行 ——
+  这 4 个之外同前缀的仍然被拒。
 - **署名与许可不可省**：每包必带 `PROVENANCE.md`（六项，见 [SKILL.md](SKILL.md) §10）；
   保留原作者署名、原件许可原样保留（改名 `NOTICE-原件-*`）、写清改了什么、哪些部分没有接口做不了。
   **包内原作者文本与包自带元数据一字不改** —— 与新实现不符时，写在我们自己的 `PROVENANCE.md` 里。
