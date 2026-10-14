@@ -713,6 +713,118 @@ try {
   const pgNone = await (await fetch(`${BASE}/mods`)).text();
   check(pgNone.includes('data-kinds=""') && pgNone.includes('data-funcs=""'), '不筛时两个都是空（走现状那条路）');
 
+  // ================================================================
+  // ⭐ 关键字搜索 `?q=`（业主 2026-10-15：「mod 公开页记得加个搜索框」）
+  //    判据：**期望集合从全量自己算一遍**（不写死 id）—— 这样夹具增删一条也不会变成假绿/假红，
+  //    而「每一条都真的含这个词」这句话由 `hasTerm` 直接验，不是靠「条数看着对」。
+  //    ⚠️ 这一段**只发 GET**（一条写操作都没有），所以下面「与不带 q 逐字节相同」那条才成立。
+  // ================================================================
+  console.log('\n⑬b 关键字搜索 ?q=（服务端过滤 + 与 kind/func 叠加）');
+  const qAll = await (await fetch(`${BASE}/api/mods`)).json();
+  const qRows = [...qAll.mods, ...qAll.flagged];
+  const hasTerm = (m, t) => [m.name, m.author, m.packId, m.funcKind]
+    .some((v) => v != null && String(v).toLowerCase().includes(t.toLowerCase()));
+  const idsOf = (b) => [...b.mods, ...b.flagged].map((m) => m.id).sort();
+  const qGet = async (qs) => (await fetch(`${BASE}/api/mods?${qs}`)).json();
+
+  // ① 正常词：命中 N 条，且**每一条都真的含这个词**（期望集合 = 拿全量自己筛一遍）
+  const term = 'mine-test';                       // 夹具里所有 goodPack 的包内 id
+  const expectA = qRows.filter((m) => hasTerm(m, term)).map((m) => m.id).sort();
+  check(expectA.length > 1, `夹具里确实有多条命中「${term}」（不然下面几条是空跑）`, `${expectA.length} 条`);
+  const qHit = await qGet(`q=${encodeURIComponent(term)}`);
+  check(JSON.stringify(idsOf(qHit)) === JSON.stringify(expectA),
+    `?q=${term} ⇒ 命中的正是那几条`, `${idsOf(qHit).length} 条 / 期望 ${expectA.length} 条`);
+  check([...qHit.mods, ...qHit.flagged].every((m) => hasTerm(m, term)),
+    '返回的**每一条都真的命中**（不是「搜了没筛」）');
+
+  // ①b ⚠️ 上面那个词**恰好命中全部**（夹具里每条都叫 mine-test）⇒ 它对「筛掉了东西」是**空跑**。
+  //     再拿一个**只命中一部分**的词：`?q=…` 必须返回**真子集**（旧服务端忽略 q ⇒ 这里立刻红）。
+  const disc = (() => {
+    for (const m of qRows) {
+      for (const v of [m.name, m.author, m.packId]) {
+        if (!v) continue;
+        const n = qRows.filter((x) => hasTerm(x, String(v))).length;
+        if (n >= 1 && n < qRows.length) return String(v);
+      }
+    }
+    return null;
+  })();
+  check(disc != null, '夹具里有一个**只命中一部分**的词（能证明真的筛掉了东西）', String(disc));
+  const expectD = qRows.filter((m) => hasTerm(m, disc)).map((m) => m.id).sort();
+  const qDisc = await qGet(`q=${encodeURIComponent(disc)}`);
+  check(JSON.stringify(idsOf(qDisc)) === JSON.stringify(expectD) && idsOf(qDisc).length < qRows.length,
+    `?q=${disc} ⇒ 只剩命中的那几条，**真的筛掉了**其余 ${qRows.length - expectD.length} 条`,
+    `${idsOf(qDisc).length} 条 / 全量 ${qRows.length} 条`);
+
+  // ② 大小写不敏感 + 首尾空白忽略
+  const qCase = await qGet(`q=${encodeURIComponent('  ' + term.toUpperCase() + '  ')}`);
+  check(JSON.stringify(idsOf(qCase)) === JSON.stringify(expectA),
+    '大小写不敏感 + 首尾空白忽略：`  MINE-TEST  ` 与 `mine-test` 结果逐条相同',
+    `${idsOf(qCase).length} 条`);
+
+  // ③ 不存在的词 ⇒ 0 条
+  const qNone = await qGet('q=zzz' + 'nope'.repeat(4) + 'zzz');
+  check(qNone.mods.length === 0 && qNone.flagged.length === 0, '不存在的词 ⇒ 0 条',
+    `mods=${qNone.mods.length} flagged=${qNone.flagged.length}`);
+
+  // ④ 与 ?func= 叠加 = **交集**（AND 语义，不是二选一）
+  const expectF = expectA.filter((id) => qRows.find((m) => m.id === id)?.funcKind === 'gameplay').sort();
+  const qFunc = await qGet(`func=gameplay&q=${encodeURIComponent(term)}`);
+  check(JSON.stringify(idsOf(qFunc)) === JSON.stringify(expectF),
+    `?func=gameplay&q=${term} ⇒ 结果是**两者交集**`, `${idsOf(qFunc).length} 条 / 期望 ${expectF.length} 条`);
+
+  // ⑤ 与 ?kind= 叠加同理
+  const expectK = expectA.filter((id) => qRows.find((m) => m.id === id)?.packKind === 'functional').sort();
+  const qKind = await qGet(`kind=functional&q=${encodeURIComponent(term)}`);
+  check(JSON.stringify(idsOf(qKind)) === JSON.stringify(expectK),
+    `?kind=functional&q=${term} ⇒ 结果是**两者交集**`, `${idsOf(qKind).length} 条 / 期望 ${expectK.length} 条`);
+
+  // ④b ⭐ AND 语义的**尖判据**：拿一个「有命中、但一条游戏玩法都不是」的词 ——
+  //     叠加 `?func=gameplay` 之后必须 **0 条**。旧服务端忽略 q ⇒ 这里会给出一堆 ⇒ 立刻红。
+  const np = qRows.find((m) => m.funcKind !== 'gameplay' && (m.name || m.author || m.packId));
+  if (np) {
+    const t2 = String(np.name || np.author || np.packId);
+    const n1 = qRows.filter((m) => hasTerm(m, t2)).length;
+    const expectAnd = qRows.filter((m) => hasTerm(m, t2) && m.funcKind === 'gameplay').map((m) => m.id).sort();
+    const withFunc = await qGet(`func=gameplay&q=${encodeURIComponent(t2)}`);
+    check(JSON.stringify(idsOf(withFunc)) === JSON.stringify(expectAnd) && expectAnd.length === 0,
+      `AND 语义（尖判据）：?q=${t2} 有 ${n1} 条命中、其中**没有一条**是游戏玩法 ⇒ 叠加 ?func=gameplay 后必须 **0 条**`,
+      `${idsOf(withFunc).length} 条`);
+  }
+
+  // ⑥ 无 q / 空 q / 只有空白 ⇒ **与改前逐字节相同**（这条是「不改其它行为」的硬判据）
+  const qEmpty = await qGet('q=');
+  const qBlank = await qGet('q=%20%20');
+  check(JSON.stringify(qEmpty) === JSON.stringify(qAll) && JSON.stringify(qBlank) === JSON.stringify(qAll),
+    '`?q=` 与 `?q=%20%20` 按「不传」处理 ⇒ 响应与不带 q **逐字节相同**（列表/顺序/计数一字未改）');
+  check(!('q' in qAll), '不带 q 时响应里**没有** q 这一栏（老读法、老快照照旧能逐字比）');
+
+  // ⑦ 只搜不筛时 `counts` **没被 q 过滤掉**（业主口径：「别把 counts 也过滤掉」）
+  const qCounts = await qGet(`q=${encodeURIComponent(term)}`);
+  check(JSON.stringify(qCounts.counts) === JSON.stringify(qAll.counts),
+    '只搜不筛时 counts 照旧是全站每类计数（**没被 q 收窄**）',
+    `total=${qCounts.counts?.total} functional=${qCounts.counts?.functional}`);
+
+  // ⑧ 页面：搜索框在位、当前关键字注入 data-q、**自由文本转义**（反射型 XSS 挡住）
+  const pgQ = await (await fetch(`${BASE}/mods?q=${encodeURIComponent(term)}`)).text();
+  check(pgQ.includes(`data-q="${term}"`) && !pgQ.includes('__Q__'),
+    '列表页把当前关键字注入 data-q（占位符已替换）');
+  check(pgNone.includes('data-q=""'), '不搜时 data-q 是空串（页面走现状那条路）');
+  check(/<form class="searchbar"[^>]*method="get"[^>]*action="\/mods"/.test(pgNone)
+    && pgNone.includes('id="searchbar"') && pgNone.includes('type="search"') && pgNone.includes('name="q"'),
+    '列表页上有搜索框，且是**真表单**（method=get action=/mods ⇒ 回车与按钮都走原生提交）');
+  check(pgNone.includes('id="qclear"'), '有「清除」入口（href 兜底 /mods）');
+  const pgQKind = await (await fetch(`${BASE}/mods?kind=documentation&q=${encodeURIComponent(term)}`)).text();
+  check(pgQKind.includes('data-kinds="documentation"') && pgQKind.includes(`data-q="${term}"`),
+    '搜索与分类筛选**同时**注入页面（搜一次不会把分类丢掉）');
+  check(/name="kind" value="documentation"/.test(pgQKind),
+    '表单里那个 hidden 也带着当前分类（**无 JS** 的原生提交照样保留筛选）');
+  const evil = '<script>alert(1)</script>';
+  const pgEvil = await (await fetch(`${BASE}/mods?q=${encodeURIComponent(evil)}`)).text();
+  check(!pgEvil.includes(evil), '自由文本里的标签**没有**被原样写进 HTML（反射型 XSS 挡住了）');
+  check(pgEvil.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), '注入的是**转义后**的形式',
+    (pgEvil.match(/data-q="[^"]*"/) || [''])[0]);
+
   // ---- 发布者自己填功能类目（走 /api/publisher/update，改完回待审）
   const pubFk = await postJsonRead('/api/publisher/update', { id: idB, funcKind: 'expansion' }, tokB);
   check(pubFk.status === 200 && pubFk.body.forcedPending === true, '发布者能填自己的功能类目，且**强制回待审**', String(pubFk.status));

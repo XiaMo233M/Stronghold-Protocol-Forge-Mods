@@ -280,7 +280,7 @@ code {
 .field__box:hover { border-color: var(--line-2); }
 .field__box:focus-within { border-color: var(--mint-700); --bk-c: var(--mint-400); box-shadow: 0 0 0 1px rgba(78, 216, 175, .15), 0 0 14px rgba(23, 249, 183, .15); }
 .field__box--area { align-items: stretch; }
-input[type=text], input[type=file], textarea {
+input[type=text], input[type=search], input[type=file], textarea {
   width: 100%; min-width: 0;
   background: var(--bg-deep);
   border: 1px solid var(--line);
@@ -292,8 +292,8 @@ input[type=text], input[type=file], textarea {
   padding: 10px 12px;
   transition: border-color var(--t-fast) var(--ease-out), box-shadow var(--t-med) var(--ease-out);
 }
-input[type=text]:hover, textarea:hover { border-color: var(--line-2); }
-input[type=text]:focus, textarea:focus {
+input[type=text]:hover, input[type=search]:hover, textarea:hover { border-color: var(--line-2); }
+input[type=text]:focus, input[type=search]:focus, textarea:focus {
   outline: none; border-color: var(--mint-700);
   box-shadow: 0 0 0 1px rgba(78, 216, 175, .15), 0 0 14px rgba(23, 249, 183, .15);
 }
@@ -402,3 +402,21 @@ h2.sec::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 }
 .kindbtn:hover { color: var(--text); border-color: var(--accent); }
 .kindbtn.on { color: var(--accent); border-color: var(--accent); background: rgba(78, 216, 175, .08); }
+
+/* ---------------------------------------------------------------- 搜索框（公开列表页）
+   业主 2026-10-15：「mod 公开页记得加个搜索框」。与上面那条筛选栏**同一套变量与手感**
+   （--line / --accent / --text-dim / --font-label），不引外链、不拉字体。
+   输入框本身走上面 `input[type=search]` 那条既有规则（与 textarea / text 同一个皮肤），
+   这里只管这一排的排布、按钮与「清除」。 */
+.searchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.searchbar__label { font-family: var(--font-label); font-size: 12.5px; letter-spacing: .06em; color: var(--text-dim); }
+.searchbar__input { width: 280px; max-width: 100%; }
+.searchbar__btn {
+  padding: 5px 11px; border: 1px solid var(--line); border-radius: var(--radius);
+  font-family: var(--font-label); font-size: 12.5px; letter-spacing: .04em; color: var(--text-dim);
+  background: transparent; cursor: pointer;
+}
+.searchbar__btn:hover { color: var(--text); border-color: var(--accent); }
+.searchbar__clear { font-size: 12.5px; color: var(--text-dim); }
+.searchbar__clear:hover { color: var(--accent); }
+.searchbar__hint { font-size: 12.5px; color: var(--text-dim); margin-left: 4px; }

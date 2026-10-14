@@ -28,6 +28,34 @@
   规则见 <a href="https://github.com/XiaMo233M/Stronghold-Protocol-Forge-Mods/blob/main/SKILL.md">SKILL.md</a>。</p>
 
 <!-- ================================================================
+     ⭐ 关键字搜索框（业主 2026-10-15：「mod 公开页记得加个搜索框」）
+     ================================================================
+     ⚠️ 约束，写在这里免得下一个人改歪：
+       ① **服务端为主**：搜索是**服务端过滤**（`/api/mods?q=…`），不是前端把拿到的数据藏起来 ——
+          这一页本来就只拿得到筛过的那一批。匹配字段与口径见 `server.mjs` 的 `matchesQuery`
+          （name / author / packId / funcKind，大小写不敏感、首尾空白忽略）。
+       ② **表单是真的 `<form method="get" action="/mods">`**：回车与「搜索」按钮都走**浏览器原生提交**，
+          没有 JS 也能用。里面两个 hidden 装的是**当前两条筛选**（kind / func）——
+          它们是服务端**白名单校验过**才注入的（与 `data-kinds` / `data-funcs` 同一个纪律），
+          所以**搜一次不会把分类筛选丢掉**（`?q=…&kind=…&func=…` 三条一起带上）。
+       ③ 有 JS 时提交被接管一次：地址交给 `urlWith()` 拼 —— **只带非空的参数**，
+          不会产生 `q=&kind=&func=` 这种噪音（服务端认得空值 = 不筛，但地址干净一点更好读）。
+       ④ **清除**回到「**没有 q 的地址**」：kind / func 照旧保留（只去掉「搜索」这一维）。
+       ⑤ `q` 是**用户自由文本**（不是闭集）：服务端注入 `data-q` 之前**已经转义**
+          （见 `server.mjs` 的 renderPage `qAttr`）；这一页只把它放进 `input.value`
+          与 `encodeURIComponent`，**从不拼进 HTML**。 -->
+<form class="searchbar" id="searchbar" method="get" action="/mods" role="search">
+  <label class="searchbar__label" for="q">搜索：</label>
+  <input class="searchbar__input" id="q" name="q" type="search" autocomplete="off" spellcheck="false"
+         placeholder="搜索模组名 / 作者 / 包 id">
+  <button class="searchbar__btn" type="submit">搜索</button>
+  <a class="searchbar__clear" id="qclear" href="/mods">清除</a>
+  <span class="searchbar__hint" id="qhint"></span>
+  <input type="hidden" name="kind" value="__KINDS__">
+  <input type="hidden" name="func" value="__FUNCS__">
+</form>
+
+<!-- ================================================================
      分类筛选（业主 2026-10-12 需求 ③：让需要的人更快找到对应分类的模组）
      ================================================================
      ⚠️ 约束，写在这里免得下一个人改歪：
@@ -42,6 +70,9 @@
           服务端**白名单校验**过这些值再注进下面的 `data-kinds` / `data-funcs`
           （不把 URL 上的任意值写进 HTML），并且已经在服务端把数据筛过一遍了。
           所以这一页**收藏、分享、刷新都还原得回来**。
+          ⭐ 2026-10-15 加搜索（`?q=`）时这条纪律**照旧**，只是多一档：
+          关键字 `q` **不是闭集**（用户敲什么就是什么），所以它**转义后**才注进 `data-q`
+          （`server.mjs` 的 `qAttr`）；`kind` / `func` 仍然走白名单那条路，两者别混。
        ③ **不传 = 现状**：分区、数据、老判据一条没动；下面这两排按钮只是
           「点一下就跳到一个带参数的地址」，**没有 JS 也能用**（退化成普通链接）。
        ④ 主分区**按功能类目**分（固定 6 个区的顺序），技术维度画在**每条的徽标**上 ——
@@ -54,7 +85,7 @@
 <nav class="kindbar" id="funcbar" aria-label="按功能筛选">
   <span class="kindbar__label">按功能分：</span>
 </nav>
-<div id="list" data-kinds="__KINDS__" data-funcs="__FUNCS__"><p class="dim">正在载入…</p></div>
+<div id="list" data-kinds="__KINDS__" data-funcs="__FUNCS__" data-q="__Q__"><p class="dim">正在载入…</p></div>
 
 <script>
 const list = document.getElementById('list');
@@ -67,14 +98,19 @@ const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls)
 const ACTIVE = String((list.dataset && list.dataset.kinds) || '').split(',').map((s) => s.trim()).filter(Boolean);
 // ⭐ 功能类目的当前筛选（同一个白名单纪律：服务端只注入闭集里过滤过的值）。
 const ACTIVE_FUNC = String((list.dataset && list.dataset.funcs) || '').split(',').map((s) => s.trim()).filter(Boolean);
-/** 拼一个地址：两条筛选**各自保留**（各管一个维度，可以同时生效）。 */
-function urlWith({ kind, func }) {
-  const q = [];
+// ⭐ 当前**关键字**（业主 2026-10-15）。服务端已经 `trim` 过；同样**防一手 `dataset`**
+// （极简 DOM 桩未必有，读不到就当「没搜」，绝不让它把整个脚本打挂 ⇒ 整页白屏）。
+const ACTIVE_Q = String((list.dataset && list.dataset.q) || '');
+/** 拼一个地址：三条筛选**各自保留**（各管一件事，可以同时生效）。 */
+function urlWith({ kind, func, q }) {
+  const parts = [];
   const k = kind !== undefined ? kind : ACTIVE.join(',');
   const f = func !== undefined ? func : ACTIVE_FUNC.join(',');
-  if (k) q.push(`kind=${encodeURIComponent(k)}`);
-  if (f) q.push(`func=${encodeURIComponent(f)}`);
-  return q.length ? `/mods?${q.join('&')}` : '/mods';
+  const w = q !== undefined ? q : ACTIVE_Q;
+  if (w) parts.push(`q=${encodeURIComponent(w)}`);
+  if (k) parts.push(`kind=${encodeURIComponent(k)}`);
+  if (f) parts.push(`func=${encodeURIComponent(f)}`);
+  return parts.length ? `/mods?${parts.join('&')}` : '/mods';
 }
 
 // ---- 「装上会不会生效」这一栏（指令③④）----------------------------------------
@@ -192,6 +228,38 @@ function renderFuncbar(counts) {
   }
 }
 
+// ---- ⭐ 搜索框（业主 2026-10-15）----------------------------------------------
+// 表单本身就是 `method="get" action="/mods"` ⇒ **回车 / 按钮原生提交**就能用（无 JS 也成立），
+// 两个 hidden 带着当前的 kind / func（服务端白名单注入的），所以搜索**不会**把分类筛选清掉。
+// 有 JS 时接管一次：地址改由 `urlWith()` 拼 —— 只带非空的参数，空值不会进地址。
+// ⚠️ 每一处都要**防桩**（`addEventListener` / `dataset` 在极简 DOM 桩里未必有）：
+//    读不到就当没这个控件，绝不让它把脚本打挂 —— 那样整页就白屏了。
+const searchbar = document.getElementById('searchbar');
+const qInput = document.getElementById('q');
+const qClear = document.getElementById('qclear');
+const qHint = document.getElementById('qhint');
+// 刷新 / 收藏回来的地址要**还原到框里**（与服务端给的那一份同源，不另读 location）。
+if (qInput) qInput.value = ACTIVE_Q;
+// 「清除」= 去掉「搜索」这一维，kind / func **照旧保留**（href 兜底是无参的 `/mods`）。
+if (qClear) qClear.href = urlWith({ q: '' });
+if (searchbar && typeof searchbar.addEventListener === 'function') {
+  searchbar.addEventListener('submit', (ev) => {
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    const v = qInput && qInput.value != null ? String(qInput.value).trim() : '';
+    location.href = urlWith({ q: v });
+  });
+}
+/** 搜索状态那一行：**现在搜的是什么、命中几条、怎么清掉**（只在真搜了的时候画）。 */
+function renderQHint(hits) {
+  if (!qHint) return;
+  qHint.textContent = '';
+  if (!ACTIVE_Q) return;
+  qHint.append(document.createTextNode(`搜索「${ACTIVE_Q}」· 命中 ${hits} 条 · `));
+  const back = el('a', null, '清除');
+  back.href = urlWith({ q: '' });
+  qHint.append(back);
+}
+
 function card(m, flagged, peers) {
   const c = el('div', 'panel' + (flagged ? ' brackets' : ''));
   if (flagged) c.style.borderLeft = '4px solid var(--gold)';
@@ -302,10 +370,11 @@ function card(m, flagged, peers) {
   return c;
 }
 
-// 带筛选时把两条筛选都交给服务端（**服务端过滤**，不是前端把数据藏起来）：
+// 带筛选时把**三条**筛选都交给服务端（**服务端过滤**，不是前端把数据藏起来）：
 // 这样「筛了之后还剩几条」与服务端算的一致，页面也不用先下载全量再丢掉。
-// 不筛时**一个参数都不带** —— 现状那条请求逐字不变。
+// 不筛、也不搜时**一个参数都不带** —— 现状那条请求逐字不变。
 const qs = [];
+if (ACTIVE_Q) qs.push(`q=${encodeURIComponent(ACTIVE_Q)}`);
 if (ACTIVE.length) qs.push(`kind=${encodeURIComponent(ACTIVE.join(','))}`);
 if (ACTIVE_FUNC.length) qs.push(`func=${encodeURIComponent(ACTIVE_FUNC.join(','))}`);
 const apiUrl = qs.length ? `/api/mods?${qs.join('&')}` : '/api/mods';
@@ -314,6 +383,9 @@ fetch(apiUrl).then((r) => r.json()).then(({ mods, flagged, counts }) => {
   mods = mods || []; flagged = flagged || [];
   // 同 id 的「另一条」可能落在**任何一组**里（含疑似素材那一组），所以并起来找。
   const all = mods.concat(flagged);
+  // ⭐ 搜索状态那一行（业主 2026-10-15）：命中的是**这一批**（含疑似素材那组），
+  //    与服务端过滤后的条数同一个数 —— 屏幕上「还剩几条」与这一行永远对得上。
+  renderQHint(all.length);
   // 筛选条：不筛时 counts 是**全站每类计数**（服务端给）；筛过时服务端不给 counts
   //（免得「functional 只有 1 条」这种被筛小的数误导）——那时退回按当前这批自己数。
   const shown = {
@@ -329,9 +401,15 @@ fetch(apiUrl).then((r) => r.json()).then(({ mods, flagged, counts }) => {
   renderKindbar(counts || shown);
   renderFuncbar((counts && counts.func) ? { ...counts.func, total: counts.total } : shownFunc);
   if (!mods.length && !flagged.length) {
-    list.append(el('p', 'dim', (ACTIVE.length || ACTIVE_FUNC.length)
-      ? `当前筛选（${[...ACTIVE.map((k) => KIND_TITLE[k] || k), ...ACTIVE_FUNC.map((k) => FUNC_TITLE[k] || k)].join(' + ')}）下没有已上线的包。`
-      : '还没有通过审核的包。'));
+    // 空结果要**如实说清是按什么筛空的**。⭐ 搜索也进这一行（业主 2026-10-15）：
+    // 搜了没命中时写「当前搜索（搜索「x」）下没有…」，而不是让人以为站上一条都没有。
+    // ⚠️ 没搜索时那两句**逐字保持原样**（老判据照旧）。
+    const conds = [...ACTIVE.map((k) => KIND_TITLE[k] || k), ...ACTIVE_FUNC.map((k) => FUNC_TITLE[k] || k)];
+    list.append(el('p', 'dim', ACTIVE_Q
+      ? `当前搜索（${[`搜索「${ACTIVE_Q}」`, ...conds].join(' + ')}）下没有已上线的包。`
+      : (conds.length
+        ? `当前筛选（${conds.join(' + ')}）下没有已上线的包。`
+        : '还没有通过审核的包。')));
     return;
   }
   // ⭐ 主分区**按功能类目**分（业主 2026-10-14：「现在分类不对，要按功能分」）。

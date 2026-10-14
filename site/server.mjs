@@ -68,6 +68,9 @@
 //                                            只追加 decision.json 与一笔 meta.revisions，零删除
 //   GET  /mods?kind=…  与  GET /api/mods?kind=…   ← 技术维度筛选，**不传 = 现状**（一字未改）
 //   GET  /mods?func=…  与  GET /api/mods?func=…   ← 功能类目筛选（6 类；可与 kind 叠加）
+//   GET  /mods?q=…     与  GET /api/mods?q=…      ← 关键字搜索（业主 2026-10-15；
+//                                                    匹配 name/author/packId/funcKind，
+//                                                    大小写不敏感、可与 kind/func 叠加）
 import { createServer } from 'node:http';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync, createReadStream, statSync, renameSync, copyFileSync, unlinkSync, rmSync } from 'node:fs';
@@ -667,6 +670,43 @@ function funcKindFilterOf(url) {
   return { funcs: [...new Set(parts)] };
 }
 
+/**
+ * ⭐ **关键字搜索**（业主 2026-10-15：「mod 公开页记得加个搜索框」）。
+ *
+ * 读法（`GET /mods?q=…` 与 `GET /api/mods?q=…` 共用这一份）：
+ *   · **不传** / 空串 / 只有空白 ⇒ 返回 `{ q: null }`：调用方走**现状**（全量、顺序照旧）；
+ *   · 有内容 ⇒ 返回 `{ q }`（**已 `trim`**）。
+ * 与 `kind` / `func` **可以叠加**（AND 语义，三条各管一件事）：
+ *   `?kind=functional&func=utility&q=面板` = 既装得上、又是实用工具、且命中「面板」。
+ * ⚠️ 它**不像** `kind` / `func` 那样会 400：`q` 是自由文本，**没有闭枚举可校验**，
+ *    任何字符串都是合法输入（空 = 不筛）。
+ *
+ * 匹配口径（一句话）：**下面四个字段里任意一个包含这个关键字，就算命中** ——
+ *   `name`（站侧显示名）· `author`（原作者）· `packId`（包内 `pack.json` 的 id）·
+ *   `funcKind`（功能类目）。
+ *   ⚠️ **大小写不敏感**（两边都 `toLowerCase()`）、**首尾空白忽略**（`trim`）；
+ *      但**中间的空格不折叠、也不拆词** —— 整串当一个子串找。拆词会把「A B」悄悄变成
+ *      「既含 A 又含 B」的 AND，与「关键字」这个词的预期不符，也说不清是哪种。
+ *   ⚠️ 字段是**闭集，就这四个**：`note` / `compatNote` / `compatAuthor` 这类自由文本
+ *      **故意不搜** —— 它们装的是维护者写的说明，搜进来会让「按名字找一个包」的人
+ *      被一堆说明文案命中，列表反而更难读。要搜它们请先改这一行（判据只有这一份）。
+ *   ⚠️ 值缺失（`null` / 空串 —— 比如没有 `packId` 的记录）**跳过**，
+ *      **不当成空串去命中所有关键字**（那会让「搜什么都出全部」变成一个查不出的 bug）。
+ */
+function queryFilterOf(url) {
+  const raw = url.searchParams.get('q');
+  if (raw == null) return { q: null };
+  const q = String(raw).trim();
+  if (!q) return { q: null };
+  return { q };
+}
+/** 一条记录是否命中关键字（判据只有这一份；`o` 是 `/api/mods` 那个对外 shape，`s` 是记录本身）。 */
+function matchesQuery(o, s, q) {
+  const needle = q.toLowerCase();
+  return [o.name, o.author, o.packId, funcKindOf(s)]
+    .some((v) => v != null && String(v).toLowerCase().includes(needle));
+}
+
 // ---------------------------------------------------------------- 数据模型字段（新增）
 /**
  * `meta.json` 新增字段（老记录一个都没有 ⇒ 老记录一律**不可认领**，裁定 ④）：
@@ -1234,6 +1274,8 @@ const ADMIN_VIEWS = ['main', 'approved', 'rejected'];
  * 两个替换放在一处，页面上就不会漏掉谁 —— 审核前缀是环境变量决定的，漏了就会打到不存在的地址。
  * 审核页还多一个 __VIEW__（当前在哪一页），同样是**白名单校验过**的值。
  * 列表页多一个 __KINDS__（当前分类筛选，同样白名单校验过；只填进 data 属性，不拼 HTML）。
+ * 列表页还有 __Q__（当前关键字搜索，2026-10-15）—— ⚠️ 它是**唯一**一个**非闭集**的注入值，
+ * 所以**转义后才进 HTML 属性**（见下面 `qAttr`）；`kinds` / `funcs` 走的是白名单那条路。
  * ⭐ __MAX_MB__（2026-10-14 上传断连修复）：上传页要**在本地先判体积**、并把「上限多少 MB」
  *    写进 413 的提示里，所以这个数必须由服务端注入 —— 前端自己写死 100 就会与 `MAX_MB` 漂移。
  */
@@ -1244,6 +1286,14 @@ const renderPage = (res, name, opts = {}) => {
   const kinds = Array.isArray(opts.kinds) ? opts.kinds.filter((k) => PACK_KINDS.includes(k)) : [];
   // ⭐ 功能类目的当前筛选（同一个白名单纪律：只注入闭集里过滤过的值）。
   const funcs = Array.isArray(opts.funcs) ? opts.funcs.filter((k) => FUNC_KINDS.includes(k)) : [];
+  // ⭐ 当前关键字（2026-10-15 搜索框）。`kinds` / `funcs` 是**闭集**，怎么注入都不会跑出白名单；
+  //    `q` 不是 —— 它是**用户自由文本**，所以这里**必须先转义再进 HTML 属性**。
+  //    不转义就是一个反射型 XSS 口子（`/mods?q="><script>…`）：页面把它当属性值收下，
+  //    浏览器会把它解析成标签。转义顺序也有讲究：`&` **必须第一个换**，否则会把后面
+  //    刚换出来的 `&quot;` 里的 `&` 再转一遍，页面显示的就不再是用户敲的那个词。
+  const q = typeof opts.q === 'string' ? opts.q : '';
+  const qAttr = q.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/'/g, '&#39;');
   const html = readFileSync(p, 'utf8')
     .split('__CSS__').join('/theme.css?v=3')
     .split('__ADMIN_API__').join(ADMIN_API)
@@ -1251,6 +1301,8 @@ const renderPage = (res, name, opts = {}) => {
     // __KINDS__ 只注入**闭集里过滤过**的值（逗号分隔）；不传就是空串（= 现状）。
     .split('__KINDS__').join(kinds.join(','))
     .split('__FUNCS__').join(funcs.join(','))
+    // __Q__：上面那行转义过的当前关键字（页面只把它放进 input.value，从不拼 HTML）。
+    .split('__Q__').join(qAttr)
     // 上传上限（MB）：整数。只注入数字，别的什么都不拼。
     .split('__MAX_MB__').join(String(MAX_BYTES / 1048576));
   send(res, 200, html, { 'content-type': 'text/html; charset=utf-8' });
@@ -1399,7 +1451,10 @@ const server = createServer(async (req, res) => {
       //    各管一个维度（技术 / 功能），互不覆盖 —— 与 `/api/mods` 是同一份读法。
       const ff = funcKindFilterOf(url);
       if (ff.error) return sendJson(res, 400, { error: ff.error, funcs: FUNC_KINDS });
-      return renderPage(res, 'mods.html', { kinds: kf.kinds || [], funcs: ff.funcs || [] });
+      // ⭐ 关键字搜索（业主 2026-10-15）：`/mods?q=…`。与上面两条**可以叠加**（AND）。
+      //    它**没有** 400 那一档：`q` 是自由文本，没有闭枚举可校验。
+      const qf = queryFilterOf(url);
+      return renderPage(res, 'mods.html', { kinds: kf.kinds || [], funcs: ff.funcs || [], q: qf.q || '' });
     }
     // 审核页本身就要认证 —— 只有**顶层导航**的 401 才会让浏览器弹登录框
     // （fetch 拿到 401 是不弹的，所以认证必须卡在页面这一层）。
@@ -1426,6 +1481,10 @@ const server = createServer(async (req, res) => {
       // ⭐ 功能类目筛选（可选，同上）：`?func=gameplay` 或 `?func=gameplay,utility`。
       const ff = funcKindFilterOf(url);
       if (ff.error) return sendJson(res, 400, { error: ff.error, funcs: FUNC_KINDS });
+      // ⭐ 关键字搜索（业主 2026-10-15）：`?q=…`，与上面两条**叠加**（AND 语义）。
+      //    ⚠️ **不往响应里加 `q` 这一栏**：不传 `q` 时这条响应必须与改前**逐字节相同**
+      //    （老读法、老判据、老快照都能直接比），所以没搜的时候一个字节都不多给。
+      const qf = queryFilterOf(url);
       const shape = (s, sig) => ({
         id: s.id, name: s.name, note: s.note, uploadedAt: s.uploadedAt, size: s.size,
         homepage: s.homepage || null, suspected: s.suspected === true,
@@ -1489,9 +1548,13 @@ const server = createServer(async (req, res) => {
       // ⭐ 功能类目筛选（业主 2026-10-14）：与上面那条**各管一个维度**，所以是**串联叠加**，
       //    不是二选一 —— `?kind=functional&func=utility` = 「既装得上、又是实用工具」。
       const picked = ff.funcs ? picked0.filter((x) => ff.funcs.includes(funcKindOf(x.s))) : picked0;
+      // ⭐ 关键字搜索（业主 2026-10-15）：**再串一层**（AND）。三个条件各管一件事，
+      //    谁都不顶掉谁；而且与上面两条一样在**分组之前**筛 ⇒ 两组（普通 / 疑似素材）
+      //    同一条判据，不会出现「主列表搜到了、疑似那一组没搜」。
+      const pickedQ = qf.q ? picked.filter((x) => matchesQuery(x.o, x.s, qf.q)) : picked;
       const body = {
-        mods: picked.filter((x) => !x.s.suspected).map((x) => x.o),
-        flagged: picked.filter((x) => x.s.suspected).map((x) => x.o),
+        mods: pickedQ.filter((x) => !x.s.suspected).map((x) => x.o),
+        flagged: pickedQ.filter((x) => x.s.suspected).map((x) => x.o),
       };
       // ⭐ 每类计数（需求 ③：「分区标题旁显示每类计数」）。
       // **只在不筛的时候给**：筛过之后「functional 有 3 条」这种数会因为筛选而变小，
@@ -1505,6 +1568,9 @@ const server = createServer(async (req, res) => {
       const mainOnly = shaped.filter((x) => !x.s.suspected);
       // 两个维度**各自一套计数**：技术维度叫 `counts`（老读法一字不改），
       // 功能维度叫 `counts.func`（新读法）—— 两份都只在**不筛**的时候给。
+      // ⭐ 2026-10-15 加搜索时这一块**一个字节都没动**（业主口径：「别把 counts 也过滤掉」）：
+      //    它数的仍然是 `shaped`（全量已上线），**不按 `q` 收窄**；给不给也只由 kind / func 决定，
+      //    `q` 不参与这个条件 ⇒ 只搜不筛时，`counts` 照旧是全站每类计数。
       if (!kf.kinds && !ff.funcs) {
         const funcCounts = {};
         for (const k of FUNC_KINDS) funcCounts[k] = mainOnly.filter((x) => funcKindOf(x.s) === k).length;
