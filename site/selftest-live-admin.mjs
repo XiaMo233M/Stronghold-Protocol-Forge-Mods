@@ -623,6 +623,22 @@ check(!modsBoot.threw, '线上 /mods 那份真实 HTML 喂 DOM 桩不抛错',
 await sleep(80);
 const modsList = modsBoot.dom.byId.get('list');
 const modsText = textOf(modsList).join(' ');
+// ---- 「这条记录自己那张卡」：**只有这一处**认卡，下面几段都用它 --------------------
+// 【2026-10-15 修「过时断言」时顺手钉死的一件事】认卡必须认**身份行**
+//   「… 上传于 <日期> · 编号 <id>」（`server.mjs:1436` 那一行）。
+//   ⚠️ 只搜 `编号 <id>` 这个子串是不够的：同 id 提示那一行写的是「（编号 <id>）」
+//   （`server.mjs:1441`），备注正文里也可能出现**别人的**编号 —— 只按子串认，
+//   排在前面那张卡会把后面那条认领走，断言就验错了对象。
+const ownCard = (m) => find(modsList, (n) => /panel/.test(String(n.className || ''))
+  && new RegExp(`上传于 [^·]{0,40}· 编号 ${m.id}`).test(textOf(n).join(' ')))[0] || null;
+const cardText = (m) => { const c = ownCard(m); return c ? textOf(c).join(' ') : ''; };
+/** 卡里的**署名框**（`sigbox`）：原作者 / 兼容改写者两栏都画在这个元素里（`server.mjs:1455`）。
+ *  ⚠️ 判「署名框画没画」必须看**这个元素在不在**，不能拿整张卡的文本去搜「原作者」三个字 ——
+ *     备注正文里本来就可能写着「原作者：某某」（线上就有 4 条是那样），那是假红。 */
+const sigboxOf = (m) => {
+  const c = ownCard(m);
+  return c ? find(c, (n) => /sigbox/.test(String(n.className || '')))[0] || null : null;
+};
 const notedPub = modsJson.mods.filter((m) => typeof m.compatNote === 'string' && m.compatNote.trim() !== '');
 const firstNote = notedPub.length ? notedPub[0].compatNote : null;
 check(!!firstNote && modsText.includes(firstNote),
@@ -643,13 +659,34 @@ const compatPub = modsJson.mods.filter((m) => m.kind === 'compat');
 //   而 `a84e3a916517` 的备注已经**改成了另一段真实的「装前必读」长文**（那是内容，不是 bug）。
 //   客户端也**不许**再出现旧的内部链路话术（那才是这一条当初要盯的东西）。
 //   现在改成**结构断言**（口径来自 2026-10-11 那次「两栏逐字相同只画一次」的渲染层去重）：
-//     · 两栏（note / compatNote）逐条一致 —— 发布兼容包时两栏是同一段文案（不一致就是有一栏没跟上）；
+//     · 两栏备注**渲染判据**逐条对（相同只画一次 / 不同两段都画 —— 见下面那条）；
 //     · 没有哪条备注还是旧的『链路实测 / 不发布』话术；
 //     · 至少一条有备注、至少一条没有 —— 两边都非空，断言才不是空转；
 //     · /mods 渲染出来的那张卡里，**该条备注只出现一次** —— 这正是去重那条的回归位。
-check(compatPub.length > 0 && compatPub.every((m) => m.note === m.compatNote),
-  `线上每条已发布兼容包的两栏备注都一致（共 ${compatPub.length} 条）`,
-  compatPub.map((m) => `${m.id}:${m.note === m.compatNote ? 'ok' : 'MISMATCH'}`).join(' '));
+// 【2026-10-15 修「过时断言」· 数据漂移、不是产品 bug】
+//   原来断言「两栏（note / compatNote）**逐字相同**」—— 那是**存储层**的惯例
+//   （发布兼容包时把同一段文案同时写进两栏），**不是渲染层的判据**。渲染层的判据明文写着：
+//   两栏都非空且相同 ⇒ 只画一次；**不同 ⇒ 两段都画**（不相同就不是重复，不许并掉）
+//   —— `server.mjs:1491`。线上实测 39 条里有 4 条两栏不同：那 4 条的 `compatNote` 是站侧
+//   2026-10-12 **事后更正**过的真值（「按实测改真值，见 revisions」），`note` 仍是更正前的
+//   原文 ⇒ 「两栏不同」是**记录数据里的合法状态**，是断言本身过时了（产品行为没坏）。
+//   现在改成对着**渲染层真正的判据**逐条验，全部从线上数据现算（两栏值都从 `/api/mods` 取）：
+const noteKey = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+const samePub = compatPub.filter((m) => noteKey(m.note) !== '' && noteKey(m.note) === noteKey(m.compatNote));
+const diffPub = compatPub.filter((m) => noteKey(m.note) !== '' && noteKey(m.note) !== noteKey(m.compatNote));
+const noteDrawBad = [];
+for (const m of samePub) {
+  const n = cardText(m).split(m.compatNote).length - 1;
+  if (n !== 1) noteDrawBad.push(`${m.id}:两栏相同却画了 ${n} 次`);
+}
+for (const m of diffPub) {
+  const t = cardText(m);
+  const a = t.split(m.compatNote).length - 1, b = t.split(m.note).length - 1;
+  if (a < 1 || b < 1) noteDrawBad.push(`${m.id}:两栏不同（compatNote ${a} 次 / note ${b} 次，两段都该画）`);
+}
+check(compatPub.length > 0 && noteDrawBad.length === 0,
+  `线上每条已发布兼容包的两栏备注**渲染判据**都对（共 ${compatPub.length} 条：两栏相同 ${samePub.length} 条 ⇒ 只画一次 · 两栏不同 ${diffPub.length} 条 ⇒ 两段都画）`,
+  noteDrawBad.length ? noteDrawBad.join(' ') : `相同 ${samePub.length} 条 / 不同 ${diffPub.length} 条`);
 const compatWithNote = compatPub.filter((m) => typeof m.compatNote === 'string' && m.compatNote.trim() !== '');
 const compatNoNote = compatPub.filter((m) => m.compatNote === null);
 check(compatWithNote.length > 0,
@@ -661,13 +698,10 @@ check(compatWithNote.every((m) => !/链路实测/.test(m.compatNote) && !/不发
   '线上**没有任何一条**备注还在讲旧的内部链路话术（「链路实测」「不发布」）',
   compatWithNote.map((m) => `${m.id}:${/链路实测|不发布/.test(m.compatNote) ? 'STALE' : 'ok'}`).join(' '));
 const modsCards = find(modsList, (n) => /panel/.test(String(n.className || '')));
-const cardTextOf = (m) => {
-  const card = find(modsList, (n) => /panel/.test(String(n.className || ''))
-    && textOf(n).join(' ').includes(String(m.name)))[0];
-  return card ? textOf(card).join(' ') : '';
-};
+// 【2026-10-15】这里原来另有一份「按 name 认卡」的 `cardTextOf` —— 已并入上面那份 `cardText`
+//   （按身份行认卡）：按 name 认会被**备注里提到别人名字**的卡抢走，不如身份行稳。
 for (const m of compatWithNote) {
-  const t = cardTextOf(m);
+  const t = cardText(m);
   const appears = t ? t.split(m.compatNote).length - 1 : 0;
   check(appears === 1,
     `公网 /mods 上「${m.name}」那张卡里，它那条备注**只出现一次**（渲染层去重：两栏相同时只画一遍）`,
@@ -679,15 +713,21 @@ check(compatWithNote.length === 0 || modsCards.length >= compatWithNote.length,
 // 原来的「至少有一条带着那句新文案」仍然要成立，但**不把那句话写死**：
 //   它现在从线上数据里现取（哪条带备注就取哪条），断言的是「那条备注真的画到了页面上」。
 const anyNoted = compatWithNote[0];
-check(!!anyNoted && cardTextOf(anyNoted).includes(anyNoted.compatNote),
+check(!!anyNoted && cardText(anyNoted).includes(anyNoted.compatNote),
   '线上带备注的那条，备注真的画到了公网页上（备注改写的目标记录确实改到了）',
   anyNoted ? `${anyNoted.id} · ${anyNoted.compatNote.length} 字` : '线上没有带备注的兼容包');
 // 【2026-10-11 业主第四件事】那两个真素材路径的包经逐条人工确认后上线 ——
 // 公网页上必须**真的能看见**它们（不是只在接口里存在）。
-for (const nm of ['ave-mujica 1.1.0', 'makoto-yuki 1.0.1']) {
-  check(modsText.includes(nm), `公网 /mods 上画出了「${nm}」`,
-    modsJson.mods.some((m) => m.name === nm) ? '接口里有 · 页面渲染里也有' : '接口里就没有');
-}
+// 【2026-10-15 修「过时断言」· 数据漂移、不是产品 bug】
+//   原来把两个包名**写死**（`ave-mujica 1.1.0` / `makoto-yuki 1.0.1`）—— 前一个**已被新版
+//   取代下架**（公开面按「记录」列，取代后旧的那条不再列出 ⇒ `/api/mods` 里已经没有它），
+//   于是断言因为「某条记录不在了」而红。要盯的从来不是那两个名字，而是
+//   「**接口里有的，页面上真的看得见**」这件事本身。现在按公开面**逐条**验 name 有没有画出来 ——
+//   数据怎么变（加新包 / 旧包被取代）都该绿，除非真的「接口有、页面没有」。
+const notDrawn = modsJson.mods.filter((m) => !modsText.includes(m.name));
+check(modsJson.mods.length > 0 && notDrawn.length === 0,
+  `公网 /mods 上把公开面**每一条**都画出来了（逐条比对 name，共 ${modsJson.mods.length} 条）`,
+  notDrawn.length ? `接口里有、页面没画：${notDrawn.map((m) => m.id).join(' ')}` : '逐条都在');
 check(modsJson.mods.length >= 5, `线上公开主列表至少 5 条（本轮 3 → 5）`, `mods=${modsJson.mods.length} · flagged=${modsJson.flagged.length}`);
 
 // ---------------------------------------------------------------- 线上 /mods：普通投稿的「原作者」
@@ -700,9 +740,8 @@ check(modsJson.mods.length >= 5, `线上公开主列表至少 5 条（本轮 3 �
 //      没有「兼容改写版」徽标、没有「由投稿 … 改写来」那一行（普通投稿没有兼容这回事）；
 //   ② 普通投稿没作者（author=null）⇒ 连「原作者」这个标签都不画（现行为不变）；
 //   ③ 同一页上的兼容包**照旧三样齐全**（原作者 + 兼容改写者 + compatOf 有值时的「由投稿 … 改写来」）。
-const cardById = (m) => find(modsList, (n) => /panel/.test(String(n.className || ''))
-  && textOf(n).join(' ').includes(`编号 ${m.id}`))[0] || null;
-const cardText = (m) => { const c = cardById(m); return c ? textOf(c).join(' ') : ''; };
+// 【2026-10-15】认卡的 `ownCard` / `cardText` / `sigboxOf` 已在上面「线上 /mods：备注」那一段
+//   之前定义（**本文件只有那一份**），这里不再重定义第二份。
 const plainPub = modsJson.mods.filter((m) => m.kind !== 'compat');
 const plainWithAuthor = plainPub.filter((m) => typeof m.author === 'string' && m.author.trim() !== '');
 const plainNoAuthor = plainPub.filter((m) => m.author == null);
@@ -714,18 +753,29 @@ check(plainPub.every((m) => m.author == null || m.authorSource === 'pack.json'),
   '普通投稿的作者只有一个来源：包内 `pack.json`（不造第二套口径）',
   plainPub.map((m) => `${m.id}:${JSON.stringify(m.authorSource)}`).join(' '));
 for (const m of plainWithAuthor) {
-  const t = cardText(m);
-  check(!!t && /原作者/.test(t) && t.includes(m.author),
+  // 署名框那两条只看 `sigbox` 这个元素（理由见 `sigboxOf` 的注释）：整张卡的文本里还混着
+  // 备注正文，备注措辞一变就会把断言带红。
+  const box = sigboxOf(m);
+  const bt = box ? textOf(box).join(' ') : '';
+  check(!!box && /原作者/.test(bt) && bt.includes(m.author),
     `公网 /mods 上普通投稿 ${m.id} 的署名框**画出来了**，写的是「原作者 ${m.author}」`,
-    t ? t.replace(/\s+/g, ' ').slice(0, 96) : '（没找到这张卡）');
-  check(!!t && !/兼容改写者/.test(t),
+    bt ? bt.replace(/\s+/g, ' ').slice(0, 96) : '（卡里没有 sigbox）');
+  check(!!box && !/兼容改写者/.test(bt),
     `并且**没有**「兼容改写者」那一栏（${m.id}：普通投稿没有兼容这回事）`);
+  const t = cardText(m);
   check(!!t && !/兼容改写版|兼容版/.test(t) && !/由投稿/.test(t),
     `也没有「兼容改写版」徽标、没有「由投稿 … 改写来」那一行（${m.id}）`);
 }
+// 【2026-10-15 修「过时断言」· 数据漂移、不是产品 bug】
+//   原来拿**整张卡的文本**搜「原作者」三个字 —— 而这 4 条的备注正文里本来就写着
+//   「原作者：jingjiangze · 许可：GPL-3.0-or-later」（站侧 2026-10-12 更正过的说明），
+//   记录自己的 `author` 栏仍是 null、署名框**确实整块没画** ⇒ 断言因为备注**措辞**变了而红。
+//   要盯的是**署名框这个元素在不在**，不是「卡里有没有这三个字」。现在只看 `sigbox`。
 for (const m of plainNoAuthor) {
-  check(!/原作者/.test(cardText(m)),
-    `包内没写作者的普通投稿 ${m.id}：署名框**整块不画**（连「原作者」这个标签都没有）`);
+  const box = sigboxOf(m);
+  check(!box,
+    `包内没写作者的普通投稿 ${m.id}：署名框**整块不画**（卡里没有 sigbox 这个元素）`,
+    `记录 author=${JSON.stringify(m.author)} · 卡里 sigbox=${box ? '有（不该有）' : '没有'}`);
 }
 const compatOnPage = modsJson.mods.filter((m) => m.kind === 'compat');
 const compatSigOk = compatOnPage.filter((m) => m.author || m.compatAuthor !== null);
@@ -912,4 +962,5 @@ console.log('');
 if (failures) { console.log(`✖ ${failures} 项没通过`); process.exit(1); }
 console.log('✔ 线上那一份审核台（**只读**）：脚本跑到底 · 筛选真的减少可见条数 · 清空恢复 · 计数显示'
   + '（三页相加 + 已隐藏 = 全部）· 每条记录一个「不再显示」勾选框（合成「已隐藏」那一份 ⇒ 三视图都不见；'
-  + '真实那一份 ⇒ 回来）· /mods 备注结构（两栏一致 · 不含旧链路话术 · 渲染层只画一次）· 生产数据一字未变');
+  + '真实那一份 ⇒ 回来）· /mods 备注结构（两栏**渲染判据** · 不含旧链路话术 · 渲染层只画一次）'
+  + '· 公开面逐条都画在页面上 · 生产数据一字未变');

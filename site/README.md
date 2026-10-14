@@ -719,6 +719,61 @@ cp -a /opt/sp-modsite.bak-<时间戳>/. /opt/sp-modsite/ && systemctl restart sp
 失败路径真的走分类函数。**在改前的文件上这一节必须红**（index 10 条 + mine 8 条），改后必须全绿；
 `site/selftest-admin.mjs` 的 DOM 桩也必须提供 `AbortController`（否则页面点上传会 ReferenceError）。
 
+### 响应压缩（gzip）：一处出口、只压文本、绝不压下载流（2026-10-15）
+
+**起因**：`/mods` 改成服务端预渲染后，未压缩实体从 20,101 字节涨到 **197,905 字节**
+（那是加压缩时的实测；今天同一页已经是 **207,820 字节** —— 列表又长了几条），
+而站点前置没有 gzip ⇒ 每看一次列表多传约 178 KB。
+修法用 Node **内置** zlib，**零依赖**（`server.mjs:78` 只多 import 一个 `gzipSync`）。
+
+**唯一压缩点**：`send()`（`server.mjs:1312`）里的 `encodeBody()`（`:1298`）。
+站点所有**文本**响应（页面 / JSON / 样式表）都走 `send` ⇒「一处写、全站生效」，
+不用逐个路由挂。`send` 拿得到本次请求靠 `REQ_OF`（`:1939`，键是 `res`，并发下不会串）。
+
+| 口径 | 落点 | 说明 |
+|---|---|---|
+| 压哪些类型 | `COMPRESSIBLE_TYPE`（`:1274`） | `text/*`、`application/json` / `javascript` / `xml` / `manifest+json` / `ld+json`、`image/svg+xml`。⚠️ **`text/event-stream` 明确排除**：流式响应压了就再也吐不出来 |
+| **绝不压下载流** | `sendFile`（`:1820`） | `/api/file/*` 的 **zip 走另一个出口**，压根不经过 `send`；那条路自己写 `content-length` 再 `pipe` 文件流，压了就会让「下载下来的字节 / `content-length` / 文件 sha256」三方全对不上 |
+| `Vary` | `:1302` | **一律带 `Accept-Encoding`**，与「这一次到底压没压」**无关** —— 同一地址对不同客户端给的内容确实不同，中间缓存必须按它分桶 |
+| `<1KB` 不压 | `GZIP_MIN_BYTES = 1024`（`:1272`，判在 `:1303`） | 省 CPU，也免得为几十字节白加一层头；压完反而更大也退回原文（`:1306`） |
+| 压缩级别 | `:1305` `gzipSync(body)` | **用默认 level 6**（实测：不传 level 与显式 `level: 6` 输出**逐字节相同**） |
+| `content-length` | `:1308` | 写**压缩后**的长度，绝不用压缩前的 |
+| **brotli** | —— | **未做**：`server.mjs` 里没有 brotli 字样。要做得先量它值不值，别顺手加 |
+
+**为什么是 level 6，不是 9**（**服务端 Node v22.11.0 实测**，`/mods` 明文 207,820 字节，20 次平均）：
+level 6 ⇒ **60,824 字节 / 4.24 ms 每次**；level 9 ⇒ 60,634 字节 / 4.38 ms。
+**多压 190 字节（0.09 个百分点），换来更贵的 CPU** ⇒ 不值。
+（本机 Node v24.21.0 上同样 20 次平均：2.03 ms vs 2.22 ms —— 结论一样。）
+
+**压缩结果未缓存**：每个请求现压。服务端实测 **4.24 ms/次**（207,820 字节的 `/mods`；小页更快），
+量级就是「每请求约 2–5 ms」。要缓存得先解决 `Vary` 分桶与失效，本版不做。
+
+**线上实测**（`node:http` 发**原始**请求，走隧道 `127.0.0.1:25570`）：
+
+| 请求 | 线路字节 | `content-encoding` | `vary` |
+|---|---|---|---|
+| `/mods` + `Accept-Encoding: gzip` | **60,824** | `gzip` | `Accept-Encoding` |
+| `/mods` 不带 AE | 207,820 | （无） | `Accept-Encoding` |
+| `/mods` + `gzip;q=0` | 207,820 | （无） | `Accept-Encoding` |
+| `/healthz` + AE（74 字节） | 74 | （无 —— <1KB 不压） | `Accept-Encoding` |
+| `/theme.css` + AE | 6,346 | `gzip` | `Accept-Encoding` |
+
+**⚠️ 这条判据的坑：必须用 `node:http` 发原始请求，不能用 Node 的 `fetch`。**
+undici 的 `fetch` 会**自动解压** gzip，却**留着** `content-encoding: gzip` 头。
+同一地址实测：`fetch` 拿到 **207,820 字节**（已经是解压后的），头里却写着
+`content-encoding: gzip`、`content-length: 60824` —— 也就是说用它「看起来也像 gzip」，
+但**验不到实体**（拿到的字节数与 `content-length` 天然对不上），这条判据就废了。
+⑱ 因此自己用 `node:http` 的 `request()` 发请求、自己用内置 zlib 解压
+（`selftest-publisher.mjs:36-38`、`:953`）。
+
+**判据**：`site/selftest-publisher.mjs` 的 **⑱**（`:946` 起，对着它自己起的实例验）——
+带 AE 时**线上实体真的是 gzip 且解压后与明文逐字节相同**（sha256 相等）；不带 AE 就不压；
+`gzip;q=0` 不压而 `*` 压（**按 q 值判**，不是「出现过 gzip 字样就算」）；
+`/api/file/<id>` 的 zip 带 AE 也**一个字节都不压**（含 `Range` 那一路）；
+可压缩响应压与不压**都带** `Vary`；`content-length` 与压缩后实体一致；`/healthz` 这种小响应不压。
+**判据要求**：对着**改前**那一版 `server.mjs` 跑这一节必须红 —— 本次只核了「改后全绿」，
+**没有复跑改前那一版**（那一版已不在工作树里）。
+
 ### 改完必跑的**四个**自测（2026-10-13 起）
 
 ```bash
