@@ -738,6 +738,61 @@ cd /opt/sp-modsite
 > `/var/lib/sp-modsite`（数据）**不在**这套步骤里 —— 更新代码不碰数据；回滚也不会回退数据。
 > 服务器上的 `sync.service`、gunicorn、nginx 等都不属于本服务，别动。
 
+## UI 包形态（`payload/` + `patches/` + `MANIFEST.json`，2026-10-15 起收录）
+
+业主 2026-10-15 裁定：站点**收**这一形态。它与工坊包（`pack.json` 那一种）**并列**，
+**不是**"没做兼容的原件"。
+
+### 怎么识别（判据只有一份：`site/review.mjs` 的 `looksLikeUiPack()`）
+
+zip 根**同时**满足才判为 UI 包形态：① 有 `MANIFEST.json`；② 有交接文档（`AGENTS.md`，或原作者的
+`AGENT-INTEGRATION.md`）；③ 有 `payload/`；④ 有安装路径（`patches/` 或 `tools/install.mjs` **至少一条**）；
+⑤ 根**没有** `pack.json` —— 有它就是工坊包，**工坊包判据优先**（既有逻辑一字未改）。
+
+命中就出一枚 `info` 档的 **`UI_PACK_FORM`** 旗标，取代以前那句会把人带错路的
+「没有 pack.json —— 像是原件（未兼容），按 `incoming/` 那条路处理」。**非 UI 形态的包行为逐字未变。**
+
+### 校验什么（`site/uiform-verify.mjs`）
+
+判据只有一份实现：它 **import** 上面那个 `looksLikeUiPack()`，不另写一套。
+
+```bash
+node site/uiform-verify.mjs <包.zip | 解开的目录> [--json]   # 退出码 0 = 全过
+node site/uiform-verify.mjs --selftest                       # 判据自检（正例 + 反例都要真判红）
+```
+
+判：清单每个文件的 sha256/bytes 与实物相符 · `payload/` 文件集与清单**一一对应** · 无重复路径 ·
+条目名无 `..`/绝对路径 · **无可执行物**（顶层脚本只有 `tools/install.mjs` 一条白名单）·
+`payload/` 与清单都**不许碰** `server/` `shared/` `data/`（红线 ①）· `patches/` 非空 ·
+`required-assets.txt` 每行是 `/` 开头的运行时路径或 `<标识>: <说明>`。
+
+**它不判**：补丁能不能 apply、目标仓库干不干净、资源齐不齐 —— 那些在**目标仓库侧**判。
+
+### 收录 ≠ 已安装（这是口径的一半）
+
+站点对 UI 包只做**收件 + 留档 + 审核**，**不给出装机结论**。装机走维护者「直装进目标仓库」那条线
+（`AGENT-INTEGRATION.md`：`--dry-run` → **`git apply --3way --check --binary`** → `--backup` 应用）。
+⚠️ 安装器的 `--dry-run` **不验证补丁能否应用**，所以第二条**不能省**。
+
+### 公开面怎么显示（一行动代码都不用改）
+
+- **功能类目**：`POST /api/<ADMIN_PATH>/funkind` 写 `funcKind = assets`（**素材替换**）——
+  这是**既有**闭枚举（6 类）里的桶，页面标签与说明早就有；技术维度按 `packKindFor()`
+  自动派生为 `functional`。所以它自带自己的桶与标签，**不会混进**「游戏玩法 / 拓展包 / 实用工具」的计数。
+- 待审期间它**不在公开面**（可见判据仍然是 `state === 'approved'`）；分类落在**批准之后**做。
+
+### 这一版动了什么
+
+**`server.mjs` 与 `pages/**` 一个字节都没动**（部署前后 `sha256` 相同）；改的是审核辅助 + 新增一个工具：
+
+| 文件 | 改动 |
+|---|---|
+| `site/review.mjs` | **新增** `UIFORM_DOCS` / `UIFORM_INSTALLER` / `looksLikeUiPack()`，并在 ⑥ 那一档前面插一条 UI 形态判据（**纯加法**） |
+| `site/uiform-verify.mjs` | **新增**（校验器 + `--selftest`） |
+
+**判据跟代码一起跑**：`uiform-verify.mjs --selftest` 15 条（含 6 条反例必须判红）；
+拿 `HEAD` 那一份 `review.mjs` 跑同一条断言**必红**（实测 `✖ 实际 codes = SIZE,NO_PACK_JSON`）。
+
 ## 边界（它**不**做什么）
 
 - **不解压、不执行**上传的东西；读 zip 只读中央目录

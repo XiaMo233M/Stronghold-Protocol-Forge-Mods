@@ -154,10 +154,19 @@ export function reviewEntries(entries, { packIdHint = null } = {}) {
     out.push(F('blocker', 'PATH_TRAVERSAL', `条目名里有 .. 或绝对路径 ${evil.length} 条，例如 ${evil.slice(0, 2).map((e) => e.name).join('、')} —— 解压时会写到包外`));
   }
 
-  // ⑥ 形状：是「已完成的包」还是「原件」
+  // ⑥ 形状：是「已完成的包」还是「原件」／「UI 包形态」
+  // ⚠️ 三档的**次序**是判据的一部分：工坊包（根有 pack.json）优先 ⇒ UI 包形态 ⇒ 才是"原件"。
+  //    既有那一档的文案与 code **一个字都没改**，只是**多了一条前置的 UI 包判据**（`looksLikeUiPack`，
+  //    判据只有那一份实现）。不是 UI 形态的包，行为与改动前**逐字相同**。
   const packJson = entries.find((e) => /^\.?\/?pack\.json$/i.test(e.name));
   if (packJson) {
     out.push(F('info', 'HAS_PACK_JSON', '含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走'));
+  } else if (looksLikeUiPack(entries)) {
+    out.push(F('info', 'UI_PACK_FORM',
+      'UI 包形态（根有 MANIFEST.json + 交接文档 + payload/ + patches/ 或 tools/install.mjs，且根无 pack.json）'
+      + ' —— 这是**另一种成品形态**，不是"没做兼容的原件"：站点只做**收件 + 留档 + 审核**，'
+      + '**收录 ≠ 已安装**（实际安装走维护者「直装进仓库」那条线）。'
+      + `上架前用 node site/uiform-verify.mjs 按 MANIFEST 逐文件核 sha256（装机前的判据只有那一份）。`));
   } else {
     out.push(F('info', 'NO_PACK_JSON', '没有 pack.json —— 像是原件（未兼容），按 incoming/ 那条路处理'));
   }
@@ -345,3 +354,35 @@ export function reviewCompatPackJson({ compatText = null, originText = null, ori
 
 /** 是否允许上线：有 blocker 就不行。 */
 export const hasBlocker = (flags) => flags.some((f) => f.level === 'blocker');
+
+// ---------------------------------------------------------------- ⭐ 「UI 包形态」的识别（业主 2026-10-15 裁定：站点收这一形态）
+//
+// **为什么需要它**：这一形态（`payload/` + `patches/` + `tools/install.mjs` + `MANIFEST.json` + 交接文档）
+// 根上**没有 `pack.json`** —— 于是 `reviewEntries` 以前一律落到 `NO_PACK_JSON`，文案是
+// 「像是原件（未兼容），按 incoming/ 那条路处理」。对**一份做得好好的 UI 包**来说这句话是**错的**：
+// 它不是"没做兼容的原件"，它是**另一种成品形态**（站点只收件留档，实际安装走维护者「直装进仓库」那条线）。
+// 审核员照那句话走，会把它当成待兼容的裸原件处理 —— 这正是要消灭的「标签把人带错路」。
+//
+// **判据只有一份，就在这里**（`site/uiform-verify.mjs` 直接 import 本函数，不另写一套）：
+//   · 根有 `MANIFEST.json`（逐文件 sha256 清单）；
+//   · 根有交接文档（`AGENTS.md`，或原作者那一种 `AGENT-INTEGRATION.md`）；
+//   · 有 `payload/`（客户端文件集）；
+//   · 有安装路径：`patches/` 或 `tools/install.mjs` **至少一条**；
+//   · 根**没有** `pack.json` —— 有它就是工坊包，**工坊包判据优先**（既有逻辑一字不动）。
+export const UIFORM_DOCS = Object.freeze(['AGENTS.md', 'AGENT-INTEGRATION.md']);
+export const UIFORM_INSTALLER = 'tools/install.mjs';
+
+/**
+ * 这一份条目的形状是不是「UI 包形态」。**只看中央目录的名字**（不读内容、不解压）。
+ * @param {Array<{name:string,dir:boolean}>} entries `readZipEntries()` 的原样输出
+ */
+export function looksLikeUiPack(entries) {
+  const files = (entries || []).filter((e) => e && !e.dir);
+  const names = new Set(files.map((e) => e.name));
+  if (names.has('pack.json') || names.has('./pack.json')) return false;   // 工坊包优先
+  if (!names.has('MANIFEST.json')) return false;
+  if (!UIFORM_DOCS.some((d) => names.has(d))) return false;
+  const hasPayload = files.some((e) => e.name.startsWith('payload/'));
+  const hasInstall = files.some((e) => e.name === UIFORM_INSTALLER) || files.some((e) => e.name.startsWith('patches/'));
+  return hasPayload && hasInstall;
+}
