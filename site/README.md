@@ -221,6 +221,8 @@ node site/selftest-publisher.mjs   # ④ 发布者自助（认领 / 改元数据
 （另外两个各用 8799/8801 与 8809），同时跑会互相抢端口、结果不可信。
 服务器上的绝对路径写法见下面「改完必跑的**四个**自测」。
 
+> ⭐ **§4c「官方 mod」证书（只设计 + 判据，尚未接入站点）**：设计、七道闸、每个字段的来源与三条必现文案见 [`OFFICIAL-MOD.md`](OFFICIAL-MOD.md)；纯逻辑在 `official-mod.mjs`，判据是 `node site/selftest-official-cert.mjs --upstream <上游根>`。⚠️ 这三个文件**不参与部署**（`server.mjs` / `pages/**` 一字未动）—— 要上线得先由业主点头，且先接 W3 / W10 的站侧导入预检（它是闸 1/2/3/5 的证据来源）。
+
 `selftest-admin.mjs` 专治一类「接口全好、页面却是死的」故障：审核台是一整个内联 `<script>`，
 它只要在**顶层抛一次错**，后面所有 `onclick` 与自动载入就全都不执行 —— 页面不报错也不崩，
 就是永远停在 HTML 里那句「还没载入。」。所以它把**服务器实际发出来的 HTML**里的脚本，
@@ -643,7 +645,7 @@ ADMIN_TOKEN=… node site/migrate-funkind.mjs --data … --write --base http://1
 
 ## 更新服务器上这一个服务
 
-运行时代码只有 `server.mjs` / `review.mjs` / `zip.mjs` 三个 `.mjs`，加一个 `pages/`（4 个 `.html` + `theme.css`）；目录里另有四个 `selftest*.mjs`，同一次一起传。更新时**先备份、再换文件、再重启**，全程只碰 `/opt/sp-modsite` 与 `sp-modsite.service`：
+运行时代码只有 `server.mjs` / `review.mjs` / `zip.mjs` 三个 `.mjs`，加一个 `pages/`（4 个 `.html` + `theme.css`）；目录里另有四个**部署用的** `selftest*.mjs`，同一次一起传（另有两个 `selftest-precheck.mjs` / `selftest-official-cert.mjs` 需要**上游根与引擎检出**，**不参与部署**）。更新时**先备份、再换文件、再重启**，全程只碰 `/opt/sp-modsite` 与 `sp-modsite.service`：
 
 ```bash
 # ① 备份 + 记下旧版哈希（可回滚的硬条件）
