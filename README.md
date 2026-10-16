@@ -184,7 +184,7 @@ mods/
 
 | 文件 | 给谁 | 讲什么 |
 |---|---|---|
-| [SKILL.md](SKILL.md) | **包作者** | 包格式、层、`api` 与 `game`、四个沉默的坑（未知顶层键 / `api` 写成数字 / `content` 没声明 `chess` / 未声明的通道）、`notices` 公告与鸣谢、「有更好的逻辑就用我们的」、面板 `ctx`、署名纪律（含「哪份文件归谁」）、工作流、做不成包的情形、术语约定；**§19 引擎这一版新加的接口面**（`behaviour` 四格 / `target` / `dependencies`·`conflicts` / 宿主 lane / mod 登记册 / **`trait.grantsBonds`（§19.7，已合入）**，**含「还没有」的那几条**）与 **§20 今天就能用的老面**（`server.meta` 条件叠层等） |
+| [SKILL.md](SKILL.md) | **包作者** | 包格式、层、`api` 与 `game`、四个沉默的坑（未知顶层键 / `api` 写成数字 / `content` 没声明 `chess` / 未声明的通道）、`notices` 公告与鸣谢、「有更好的逻辑就用我们的」、面板 `ctx`、署名纪律（含「哪份文件归谁」）、工作流、做不成包的情形、术语约定；**§19 引擎这一版新加的接口面**（`behaviour` **五格** / `target` / `dependencies`·`conflicts` / 宿主 lane / mod 登记册 / **`trait.grantsBonds`（§19.7，已合入）** / **`pack.json.callBudget`（§19.10）** / **房间级 mod 集合与同意（§19.11）** / **第 10 个挂载点 `screen.room.aside`（§19.12）** / **kit 白名单 20 条（§19.13）** / **`stripDiyOverlaps` 投稿口径（§19.14）** / **`globalThis` 回到禁止名单（§19.15）**，**含「还没有」的那几条**）与 **§20 今天就能用的老面**（`server.meta` 条件叠层等） |
 | [AGENTS.md](AGENTS.md) | **维护者 / AI agent** | 五条收录闸门（含「带上真实功能」「`combat` 要标注清楚」）、审核站与兼容包发布流程、操作纪律（批准类端点绝不批量调、绝不打印凭据…） |
 
 两份**不重叠**：一份讲怎么写，一份讲怎么审与怎么发。都读的话，先读 SKILL.md。
@@ -281,6 +281,11 @@ node tools/build-index.mjs --stage /tmp/modrepo-stage --engine <引擎检出> --
 | **`trait.grantsBonds`（特质 → 视为某几个盟约的成员 ⇒ 叠层）** | ✅ 引擎 **`0.17.0`** 起已合入（设计稿 §28.49）：一条 `chess` 记录写 `trait.grantsBonds = ["<盟约 id>", …]`，**一格数据、不用写代码**。盟约 id 不存在或形状写歪 **点名但不拒包**（`TRAIT_GRANT_UNKNOWN_BOND` / `TRAIT_GRANT_BAD_SHAPE` / `TRAIT_GRANT_EMPTY`），作者侧在 `npm run workshop:validate` 时就能看到；不写这一格 ⇒ 逐字节不变、不需要 `golden:update`。想**按条件算**层数（不是固定映射）仍走 `server.meta` —— 两条路的分工见 [SKILL.md](SKILL.md) §19.7 与 §20.1。 |
 | **`server.modules[].channels`（包通道的服务端那一半）** | ✅ 引擎**有**这一格（设计稿 §28.23）：`server.modules[]` 的字段是 `id` / `entry` / `uses` / `write` / **`channels`**。规则四条 —— 每模块 **≤ 8 条**、名字形状同 `client.panels[].messages`、**必须同时声明 `matchClass`**（`MODULES_CHANNELS_NEED_MATCH`）、且每一条都要**被本包某个面板声明过**（`MODULES_UNKNOWN_CHANNEL` 整包拒）。写法与边界见 [SKILL.md](SKILL.md) §19.8。 |
 | **`pack.json.enabled`（装好 ≠ 生效）** | ✅ 引擎**有**这一格（设计稿 §28.50）：**只有布尔**；`true` 与不写**逐字节相同**，`false` 的包**留在原处但不参与**、进装载结论的 `errors`（`ENABLED_FALSE`）并**逐条点名**。见 [SKILL.md](SKILL.md) §19.9。 |
+| **`behaviour` 第 5 格 `diyPoolOverlap`（自选池重叠）** | ✅ 引擎**有**这一格（`shared/behaviour.js:203`）：`report`（缺省）＝逐条点名、池子不动；`strip`＝把**本包**做成棋子的那几名干员从自选池摘出名单。⚠️ 它是全表**第一格「按包读取」**的开关（**刻意不走** `mergeBehaviourDecls`）。三件投稿 `columbia` / `rimbilliton` / `rainbow-squad` 带的就是它 —— 投稿里那个 `stripDiyOverlaps` 顶层键**必须删**并改成这条声明（口径见 [SKILL.md](SKILL.md) §19.1 与 §19.14）。 |
+| **`pack.json.callBudget`（每局每插件的调用次数上限）** | ✅ 引擎**有**这一格（设计稿 §28.52，沙箱档的运行时保护）：`{ max? }`，缺省 **8000**，⭐ **只许收紧不许放宽**（调高 ⇒ `CALL_BUDGET_TOO_HIGH`）。耗尽 ⇒ 回滚该包的 hook / 计时器 / 标记 buff ＋记一笔 `plugin:<包 id>` 的错。`kits/*.js` 的逐单位回调**也归账**，只带 `kits/` 没有 `server.battle` 的包也建账。见 [SKILL.md](SKILL.md) §19.10。 |
+| **房间级 mod 集合与同意（`room.mods` / `MOD_SET_LOCKED` / `MOD_CONSENT_REQUIRED`）** | ✅ 引擎**有**（设计稿 §28.53）：房主可以在房间里改集合（已开局或有人 ready ⇒ `MOD_SET_LOCKED`）；真人进一个声明了模组的房间要在 `room.join` 里带 `consent: true`，否则 `MOD_CONSENT_REQUIRED` —— 同意的是**一份字节指纹**，集合一变就自动作废。见 [SKILL.md](SKILL.md) §19.11。 |
+| **第 10 个界面挂载点 `screen.room.aside`** | ✅ 引擎**有**（设计稿 §28.8）：房间屏（等待开局那一屏）的**旁栏**，由**组件渲染**（不是引擎按需造的浮层）。`PANEL_SEND_TYPES` 同时变成**两条**（`room.appearance` ＋ `room.mods`）；⚠️ `room.create` **永远不在**里面。见 [SKILL.md](SKILL.md) §7 与 §19.12。 |
 
-> **底座（源码口径）**：本仓库的包对着引擎**源码当前状态**核过 —— `APP_VERSION = 0.18.3`、`UPSTREAM_VERSION = 0.2.6`（`shared/constants.js` 的实值），对齐的提交是引擎 `main` 的 `c0988645`。⚠️ 这里说的是**引擎仓库 `main` 上的源码**，**不是**某个已发布的整合包 —— 可下载的发行版以引擎仓库的 Releases 页为准。上一版文档里写「底座 0.2.4 / 0.2.5」的地方一律以这一行为准。
+> **底座（源码口径）**：本仓库的包对着引擎**源码当前状态**核过 —— `APP_VERSION = 0.18.6`、`UPSTREAM_VERSION = 0.2.6`（`shared/constants.js` 的实值），对齐的提交是引擎 `main` 的 `7aa58a24`。⚠️ 这里说的是**引擎仓库 `main` 上的源码**，**不是**某个已发布的整合包 —— 可下载的发行版以引擎仓库的 Releases 页为准。上一版文档里写「底座 0.2.4 / 0.2.5」的地方一律以这一行为准。
+> ⚠️ **上游 0.3.0 的合入在途**（另一条线正在引擎的 worktree 里做）⇒ **0.3.0 合完之后 [SKILL.md](SKILL.md) §19 要再核一遍**（届时引擎版本与作者可见的面都会变）。
 
