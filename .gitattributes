@@ -12,3 +12,9 @@ site/** text eol=lf
 # 后果与 site/ 那条同源、只是换了个地方：① 每次检出都冒出一批与内容无关的整文件差异 ② 作者照工作区
 # 复制粘贴/打包，会把 CRLF 带出去。所以按扩展名一并钉死。
 *.md text eol=lf
+
+# 剩下三份根文件同理（都不在 site/ 下、也都不匹配上面的扩展名）：不钉的话检出会把它们写成 CRLF，
+# `.gitattributes` 自己也会被写成 CRLF 并在每次 git 操作时打一句 "LF will be replaced by CRLF" 的噪声。
+.gitattributes text eol=lf
+.gitignore text eol=lf
+LICENSE text eol=lf
