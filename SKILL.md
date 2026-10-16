@@ -514,6 +514,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 - ❌ 把 `api` 写成数字（类型闸门会拒；老版本引擎会**静默读成没声明**）
 - ❌ `content` 不声明 `chess` 却指望 `chess.json` 生效（静默失败，§5.3）
 - ❌ 用相对路径 import 引擎模块（只用白名单别名）
+- ❌ 在 `server.modules` 的模块里用 `globalThis` —— **它已回到服务端模块源码扫描的禁止名单**（与 `process` / `require` / `eval` / `new Function` 同列；要读进程信息用 `host.metrics`、要落文件用 `host.io`，详见 **§19.15**）
 - ❌ 自己重造引擎已有的通道（§8：主题变量、关动画、只读数据、资源分发）
 - ❌ 删掉原作者的署名或原件许可、改包内原作者文本
 - ❌ 声称本仓库或任何包可以商业使用
@@ -805,7 +806,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | `shopBias` 的两条子规则与 `giveBondBiasOnly` | **未实现、也未读取**（源件不在手上，不做假实现） | `shared/behaviour.js:84-89` |
 | `prepLoadout` 的 `PREP` 客户端入口 | **还没做** | `docs/design/mod-layer.md:3373`（§28.43.4） |
 | 编辑器接登记册 | **还没接**：`editor/` 下点不到登记册，启停只有 CLI 看得见 | 见 §19.5 那张表 |
-| ⚠️ **引擎侧文档缺口**（只报，本仓库改不了引擎） | `docs/MOD-SURFACE.md` 的 `behaviour` 表**还只列到第 4 格**（没有 `diyPoolOverlap` 那一行）；同文件 `public/js/ui/extensions.js:788` 的注释还写「今天只有 `room.appearance`」（实际已是两条）、`docs/WORKSHOP.md:703` 还写「挂上四个宿主」 | 第 5 格的**实际**作者面文档在 `docs/WORKSHOP.md:2249` 与 `:2323`（§1.23），不在 MOD-SURFACE |
+| ⚠️ **引擎侧文档缺口**（只报，本仓库改不了引擎；**引擎侧补齐后这一行要删掉**） | `docs/MOD-SURFACE.md` 的 `behaviour` 表**还只列到第 4 格**（没有 `diyPoolOverlap` 那一行）；同文件 `public/js/ui/extensions.js:788` 的注释还写「今天只有 `room.appearance`」（实际已是两条）、`docs/WORKSHOP.md:703` 还写「挂上四个宿主」 | 第 5 格的**实际**作者面文档在 `docs/WORKSHOP.md:2249` 与 `:2323`（§1.23），不在 MOD-SURFACE。⚠️ 这三处是**引擎侧**的过期点（核于 `7aa58a24`），引擎改完后**本行即失效** |
 | ✅ 已合入、可以用的 | `behaviour` **五格**（§19.1，第 5 格 `diyPoolOverlap`）· `target` · `dependencies` / `conflicts` · 宿主 lane · 登记册（CLI）· **`trait.grantsBonds`**（§19.7）· **`server.modules[].channels`**（§19.8）· **`pack.json.enabled`**（§19.9）· **`pack.json.callBudget`**（§19.10）· **房间级 mod 集合与同意**（§19.11）· **第 10 个挂载点 `screen.room.aside`**（§19.12）· **kit 白名单 20 条**（§19.13） | 见 §19.1–§19.5、§19.7–§19.13 |
 
 > **上一版写在这里的两条都已经落地**，本版按当前树核实并改写：
