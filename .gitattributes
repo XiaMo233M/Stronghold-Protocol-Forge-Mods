@@ -6,3 +6,9 @@
 # 都是直接换文件，不经 git 检出。本机 core.autocrlf=true ⇒ 不钉的话检出会把工作区写成
 # CRLF，谁照工作区部署就等于把 CRLF 推上线（索引里存的仍是 LF，与服务器字节一致）。
 site/** text eol=lf
+
+# 根目录那几份文档（BEGINNER.md / SKILL.md / UPLOAD.md / README.md / AGENTS.md / NOTICE.md）**不在 site/ 下**，
+# 上面那条管不到它们；而本机 core.autocrlf=true ⇒ 不钉的话**检出会把工作区写成 CRLF**（索引里存的仍是 LF）。
+# 后果与 site/ 那条同源、只是换了个地方：① 每次检出都冒出一批与内容无关的整文件差异 ② 作者照工作区
+# 复制粘贴/打包，会把 CRLF 带出去。所以按扩展名一并钉死。
+*.md text eol=lf
