@@ -290,6 +290,14 @@ node tools/build-index.mjs --stage /tmp/modrepo-stage --engine <引擎检出> --
 | **`server.modules[].lane`（包自带一条 WebSocket 通道）** | ✅ 引擎**有**这一格（设计稿 §28.56）：`lane = { path, summary? }`，路径必须落在 `/mod-ws/<本包 id>` 之下。`SERVER_MODULE_USES` 6 → **7**、`SERVER_MODULE_FIELDS` 5 → **6**。⚠️ **结构性保证一个字没改**：包仍然拿不到监听套接字 / 新端口 / 定时器 / 子进程 —— 开与不开、怎么记账都归宿主。`MOD_API_VERSION` **不动**。见 [SKILL.md](SKILL.md) §19.18。 |
 | **`server.room.hold`（空席房间的回收裁决）** | ✅ 引擎**有**这一格（设计稿 §28.57）：只有 `pack.json.server.room.hold = true` 的包才能调 `room.canHold(fn)`（没声明就调 ⇒ `ROOM_HOLD_UNDECLARED` 点名）。**它要 `combat: true`**（`ROOM_HOLD_NEEDS_COMBAT`）—— 它能决定一局会不会因为「没真人了」而被回收。**包决定「留不留」，宿主决定「留多久」**：硬时限 **15 分钟**；多包是 **OR**，时限取**最早**那一票。见 [SKILL.md](SKILL.md) §19.19。 |
 
-> **底座（源码口径）**：本仓库的包对着引擎**源码当前状态**核过 —— `APP_VERSION = 0.18.6`、`UPSTREAM_VERSION = 0.3.0`（`shared/constants.js` 的实值），对齐的提交是引擎 `main` 的 `2f3356563f27bd4f0aa7349a667a4d77be407828`。⚠️ 这里说的是**引擎仓库 `main` 上的源码**，**不是**某个已发布的整合包 —— 可下载的发行版以引擎仓库的 Releases 页为准。上一版文档里写「底座 0.2.4 / 0.2.5 / 0.2.6」的地方一律以这一行为准。
+> **底座（源码口径）**：本仓库的包对着引擎**源码当前状态**核过 —— `APP_VERSION = 0.19.0`、`UPSTREAM_VERSION = 0.3.0`（`shared/constants.js` 的实值），对齐的提交是引擎 `main` 的 `37e16197e2c73d19e6e554f8bae7ebb32efd2bb8`（发行 tag `v0.19.0-0.3.0`）。⚠️ 这里说的是**引擎仓库 `main` 上的源码**，**不是**某个已发布的整合包 —— 可下载的发行版以引擎仓库的 Releases 页为准。上一版文档里写「底座 0.2.4 / 0.2.5 / 0.2.6」的地方一律以这一行为准。
 > ⚠️ **上游 0.3.0 已合入**（合并提交 `0bfe3727`，落在引擎 `main` 上）⇒ [SKILL.md](SKILL.md) §19 已按合入后的树重核；**§19.16–§19.19 就是这次合入新落的四条面**。
+>
+> ⭐ **引擎 `v0.19.0-0.3.0` 已经发版**（2026-10-16，tag `v0.19.0-0.3.0` → `37e16197`）。这一版的作者可见变化：
+> **§28.54 `matchKinds` / §28.55 `client.screens` / §28.56 `server.modules[].lane` / §28.57 `server.room.hold`** 四格声明面；
+> **kit 白名单 20 → 22**（新开 `@sim/body.js`、`@sim/professions.js`）；**`PACK_FIELDS` 37 → 38**；
+> **`SERVER_MODULE_USES` 6 → 7**（尾巴是 `lane`）；四语 i18n 各补 540 条至 **100 %**（2096/2096）。
+> ⚠️ **`PROTOCOL_VERSION`（2）与 `MOD_API_VERSION`（1）都没动** ⇒ 老包不受影响。
+> 完整包还补进了**官方战斗特效素材**（`public/assets/local/fx/`，12534 个文件）—— 那是**引擎侧发行包**的事，
+> 与本仓库的包无关，但作者若在自己的包里引用这批特效，请以引擎 `v0.19.0-0.3.0` 的完整包为准。
 

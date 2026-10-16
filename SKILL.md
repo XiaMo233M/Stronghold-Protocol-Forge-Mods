@@ -647,13 +647,13 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | URL 前缀 | `shared/workshop.js` 的 workshop URL 前缀常量 |
 
 > 上表的依据**以符号名为准**，行号是核的时候顺手记的，核于引擎 `main` 的
-> **`2f3356563f27bd4f0aa7349a667a4d77be407828`**（上游 0.3.0 已合入，合并提交 `0bfe3727`）。
+> **`37e16197e2c73d19e6e554f8bae7ebb32efd2bb8`**（上游 0.3.0 已合入，合并提交 `0bfe3727`；发行 tag `v0.19.0-0.3.0`）。
 > ⚠️ **不要按行号硬找**：引擎每动一次，行号就漂。上一版把行号记在 `7aa58a24` 上，本轮逐条重核时发现其中一批
 > **在那一版就已经对不上** —— 例：`PACK_ID_MISMATCH` 当时在 `:1846`，文档记的是 `:1788`；
 > `PACK_UNKNOWN_FIELD_CODE` 当时在 `:204`，文档记的是 `:131`；`tools/workshop-validate.mjs` 当时只有 134 行，
 > 而文档引的是 `:212`。**按符号名搜**（`PACK_FIELDS`、`BEHAVIOUR_SWITCHES`、`callBudget`、
 > `adjudicatePackGraph`、`SERVER_MODULE_USES`…），搜到就是对的。
-> 底座（源码口径）：`APP_VERSION = 0.18.6`、`UPSTREAM_VERSION = 0.3.0`（`shared/constants.js` 的实值）。
+> 底座（源码口径）：`APP_VERSION = 0.19.0`、`UPSTREAM_VERSION = 0.3.0`（`shared/constants.js` 的实值）。
 > §19 / §20 的路由细节以引擎文件为准，**本文只记「在哪、怎么写、边界是什么」**。
 
 ## 18. 术语约定（同一个概念全文只用一个词）
@@ -673,14 +673,14 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 同一份文档里，**包 id 与 `name` 是两件事**：前者只能用 `[A-Za-z0-9_-]`、命名目录与 URL；
 后者是任意字符串、只上屏。
 
-## 19. 引擎这一版新加的接口面（核于引擎 `main` `7aa58a24`；⚠️ 上游 0.3.0 合入**在途**）
+## 19. 引擎这一版新加的接口面（核于引擎 `main` `37e16197`；上游 0.3.0 **已合入**）
 
 **口径先摆出来**：下面每条都**去引擎代码里核过**，不是照抄任何清单。判「今天能用」的判据是三样齐 ——
 **实现点 + 一个钉行为的测试 + 一节设计文档**；核不到的写「在途」，没有的写「没有」。
-**核时的引擎 HEAD**：`2f3356563f27bd4f0aa7349a667a4d77be407828`（上游 0.3.0 已合入 —— 合并提交 `0bfe3727`）。
+**核时的引擎 HEAD**：`37e16197e2c73d19e6e554f8bae7ebb32efd2bb8`（上游 0.3.0 已合入 —— 合并提交 `0bfe3727`；发行 tag `v0.19.0-0.3.0`）。
 这里说的是**源码当前状态**，不是某个已发布的整合包。本节的 `文件:行号` 按当前树重核过一遍，
 但 ⚠️ **行号会漂，按符号名搜才可靠**（`PACK_FIELDS`、`SERVER_MODULE_USES`、`callBudget`、`stripPackOperators`…）。
-底座：`APP_VERSION = 0.18.6`、`UPSTREAM_VERSION = 0.3.0`（`shared/constants.js` 的实值）。
+底座：`APP_VERSION = 0.19.0`、`UPSTREAM_VERSION = 0.3.0`（`shared/constants.js` 的实值）。
 **引擎是最终依据**：这一节只讲「在哪、怎么写、边界是什么」，规则细节回引擎读（§16 的清单）。
 
 ### 19.1 `behaviour` 行为开关 —— **五格**，**今天能用**
