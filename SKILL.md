@@ -616,7 +616,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | `api` / `game` 类型闸门与比对 | `shared/workshop.js` 的 `BAD_API_TYPE`（`:295`）与 `MOD_API_INCOMPATIBLE`（`:2708`） |
 | `support` / `playtest` / `variants` / `behaviour` / `dependencies` / `conflicts` / `callBudget` / `matchKinds` 不是贡献项；`EMPTY_PACK` | `shared/workshop.js` 的 `notContributions`（`:2659`，**八样**）与 `EMPTY_PACK`（`:2666`） |
 | `notices` 形状与拒绝码 | `shared/workshop.js` 的 `parseNoticesDecl`（`:1661`） |
-| `behaviour` **五格**表与引擎读取点 | `shared/behaviour.js` 的表（`:91`，第 5 格 `diyPoolOverlap` 在 `:203`）；硬闸门 `shared/workshop.js` 的 `BEHAVIOUR_NEEDS_COMBAT`（`:2787`）；表面锚点 `shared/modSurface.js` 的 `behaviour` 那一格（`:60`） |
+| `behaviour` **五格**表与引擎读取点 | `shared/behaviour.js` 的表（`:91`，第 5 格 `diyPoolOverlap` 在 `:203`）；硬闸门 `shared/workshop.js` 的 `BEHAVIOUR_NEEDS_COMBAT`（`:2788`）；表面锚点 `shared/modSurface.js` 的 `behaviour` 那一格（`:60`） |
 | `target` 闭枚举 / 跨宿主 `foreign` | `shared/workshop.js` 的 `PACK_TARGETS`（`:189`）与 `PACK_TARGET_UNKNOWN`（`:2594`）；三面 `tools/workshop-validate.mjs` 的 `PACK_FOREIGN`、`tools/workshop-pack.mjs` 的 `list`、`editor/ui/pack.js` |
 | 依赖与互斥的装载期裁决 | `shared/workshop.js` 的 `adjudicatePackGraph`（`:4917`）；装载点 `server/index.js` |
 | `trait.grantsBonds`（§19.7） | `shared/morph.js` 的 `TRAIT_GRANT_KEY` 与 `grantedBondsByTrait`；作者侧 `shared/chessAuthoring.js`；契约测试 `test/traitGrants.test.js`；表面账本 `shared/modSurface.js` 的 `traits.grantsBonds` 那一格；设计稿 §28.49 |
@@ -717,7 +717,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | # | 边界 | 判据 |
 |---|---|---|
 | 1 | **闭枚举，整包拒（不是忽略）**：开关名不认识 ⇒ `BEHAVIOUR_UNKNOWN_SWITCH`；选项名不认识 ⇒ `BEHAVIOUR_UNKNOWN_OPTION` | `docs/MOD-SURFACE.md:76`、`shared/modSurface.js:370` |
-| 2 | ⚠️ **`combat: true` 是硬闸门**：**五格每一格都会改对局结果**（商店出货 / 配发 / 盟约成员与层数 / 装备位 / 自选池名单），不写 ⇒ `BEHAVIOUR_NEEDS_COMBAT` **整包拒** | `shared/workshop.js` 的 `BEHAVIOUR_NEEDS_COMBAT`（`:2787`） |
+| 2 | ⚠️ **`combat: true` 是硬闸门**：**五格每一格都会改对局结果**（商店出货 / 配发 / 盟约成员与层数 / 装备位 / 自选池名单），不写 ⇒ `BEHAVIOUR_NEEDS_COMBAT` **整包拒** | `shared/workshop.js` 的 `BEHAVIOUR_NEEDS_COMBAT`（`:2788`） |
 | 3 | ⚠️ **`behaviour` 不是贡献项**：只带它的包照旧 **`EMPTY_PACK` 整包拒**，**必须另带真贡献**（`content` / `client` / `notices` / `routes` / 素材…）。与它同一条的还有 `support` / `playtest` / `variants` / `dependencies` / `conflicts` / `callBudget` / **`matchKinds`**（**八样**） | `shared/workshop.js` 的 `notContributions`（`:2659`）与 `EMPTY_PACK`（`:2666`）、[README](README.md) 与 §5.3 |
 | 4 | **包里给不出数值、也给不出路径**：`module` / `entry` / `file` / `path` / `value` / `key` 这类键在形状层**点名拒**；动作 `{ kind, value }` **由引擎构造** | `docs/MOD-SURFACE.md:76` |
 | 5 | 不声明 ⇒ 归一化清单里**不长这个键**；声明了**必须进包身份哈希**（不进 `modDigest`） | `docs/MOD-SURFACE.md:76` |
