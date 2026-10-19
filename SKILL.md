@@ -189,7 +189,7 @@ matchKinds, target, dependencies, conflicts
 | `content: []`，且没有别的贡献项（只写 `support` / `playtest` 也算没有） | ❌ `EMPTY_PACK` |
 
 **`support` 与 `playtest` 不是贡献项**：只写 `support` 而 `content: []` 的包会被
-`EMPTY_PACK` 拒，理由里点名这一句（`shared/workshop.js:1847-1862`；引擎
+`EMPTY_PACK` 拒，理由里点名这一句（`shared/workshop.js:2652-2666`；引擎
 `docs/WORKSHOP.md:665-666`、`:1897-1898` 也这么说）。
 
 ### 5.4 未声明的通道会被点名
@@ -375,13 +375,13 @@ screen.loadout.detail  screen.room.aside
 帧里的字段**原样保留**：不裁、不改名、不补默认值（`public/js/ui/extensions.js:995-1003`）。
 **为什么需要它**：面板是由**同一条 `welcome` 帧**装载的（面板清单走 `welcome.modPanels`），
 所以面板在 `mount()` 里自己去订阅这一帧，首帧大概率赶不上、要等一次重连才知道对面是谁 ——
-这正是社区投稿报过的卡点（引擎 `docs/design/mod-layer.md:1957-1964`）。
+这正是社区投稿报过的卡点（引擎 `docs/design/mod-layer.md:2225-2237`）。
 
 两格共同的语义（三条，都要照做）：
 
 1. **冻结、拿不到即 `null`** —— 不抛、不编造、不补默认值。没有读数就画空态。
 2. **不新增协议消息**：不发任何帧、不发请求、不改引擎行为（引擎侧有机械断言盯这一点，
-   `docs/design/mod-layer.md:2024-2026`）。
+   `docs/design/mod-layer.md:2252-2253`）。
 3. **加能力不抬 `MOD_API_VERSION`**：两格是往**已存在的对象**上加成员，
    `MOD_API_VERSION` **不动**、已发布的包不会被拒（`docs/design/mod-layer.md:1990-1991`）。
    所以包侧的正确写法是「有就用、没有就优雅降级」，不是「判版本、缺了就报错」。
@@ -647,13 +647,13 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | URL 前缀 | `shared/workshop.js` 的 workshop URL 前缀常量 |
 
 > 上表的依据**以符号名为准**，行号是核的时候顺手记的，核于引擎 `main` 的
-> **`37e16197e2c73d19e6e554f8bae7ebb32efd2bb8`**（上游 0.3.0 已合入，合并提交 `0bfe3727`；发行 tag `v0.19.0-0.3.0`）。
+> **`300556c9`**（上游 0.3.1 已合入；发行 tag `v0.19.1-0.3.1` → `0df1ed21`）。
 > ⚠️ **不要按行号硬找**：引擎每动一次，行号就漂。上一版把行号记在 `7aa58a24` 上，本轮逐条重核时发现其中一批
 > **在那一版就已经对不上** —— 例：`PACK_ID_MISMATCH` 当时在 `:1846`，文档记的是 `:1788`；
 > `PACK_UNKNOWN_FIELD_CODE` 当时在 `:204`，文档记的是 `:131`；`tools/workshop-validate.mjs` 当时只有 134 行，
 > 而文档引的是 `:212`。**按符号名搜**（`PACK_FIELDS`、`BEHAVIOUR_SWITCHES`、`callBudget`、
 > `adjudicatePackGraph`、`SERVER_MODULE_USES`…），搜到就是对的。
-> 底座（源码口径）：`APP_VERSION = 0.19.0`、`UPSTREAM_VERSION = 0.3.0`（`shared/constants.js` 的实值）。
+> 底座（源码口径）：`APP_VERSION = 0.19.1`、`UPSTREAM_VERSION = 0.3.1`（`shared/constants.js` 的实值）。
 > §19 / §20 的路由细节以引擎文件为准，**本文只记「在哪、怎么写、边界是什么」**。
 
 ## 18. 术语约定（同一个概念全文只用一个词）
@@ -673,14 +673,16 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 同一份文档里，**包 id 与 `name` 是两件事**：前者只能用 `[A-Za-z0-9_-]`、命名目录与 URL；
 后者是任意字符串、只上屏。
 
-## 19. 引擎这一版新加的接口面（核于引擎 `main` `37e16197`；上游 0.3.0 **已合入**）
+## 19. 引擎这一版新加的接口面（核于引擎 `main` `300556c9`；上游 0.3.1 **已合入**）
 
 **口径先摆出来**：下面每条都**去引擎代码里核过**，不是照抄任何清单。判「今天能用」的判据是三样齐 ——
 **实现点 + 一个钉行为的测试 + 一节设计文档**；核不到的写「在途」，没有的写「没有」。
-**核时的引擎 HEAD**：`37e16197e2c73d19e6e554f8bae7ebb32efd2bb8`（上游 0.3.0 已合入 —— 合并提交 `0bfe3727`；发行 tag `v0.19.0-0.3.0`）。
+**核时的引擎 HEAD**：`300556c9`（上游 0.3.1 已合入；发行 tag `v0.19.1-0.3.1` → `0df1ed21`）。
+⚠️ **0.3.1 对工坊包作者没有新增表面**：`PLUGIN_API` 抬到 `2` 只影响 `plugins/`（插件），工坊包的 `api` 仍对
+`MOD_API_VERSION = 1` 比对，所以 `>=1 <2` 照旧；`PROTOCOL_VERSION` 也是 `2` 未动。
 这里说的是**源码当前状态**，不是某个已发布的整合包。本节的 `文件:行号` 按当前树重核过一遍，
 但 ⚠️ **行号会漂，按符号名搜才可靠**（`PACK_FIELDS`、`SERVER_MODULE_USES`、`callBudget`、`stripPackOperators`…）。
-底座：`APP_VERSION = 0.19.0`、`UPSTREAM_VERSION = 0.3.0`（`shared/constants.js` 的实值）。
+底座：`APP_VERSION = 0.19.1`、`UPSTREAM_VERSION = 0.3.1`（`shared/constants.js` 的实值）。
 **引擎是最终依据**：这一节只讲「在哪、怎么写、边界是什么」，规则细节回引擎读（§16 的清单）。
 
 ### 19.1 `behaviour` 行为开关 —— **五格**，**今天能用**
@@ -747,7 +749,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 
 | 面 | 你看到什么 |
 |---|---|
-| 校验器 | `PACK_FOREIGN` **warning**（清单合法，所以是 warning 不是 error）＋ 收尾一句 `N pack(s) target another host`：`tools/workshop-validate.mjs:212` |
+| 校验器 | `PACK_FOREIGN` **warning**（清单合法，所以是 warning 不是 error）＋ 收尾一句 `N pack(s) target another host`：`tools/workshop-validate.mjs:141` |
 | 管理器 CLI | `list` 里是具名的 `FOREIGN（本引擎不装载：…）`，不是 `REFUSED（null）`：`tools/workshop-pack.mjs:912` |
 | 编辑器 | 包管理页拿到 `foreign` ＋同一句原因，并**渲染出来**：`editor/ui/pack.js:153` |
 
@@ -913,12 +915,12 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | ⭐ **只许收紧、不许放宽** | `max > 8000` ⇒ `CALL_BUDGET_TOO_HIGH` **整包拒**，文案逐字「**a budget that can be raised is not a budget**」。作者想要更多 = **不写这一格**（那让他留在 module 档，逐字节与今天相同） | `shared/callBudget.js:93`、`:127-131` |
 | `max` 的语义 | **可用次数**：第 `max` 次仍放行，第 `max + 1` 次不放行 —— 差一位就是给每个诚实包少一次调用 | `shared/callBudget.js:144` |
 | 耗尽做什么 | **回滚这个包**：撤掉它**全部** hook 与计时器、撤掉它**标的** buff，并记一笔 **`plugin:<包 id>`** 的错；对局**继续**，只是没有这个包 | `server/sim/battle/hooks.js:211-214`、`:229-243`；错名 `shared/callBudget.js:155` |
-| 覆盖到哪 | ① 包 `server.battle` 在 `install(battle)` 里注册的东西；② ⭐ **`kits/*.js` 的逐单位回调**（注册点在 `server/sim/battle/players.js:250`、`:252` 的 `_safe(…, pack)`，归属按**对象身份**记）；⚠️ **只带 `kits/`、没有 `server.battle` 的包也建账** | `server/workshop.js:1242-1243`、`:1352`；`docs/MOD-SURFACE.md:107` |
+| 覆盖到哪 | ① 包 `server.battle` 在 `install(battle)` 里注册的东西；② ⭐ **`kits/*.js` 的逐单位回调**（注册点在 `server/sim/battle/players.js:250`、`:252` 的 `_safe(…, pack)`，归属按**对象身份**记）；⚠️ **只带 `kits/`、没有 `server.battle` 的包也建账** | `server/workshop.js:1242-1243`、`:1352`；`docs/MOD-SURFACE.md:106` |
 | 判决在哪 | **装载期一次**（`server/battlePack.js:130-131` 与 `server/workshop.js:1242` 读**同一个** `effectivePackCallBudget`）；⚠️ **不进建房路径** —— `server/lobby.js` 里出现 `callBudget` 就是错的 | `docs/design/mod-layer.md:3868`（§28.52） |
 | 进不进摘要 | **声明过才进**归一化清单（`shared/workshop.js:2571`）⇒ 进 `identifyPack` 的内容哈希 ⇒ **两份只差预算的包是两个身份**。反过来「不声明 ⇒ 不长键」是硬性的：给每个包补一个 `callBudget: { max: 8000 }` 会让**所有已发布包的内容哈希全变**，而哈希是房间身份与对齐的依据 | `shared/workshop.js:2567-2571` |
 | 不是贡献项 | 只带它的包照旧 `EMPTY_PACK` 整包拒（它在那份**八样**清单里） | `shared/workshop.js` 的 `notContributions`（`:2659`）、`:2666`（`EMPTY_PACK`） |
 
-设计稿 §28.52（`docs/design/mod-layer.md:3868`）；表面账 `docs/MOD-SURFACE.md:107`；契约测试 `test/callBudget.test.js`。
+设计稿 §28.52（`docs/design/mod-layer.md:3868`）；表面账 `docs/MOD-SURFACE.md:106`；契约测试 `test/callBudget.test.js`。
 
 ### 19.11 房间级 mod 集合与**同意**（W7）（§28.53）
 
@@ -927,7 +929,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 | 项 | 实况 | 依据 |
 |---|---|---|
 | `room.mods` | **房主在房间里改本房间的模组集合**（`{ modIds }`）—— 与 `room.create` 报出的集合同一份口径 | `server/lobby.js:744`、`:1234` |
-| 改不了的两条 | ① **对局已开** ⇒ `MOD_SET_LOCKED`（跑着的那一局拿的是**开局那一刻**的集合）② **任一真人座位 `ready === true`** ⇒ `MOD_SET_LOCKED`（那个人是按**旧集合**对齐完才点的准备就绪） | `server/lobby.js:1322-1325`；`shared/constants.js:367` |
+| 改不了的两条 | ① **对局已开** ⇒ `MOD_SET_LOCKED`（跑着的那一局拿的是**开局那一刻**的集合）② **任一真人座位 `ready === true`** ⇒ `MOD_SET_LOCKED`（那个人是按**旧集合**对齐完才点的准备就绪） | `server/lobby.js:1322-1325`；`shared/constants.js:366` |
 | ⭐ **同意** | 真人进一个**声明了模组**的房间，必须在 `room.join` 里带 **`consent: true`**（可选字段）；不带 ⇒ **`MOD_CONSENT_REQUIRED`**。判在**占玩家座位之前** ⇒ 没同意的人**进不去**，不是「进来了只能看着」 | `shared/protocol.js:577-578`；`server/lobby.js:1071-1073`；`shared/constants.js:372` |
 | 同意的是**一份字节** | 同意落在**座位**上：`seat.modConsent === room.modSet.digest` 才算同意过 ⇒ **集合一变、摘要就不同，同意自动作废**；已经在座的人可以**再发一次 `room.join` 补同意**（不必退出重进） | `server/lobby.js:1058` |
 | 谁不受约束 | **房主**（`room.create` 报出的 `modIds` 就是他在钉这一份字节）、**AI 座位**、**观战者**（不占玩家座位、不参与开局门槛） | `docs/design/mod-layer.md:3962`（§28.53） |
@@ -945,7 +947,7 @@ Windows PowerShell 里用 `;` 不用 `&&`；写文件用 **UTF-8 无 BOM**（否
 |---|---|---|
 | 它是**组件渲染**的，不是浮层 | 前 4 个（`root.overlays` / `root.guide` / `screen.game.aside` / `screen.result.footer`）是 0.11.0 的**浮层**：引擎按需创建容器、`position: fixed`。后 6 个在**引擎已经渲染的组件里**：容器由**组件自己**渲染 `[data-mod-slot="…"]`，面板往里填 | `public/js/ui/extensions.js:82-84`、`:93-94` |
 | 两份 10 条必须一致 | `public/js/ui/extensions.js` 的 `MOD_PANEL_SLOTS` 与 `shared/workshop.js` 的 `CLIENT_PANEL_SLOTS` 是同一张表的两份（测试钉住它们） | `shared/workshop.js:394-396` |
-| ⭐ `PANEL_SEND_TYPES` 现在**两条** | `['room.appearance', 'room.mods']` —— 面板能**主动发**的引擎消息是**闭枚举**，只有这两条。`room.appearance` 只改别人看到的外观、不碰战果；`room.mods` 是**房间级、只有房主、开局前且没人就绪才收** | `public/js/ui/extensions.js:129`；`docs/WORKSHOP.md:1007`、`:1015` |
+| ⭐ `PANEL_SEND_TYPES` 现在**两条** | `['room.appearance', 'room.mods']` —— 面板能**主动发**的引擎消息是**闭枚举**，只有这两条。`room.appearance` 只改别人看到的外观、不碰战果；`room.mods` 是**房间级、只有房主、开局前且没人就绪才收** | `public/js/ui/extensions.js:128`；`docs/WORKSHOP.md:1007`、`:1015` |
 | ⚠️ **`room.create` 永远不在里面** | 面板**不能**建房。白名单是闭枚举、不是「想发什么发什么」：面板能改的是**展示** | `public/js/ui/extensions.js:787-789`、`:797` |
 
 设计稿 §28.8（挂载点）；作者面 `docs/WORKSHOP.md:960`（「十个挂载点」）与 `:973`（`screen.room.aside` 那一行）。

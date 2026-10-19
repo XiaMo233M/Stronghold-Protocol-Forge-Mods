@@ -32,7 +32,7 @@ AI 助手（Codex、Claude Code、Cursor、Copilot…）与维护者在本仓库
 | [`incoming/SOURCE.template.md`](incoming/SOURCE.template.md) | 投稿人 | `SOURCE.md` 的填空模板（五件事） |
 | [site/README.md](site/README.md) | **维护者** | 上传站 / 审核台的整套用法（部署、环境变量、三视图、兼容包发布、备份与更新） |
 | [NOTICE.md](NOTICE.md) | 所有人 | 每个包的来源、署名与许可；非商业声明 |
-| 引擎文档（本仓库只索引） | **所有人** | `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（全部表面）、`docs/design/mod-layer.md`（边界；**§28.23** 是 `server.modules[].channels` 通道声明面，**§28.43–§28.57** 是这几版新加的面 —— 其中 **§28.49 `trait.grantsBonds` 今天能用**（[SKILL.md](SKILL.md) §19.7）、**§28.50 `pack.json.enabled`**（§19.9）、**§28.52 `pack.json.callBudget`**（§19.10）、**§28.53 房间同意 + 服主 pin**（§19.11），加上 0.3.0 合入新落的四条：**§28.54 `pack.json.matchKinds`**（§19.16）、**§28.55 `client.screens`**（§19.17）、**§28.56 `server.modules[].lane`**（§19.18）、**§28.57 `server.room.hold`**（§19.19）；上游 0.3.0 已合入引擎 `main`，这几节按当前树核过） |
+| 引擎文档（本仓库只索引） | **所有人** | `docs/WORKSHOP.md`（包格式规则）、`docs/MOD-SURFACE.md`（全部表面）、`docs/design/mod-layer.md`（边界；**§28.23** 是 `server.modules[].channels` 通道声明面，**§28.43–§28.57** 是这几版新加的面 —— 其中 **§28.49 `trait.grantsBonds` 今天能用**（[SKILL.md](SKILL.md) §19.7）、**§28.50 `pack.json.enabled`**（§19.9）、**§28.52 `pack.json.callBudget`**（§19.10）、**§28.53 房间同意 + 服主 pin**（§19.11），加上 0.3.0 合入新落的四条：**§28.54 `pack.json.matchKinds`**（§19.16）、**§28.55 `client.screens`**（§19.17）、**§28.56 `server.modules[].lane`**（§19.18）、**§28.57 `server.room.hold`**（§19.19）；上游 0.3.1 已合入引擎 `main`（发行 tag `v0.19.1-0.3.1`），这几节按当前树核过；`PLUGIN_API` 抬到 `2` 只影响 `plugins/`，工坊包的 `api` 仍对 `MOD_API_VERSION = 1` 比对） |
 
 ## 3. 硬规则
 
