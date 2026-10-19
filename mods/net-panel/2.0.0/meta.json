@@ -1,0 +1,19 @@
+{
+  "id": "6a5625e331ce",
+  "name": "连接状态面板 v2",
+  "packId": "net-panel",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-13T10:10:38.333Z",
+  "size": 12014,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/Stardust-minus/Stronghold-Protocol",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "只读连接面板：延迟 / 重连 / 构建号徽标，走 `ctx.net`。\n【本版】2.0.0 —— 重投：对齐工坊管理器 0.18.3（上一版按 0.13.0 写）。\n【本版】包内**不含任何游戏美术与音频字节**（素材一律不随包），因此不触发 GAME_ASSET。\n【可核对事实】在管理器 0.18.3 下 `node tools/workshop-validate.mjs --workshop <根>` ⇒ 7 包全部 0 error；这批包自带测试合计 44 项：43 pass / 0 fail / 1 skipped。\n【可核对事实】zip 根即 `pack.json`（未套顶层目录）。\n【原件形态】宿主的对照实现是每探针 `rid` + `msg.c` 双比、单调时钟、隐藏页不采样、`MAX_PENDING_PINGS=8`、12s 过期把 RTT 与负载标签一起清成 unknown（`docs/LATENCY.md` 口径：显示的是浏览器 ping→pong 的应用层往返，压力标签是主线程 ELU/延迟，不是宿主 CPU）。\n【如实列出的边界】管理器引擎没有宿主那套细化测量，包也拿不到调度器与 socket 句柄（`SERVER_MODULE_USES` 是 `boot/shutdown/matchClass/healthz/metrics/route` 的闭集）。所以本包报的是引擎给的数，不是宿主那套数。",
+  "funcKind": "utility"
+}

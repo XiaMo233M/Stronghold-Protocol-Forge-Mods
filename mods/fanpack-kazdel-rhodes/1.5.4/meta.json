@@ -1,0 +1,19 @@
+{
+  "id": "9e23f07151b8",
+  "name": "卡兹戴尔罗德岛盟约多功能（兼容改写 v1.5.4 · 标准包）",
+  "packId": "fanpack-kazdel-rhodes",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-14T16:53:54.362Z",
+  "size": 3259753,
+  "sha256": null,
+  "author": "B站@伊佐那邪_",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/yznx09/Stronghold-Protocol-Rhodes-Kazdel-Mod",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "兼容改写投稿，不是原件重传。\n\n原投稿：c26a6ed4c1e7「卡兹戴尔罗德岛盟约多功能mod-v1.5.4-适配最新UI和上流0.2.5」（作者 B站@伊佐那邪_）\nsha256 = b0ad28245eb4060063dff8c494256231d6f49663b6ac508cecf0d364c4a6e703\n\n原件为什么不收：一键安装包形态（install.mjs 48,231 B + payload/** 177 个文件），会把 payload 整份覆盖到引擎检出（data/chess.json、data/items.json、data/config.json、server/match/builtinMeta.js、server/sim/content/kits/custom.js 等）—— 即「包改引擎源码」，触本站红线。本包不采用、绝不执行 install.mjs。\n\n改写成什么：zip 根有 pack.json 的标准工坊包，只走引擎的声明面。content = bonds / items / garrisons / chess / tokens / variants；与官方同 id 的 29 条走 overrides（chess 14 + tokens 1 + bonds 10 + garrisons 4）；作者自制的盟约与装备图标走 pack.json.bondIcons / itemIcons + 包内 assets/。作者自撰的口径数值（满练度）走 DESIGN §28.51 的 variants.json 通道：training.chess 28 条 + training.tokens 4 条。\n\n口径逐条无损（判据不读生成物，读引擎装载后的数据）：把真包装进引擎自己的装载器 loadData，32 条记录 / 作者写下的 4019 个值，差异 0；反向核 chess_char_6_12_a 官方 atk 616 → 装包后 676（= 投稿 variants 写的数）。node tools/workshop-validate.mjs ⇒ 0 error / 84 warning（全是作者侧 CLASS_OVERRIDE 6 + BB_UNKNOWN_KEY 78）。\n\n剥掉的键：pack.json 的 _doc / type / englishName / app / credits / files{} 不在引擎顶层键闭集 PACK_FIELDS 里（留着会 PACK_UNKNOWN_FIELD 整包拒）；_doc 在引擎仓与模组仓两仓 grep 均无任何代码读它 ⇒ 删掉行为不变，说明文字原样搬进包内 PROVENANCE.md 与 pack.json.description。内容文件里的 _doc / version / roster 与 variants.json 的 shipped 同理剥掉。\n\n如实披露一处：原件 12 条装备里有 8 条的 params 与它自己的 buffs 对不上（params 是引擎的派生量，shared/itemAuthoring.js 的 effectParams 注释写明「Reproduces params for all 115 shipped items」，作者自己的 payload/tools/build-data.mjs 里有一份逐字相同的实现）。本包按引擎规则重推，先证作者写的每一个键值都还在：只补齐 bond / other_equip、只改键序，没有一个数字被覆盖；且这两个键在记录层没有被任何引擎代码读（p.bond 只在天师古鼎那一条专属 handler 里被读；p.other_equip 的读取入参是逐 buff 的 {...bb,...bbStr}，不是记录的 params）。战斗数值一律走 buffsOf(rec)，本包一个 buff 都没改。详见包内 PROVENANCE.md。\n\n素材：含从《明日方舟》解包出的官方素材（官方干员头像/立绘、Spine 模型、语音等）。版权归鹰角网络 / Yostar；本包与改写者不主张任何权利，仅供非商业学习与个人娱乐。",
+  "funcKind": "expansion"
+}

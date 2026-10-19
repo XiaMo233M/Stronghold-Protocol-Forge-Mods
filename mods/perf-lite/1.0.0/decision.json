@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 87a0325e4e65 改写而来）。原作者 jingjiangze · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：（compatNote 为空） 与原件逐字节比对：**内容文件 0 个逐字节相同**（无）；**改了 2 个**（client/lite.css、client/lite.js）；`pack.json` **有改动**；只在本条里新增 2 个：PROVENANCE.md、test/lite.test.mjs。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。\n\n站侧核实（2026-10-12，逐字段比对 mod.zip ↔ orig.zip）：本条与留档原件有 **2 处**不同 —— ① `pack.json` 的 `client.panels[0].slot` 由 `screen.game.hud` 改成 **`root.overlays`**；② 内容文件改了 2 个（`client/lite.css`、`client/lite.js`）。**本条的 compatNote 是空的、没有声明这两处改动** ⇒ 按「没声明 ⇒ 如实注明」记在这里。**处置：不改包件、不打回、不删**（槽位改动可能是修正，但记录里必须有这一句）。\n\n【站侧判定 · 2026-10-12（业主令 29）】**正当（修正/重定位）**。判据＝装载 + 渲染：① 槽位合法性 —— `root.overlays` 与 `screen.game.hud` **两个都在引擎的闭枚举 `CLIENT_PANEL_SLOTS` 里**（共 9 个：root.overlays · root.guide · screen.game.aside · screen.result.footer · screen.game.shopCard · screen.game.bondStrip · screen.game.hud · screen.game.overlay · screen.loadout.detail）⇒ 这次改动**不是\"修一个非法槽位\"，而是在两个合法槽位之间换位置**（HUD 层 → 最上层浮层）；② 干净 workshop 根**两侧分别装载**：本条 `packs=1 errors=0`、原件同样 `packs=1 errors=0`；③ `loadWorkshopPanels` 两侧都注册成功：**本条 `slot=root.overlays`**、原件 `slot=screen.game.hud`，都是 `order=100`，模块 URL 都能解析（`/workshop-panels/perf-lite/client/lite.js`，`v=` 摘要从 `c3af145858ac` 变成 `9e5b9a08185d`，与\"改了 `client/lite.js`、`client/lite.css`\"一致）。**结论：能装、能渲染、槽位合法 ⇒ 正当。**",
-  "at": "2026-10-11T12:34:55.545Z",
-  "by": "admin",
-  "displayName": "低配优化（关动画与过渡）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "891ba0b6118d6af01b1f98b07af4df0659de4f1dcc806366ab20ef6874965c62",
-  "originId": "87a0325e4e65",
-  "originSha256": "312f40ce253f5ea53051304a95908696021fadb4a6cb9b1e407aa14eeda7cc0b"
+  "at": "2026-10-11T12:34:55.543Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

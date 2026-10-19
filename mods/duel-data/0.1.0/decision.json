@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "站侧修订（2026-10-12 复核）：duel-data：只带 3 条只读 routes（/duel/modes.json、/duel/rounds.json、/duel/scoring.json）供读取资料。 ⇒ 按站点定义「documentation＝装上不会启用任何功能」判为 documentation（不是可安装的功能包）。 其余事实不变：pack.json 在 ZIP 根、干净 workshop 根单独装载 errors=0、api \">=1 <2\" 与 MOD_API_VERSION 1 相容；本条的 compatNote 里「19 个内容文件 SAME」是同一段模板的残留，实际逐字节相同的内容文件数见站侧更正记录 5a8f399c75a2。",
-  "at": "2026-10-11T18:44:06.503Z",
-  "by": "admin",
-  "displayName": "争锋频道 · 规则资料（只读）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "58ea1c4e1fbfa2dbf47c63a57077e64a91f4f879cfa2f86543b5a7f1b36d39c9",
-  "originId": "be9a6d998698",
-  "originSha256": "3908e640be2c2ff7d221c8fea5bec244b400f79e3bf7cc9ba514775d593cb846"
+  "at": "2026-10-11T18:44:06.501Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

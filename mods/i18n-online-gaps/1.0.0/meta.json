@@ -1,0 +1,19 @@
+{
+  "id": "3b4529362339",
+  "name": "界面文案缺口 56 条（en/ja/ko/zh-TW，只补引擎缺的键）",
+  "packId": "i18n-online-gaps",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:29:13.456Z",
+  "size": 5019,
+  "sha256": null,
+  "author": "jingjiangze（逆向提取）",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "985545798449",
+  "compatNote": "包内 4 个 i18n 文件共 56 键（en 53 / ja 1 / ko 1 / zh-TW 1）。我把它与引擎 public/i18n/*.json 逐键比对：命中 0 键 ⇒ 当前**全部**没有对应的 msgid（即预置文案），今日对本引擎零可见效果；等引擎补上那些字符串后才会生效。",
+  "note": "包内 4 个 i18n 文件共 56 键（en 53 / ja 1 / ko 1 / zh-TW 1）。我把它与引擎 public/i18n/*.json 逐键比对：命中 0 键 ⇒ 当前**全部**没有对应的 msgid（即预置文案），今日对本引擎零可见效果；等引擎补上那些字符串后才会生效。",
+  "funcKind": "utility"
+}

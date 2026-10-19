@@ -1,0 +1,19 @@
+{
+  "id": "4a120190bf8f",
+  "name": "quality-tier",
+  "packId": "quality-tier",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:06:59.749Z",
+  "size": 6499,
+  "sha256": null,
+  "author": "纸鸢干机",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "3b8cbcfc19d8",
+  "compatNote": "未改动：逐字节照收原件（sha256 7534b1f5455a6140be7aed6c4f54c9f5a128bb384a46ace55ef7eb8be4b36641），仅以兼容包形式重新投递，并由本兼容包取代原投稿 3b8cbcfc19d8（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "note": "未改动：逐字节照收原件（sha256 7534b1f5455a6140be7aed6c4f54c9f5a128bb384a46ace55ef7eb8be4b36641），仅以兼容包形式重新投递，并由本兼容包取代原投稿 3b8cbcfc19d8（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "funcKind": "utility"
+}

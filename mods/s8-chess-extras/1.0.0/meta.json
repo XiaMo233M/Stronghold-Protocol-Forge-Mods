@@ -1,0 +1,19 @@
+{
+  "id": "d68d6a2ee60e",
+  "name": "八服棋子扩充（122 名干员的新形态）",
+  "packId": "s8-chess-extras",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:29:18.158Z",
+  "size": 96337,
+  "sha256": null,
+  "author": "逆向自 mc3.bbsmc.cn:11451（八服 · 卫戍协议：盟约社区服，app 0.2.1-fusion）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "ba1dd4e0e870",
+  "compatNote": "纯数值记录（chess.json 122 条），包内不含美术或音频字节。`combat: true` 是作者**显式声明**「会影响对局数值」，不是静默改行为（引擎把它当声明读，不是隐藏开关）。独立核验：我把它与另 4 个棋子包（s7/s11/xingkong/ausevaywstr）+ 克莱门莎系逐键交叉比对，354 个键里只有 4 个跨包同键、且**全部落在克莱门莎家族内部**，本包与任何包 0 重叠 ⇒ 作者自述的「已剔除撞车条目」经实测成立。warnings=235 全是作者侧数据告警（BB_UNKNOWN_KEY 198 / CLASS_OVERRIDE 18 / NOT_VISIBLE 10 / AMMO_NO_COUNT 2 / INIT_OVER_COST 2）。另：本包提供 char_4217_makoto，而 makoto-voice（9ebe20a7e8f1）的语音正指向该干员。",
+  "note": "纯数值记录（chess.json 122 条），包内不含美术或音频字节。`combat: true` 是作者**显式声明**「会影响对局数值」，不是静默改行为（引擎把它当声明读，不是隐藏开关）。独立核验：我把它与另 4 个棋子包（s7/s11/xingkong/ausevaywstr）+ 克莱门莎系逐键交叉比对，354 个键里只有 4 个跨包同键、且**全部落在克莱门莎家族内部**，本包与任何包 0 重叠 ⇒ 作者自述的「已剔除撞车条目」经实测成立。warnings=235 全是作者侧数据告警（BB_UNKNOWN_KEY 198 / CLASS_OVERRIDE 18 / NOT_VISIBLE 10 / AMMO_NO_COUNT 2 / INIT_OVER_COST 2）。另：本包提供 char_4217_makoto，而 makoto-voice（9ebe20a7e8f1）的语音正指向该干员。",
+  "funcKind": "expansion"
+}

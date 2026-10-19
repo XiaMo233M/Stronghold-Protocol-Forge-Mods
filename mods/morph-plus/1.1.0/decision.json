@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": null,
-  "at": "2026-10-12T08:30:47.101Z",
-  "by": "admin",
-  "displayName": "变形同构体加强mod",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "B站@伊佐那邪_",
-  "compatAuthor": "Stronghold-Protocol",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "f232b8435ec5635f69fe4b987186f67f451354c647d338945d97997dad7b1179",
-  "originId": "19ea65909cf6",
-  "originSha256": "9cd376754e43ea42d6c6781a66d26de9fec5910e410b2f55f801727939adc33f"
+  "at": "2026-10-12T08:30:47.099Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

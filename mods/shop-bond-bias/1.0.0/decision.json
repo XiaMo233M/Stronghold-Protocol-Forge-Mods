@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": null,
-  "at": "2026-10-12T08:30:33.530Z",
-  "by": "admin",
-  "displayName": "商店刷新盟约装备几率提升mod",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "B站@伊佐那邪_",
-  "compatAuthor": "Stronghold-Protocol",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "689804b53a7867f82bc1528b4e3d239a6ff222344a30c40a5763e10ca93d2a85",
-  "originId": "b293e061b38f",
-  "originSha256": "656497c045826de73f839bcef31da68b8b4c772fcc48db2388b178a3f08b90b5"
+  "at": "2026-10-12T08:30:33.515Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

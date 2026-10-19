@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": null,
-  "at": "2026-10-12T08:30:20.124Z",
-  "by": "admin",
-  "displayName": "休整期可更换技能和模组mod",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "B站@伊佐那邪_",
-  "compatAuthor": "Stronghold-Protocol",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "1059bce6db2aa3b3e71ef67ef542b408ac7fb684673c489ef8c88d613a7600de",
-  "originId": "8b4e5da55c58",
-  "originSha256": "3bfd2b47830db9d3f7774b93595396688d55206c0c83391b07e549d739544d40"
+  "at": "2026-10-12T08:30:20.122Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

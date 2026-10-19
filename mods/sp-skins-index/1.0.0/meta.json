@@ -1,0 +1,19 @@
+{
+  "id": "4e96097dfb6e",
+  "name": "时装美术交接索引（272 套 · 字节在我 CDN · 附不兼容清单）",
+  "packId": "sp-skins-index",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:38:49.371Z",
+  "size": 11197,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "43308e21e1c4",
+  "compatNote": "本包**零美术字节**（5 个成员：pack.json + PROVENANCE.md + cdn/index.json + notice/announcement.json + notice/credits.json）。它在引擎里的表面两条：`notices`（公告面）与 `routes`（只读路由 /sp-skins/index.json）；`combat: false`。那份 350 MB 时装美术的字节**不在本站**，索引里给的是作者自己 CDN 上的 https 外链（逐片 url/sha256/字节），包内 index.json 自己写明「引擎没有让包指向外部 URL 的美术通道」，所以它只做交接清单、不装美术。",
+  "note": "本包**零美术字节**（5 个成员：pack.json + PROVENANCE.md + cdn/index.json + notice/announcement.json + notice/credits.json）。它在引擎里的表面两条：`notices`（公告面）与 `routes`（只读路由 /sp-skins/index.json）；`combat: false`。那份 350 MB 时装美术的字节**不在本站**，索引里给的是作者自己 CDN 上的 https 外链（逐片 url/sha256/字节），包内 index.json 自己写明「引擎没有让包指向外部 URL 的美术通道」，所以它只做交接清单、不装美术。",
+  "funcKind": "utility"
+}

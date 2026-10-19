@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 e7b3b3e1751f 改写而来）。原作者 jingjiangze · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：【误伤无救济 · 装前必读】 与原件逐字节比对：**内容文件 4 个逐字节相同**（NOTICE-来源说明.md、README.md、name-policy.json、server/nameGuard.mjs）；**内容文件一个都没改**；`pack.json` **逐字节相同**；只在本条里新增 3 个：PROVENANCE-LICENSES/Apache-2.0.txt、PROVENANCE-LICENSES/CC-BY-4.0.txt、PROVENANCE.md。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。",
-  "at": "2026-10-11T13:25:44.274Z",
-  "by": "admin",
-  "displayName": "代号审查（名字策略链）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "3c393674a56b51dbd221d59923ab5494a119ce4bdff609a33fe7d943cc4b1b47",
-  "originId": "e7b3b3e1751f",
-  "originSha256": "072c94016b27c26486ee737c79273f7f0a6a1c98fd6ca6f456892e265dcc1f55"
+  "at": "2026-10-11T13:25:44.272Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

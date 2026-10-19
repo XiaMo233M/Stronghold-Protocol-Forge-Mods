@@ -1,8 +1,5 @@
 {
   "decision": "approved",
-  "reason": "批准上线（业主 2026-10-12 改裁：本条是这一对的\"准\"）。本包含随包送达的 .spresources 资源容器：45,278,897 B、218 个文件（assets/models 113 · assets/fx 81 · assets/audio 21）；magic SPRES001、headerLen=19627、体积账 12+19627+45259258=45,278,897 相符、逐条 sha1_12 218/218 全对、旁挂 .sha256 == 实物（容器 sha256 8e1097bd7a569452d7aedfae68366e95620cb2552498d296589ad72ef87b3f6f）。授权与用途按**投稿人自述原文**如实标注：这些是「从《明日方舟》客户端导出的官方素材」、版权归「鹰角网络 / Yostar」、「仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景」⇒ 含官方素材 · 非原创 · 仅限非商业个人使用；发布者与本站不主张这些素材的任何权利。同批另一条 d19511bd5485（旧命名版本）已被本条取代，两条容器逐字节相同、差别只有 pack.json 的 name 一处。站侧已显式 acknowledge（新补的两道盲区检查命中 warn：SELF_DECLARED_OFFICIAL_ASSETS / SELF_DECL_OFFICIAL）。两条都不删、都不打回。",
-  "at": "2026-10-12T04:39:29.920Z",
-  "by": "admin",
-  "displayName": "争锋频道 · 素材容器（客户端导出 · 非商业）",
-  "acknowledgedSuspected": false
+  "at": "2026-10-12T02:46:16.446Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

@@ -1,0 +1,19 @@
+{
+  "id": "235d21956917",
+  "name": "结城理 · 日语语音 14 条（补 makoto-yuki 缺的语音）",
+  "packId": "makoto-voice",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:29:11.911Z",
+  "size": 275708,
+  "sha256": null,
+  "author": "jingjiangze（逆向提取）",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "9ebe20a7e8f1",
+  "compatNote": "包内 14 条 mp3 位于 assets/voice/jp/char_4217_makoto/，pack.json 用 voices.char_4217_makoto 声明。唯一 warning 是 VOICE_UNKNOWN_OPERATOR：char_4217_makoto 既不是官方干员、也不在本包 chess.json 里 —— 它由本包自述依赖的 makoto-yuki 提供，而 makoto-yuki 1.0.1 已在本站公开面（49e807b1b5b0）⇒ 该 warning 属预期。作者自述与 license 都明写这 14 条是官方语音音频（版权归原权利方），本包不主张权利。",
+  "note": "包内 14 条 mp3 位于 assets/voice/jp/char_4217_makoto/，pack.json 用 voices.char_4217_makoto 声明。唯一 warning 是 VOICE_UNKNOWN_OPERATOR：char_4217_makoto 既不是官方干员、也不在本包 chess.json 里 —— 它由本包自述依赖的 makoto-yuki 提供，而 makoto-yuki 1.0.1 已在本站公开面（49e807b1b5b0）⇒ 该 warning 属预期。作者自述与 license 都明写这 14 条是官方语音音频（版权归原权利方），本包不主张权利。",
+  "funcKind": "assets"
+}

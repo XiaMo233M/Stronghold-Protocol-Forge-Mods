@@ -6,8 +6,8 @@
 | 项 | 值 |
 |---|---|
 | ① 包 id / 版本 | `makoto-yuki` · 1.0.1 |
-| ② 原作者 | 原件未署名（uncredited original）；本版修改者：Stronghold-Protocol（工坊包通道改写 + api 类型修正）（来源：pack.json） |
-| ③ 原件许可 | NOASSERTION |
+| ② 原作者 | 原件未署名（uncredited original）；本版修改者：Stronghold-Protocol（工坊包通道改写 + api 类型修正）（来源：**未声明**） |
+| ③ 原件许可 | **未声明** |
 | ④ 兼容改写者 | **未声明** |
 | ⑤ 来源 | 站上记录 `49e807b1b5b0` · 由原件 `b65c7f9320ca` 改写 |
 | ⑥ 改了什么 | **未声明** |

@@ -1,0 +1,19 @@
+{
+  "id": "bc0a817f1eb3",
+  "name": "十一服棋子扩充（24 名干员）",
+  "packId": "s11-chess-extras",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:38:44.702Z",
+  "size": 22095,
+  "sha256": null,
+  "author": "逆向自 exastrisrestart.top（十一服 · 卫戍协议：盟约社区服，app 0.15.0）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "e7260d6aa2bf",
+  "compatNote": "纯数值记录（chess.json 24 条），不含美术或音频字节。`combat: true` 为作者显式声明。作者自述「已剔除撞 s8 的 18 条 + 撞 clemntia-chess 的 2 条」——本轮独立交叉核验证实现存 354 键中本包与任何包 0 重叠。warnings=38（BB_UNKNOWN_KEY 36 / CLASS_OVERRIDE 2）。",
+  "note": "纯数值记录（chess.json 24 条），不含美术或音频字节。`combat: true` 为作者显式声明。作者自述「已剔除撞 s8 的 18 条 + 撞 clemntia-chess 的 2 条」——本轮独立交叉核验证实现存 354 键中本包与任何包 0 重叠。warnings=38（BB_UNKNOWN_KEY 36 / CLASS_OVERRIDE 2）。",
+  "funcKind": "expansion"
+}

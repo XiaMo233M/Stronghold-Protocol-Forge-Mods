@@ -1,0 +1,19 @@
+{
+  "id": "370462b5cdb7",
+  "name": "促融共竞（协同共竞）· 合作经济玩法",
+  "packId": "mod-xie",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:29:16.603Z",
+  "size": 66818,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "9e4ce63af51f",
+  "compatNote": "与已上线 2.1.0（d77099d4a54a）逐成员比对：10 同 / 3 异（pack.json、README.md、server/economy.mjs）、新增 client/app.js、去掉 client/econ.js ⇒ 2.5.0 是**内容有实质改动**的新版。另：待审 e984c1f56204（同为 2.1.0）与已上线 d77099d4a54a **逐成员逐字节相同**（仅 zip 容器不同）⇒ 未为它重复投递。⚠ 公开面 mod-xie 已有两条同 id（2.1.0 d77099d4a54a + 2.0.0 9709a3406f16），发布本条会让同 id 变三条。",
+  "note": "与已上线 2.1.0（d77099d4a54a）逐成员比对：10 同 / 3 异（pack.json、README.md、server/economy.mjs）、新增 client/app.js、去掉 client/econ.js ⇒ 2.5.0 是**内容有实质改动**的新版。另：待审 e984c1f56204（同为 2.1.0）与已上线 d77099d4a54a **逐成员逐字节相同**（仅 zip 容器不同）⇒ 未为它重复投递。⚠ 公开面 mod-xie 已有两条同 id（2.1.0 d77099d4a54a + 2.0.0 9709a3406f16），发布本条会让同 id 变三条。",
+  "funcKind": "gameplay"
+}

@@ -47,6 +47,18 @@ node tools/build-index.mjs --stage _up/modrepo-stage/modrepo-stage --engine <引
 node tools/build-index.mjs --stage <…> --engine <…> --assert-only     # 复核：应 live 的 30 条一条没掉
 ```
 
+**没有站点主机访问时**（在任意一台机器上，只走站点的公开接口）：
+
+```bash
+node tools/collect-station-http.mjs --out _up/modrepo-stage      # /api/mods 取清单，/api/file/<id> 取 zip
+node tools/build-index.mjs --stage _up/modrepo-stage --engine <引擎检出> --write
+```
+
+两份收集器的**选择口径逐条相同**（approved + functional、同 `pack.id` 只留一条、读不到 `pack.json` 的绝不静默丢件），
+产出同一套 staging，所以 `build-index.mjs` 不需要知道件是从哪条路径来的。差别只有两点：
+`collect-station.mjs` 直接读站上的记录目录（`meta.json` / `decision.json` 是**原文**）；
+HTTP 版拿不到那两个文件，只能**按 API 字段重建**它们（值一律来自 `/api/mods`，不编造）。
+
 ## 四道硬闸门（不满足就不入库，**报出来等人判**，工具绝不自己挑）
 
 | # | 闸门 | 判据 |

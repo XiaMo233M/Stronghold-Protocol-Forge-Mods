@@ -1,105 +1,19 @@
 {
   "id": "05c6dd5c5844",
-  "area": "normal",
   "name": "争锋频道 · 素材容器（客户端导出 · 非商业）",
-  "note": "【改名重投 · 请以本条为准】前一条同内容投稿 id=d19511bd5485 被站点点名 NAME_IMPERSONATE（名称含「官方」）。\n  那不是想冒充官方 —— 原意是「素材从《明日方舟》客户端导出」，措辞确实容易读成官方出品，故改名重投；两条内容字节只差 pack.json 的 name 一处。\n  本项目（Duel-Channel）自己的 NOTICE 就写明：与上海鹰角网络无任何关联、未获授权；素材版权归权利人，仅供非商业的学习 / 研究 / 个人娱乐。\n\n=== 五件事 ===\n1) 原件叫什么、从哪来：争锋频道 Duel-Channel（《明日方舟》限时玩法「争锋频道」礼物对决的非官方同人复刻）。\n   仓库 https://github.com/Cloudnyco/Duel-Channel ，本包取其 main@4d3b33be6c08b9c93e0c847b69e70e8bffbd2b77\n   （2026-10-11 的 304 文件树，与本树逐文件零差异；锚点按 commit 记，不按 tag）。素材取自该仓库的 assets/** 。\n2) 原作者是谁：Duel Channel contributors（该仓库的贡献者）。本包只做「打包与送达」这一件事，不宣称对这些素材的任何权利。\n3) 原件许可：项目自己编写的代码与文档文字是 AGPL-3.0-or-later；\n   但其 NOTICE.md §2 明确写着：**assets/**（从游戏客户端导出）不属于该项目、不受 AGPL 约束，该项目也无权向任何人授权**，\n   收录仅为非商业的学习/研究/个人娱乐。所以本包同样不构成任何再分发授权 —— 请仅按非商业用途处理。\n4) 改了什么：没有改任何素材字节。做的事只有一件 —— 按引擎规范把 218 个文件（Spine 模型与图集 JSON ×116、贴图 PNG ×80、\n   音频 OGG ×21、JPG ×1，合计 43.2 MB）打成 **一个 .spresources 容器**：\n     · 生成工具：引擎自带 tools/make-spresources.mjs（与参考实现 buildPack 逐字节一致，且有断言钉住）；\n     · 清单：resource-manifest.json（218 条 { url, size, hash=sha1_12, tier } ，version 由清单自己算 = d20302d0041a）；\n     · 旁挂 packs/duel-resources.spresources.sha256 供 assets.verify:\"sha256\" 装载期校验整包；\n     · 全部 url 落在 /assets/ 前缀内（资源白名单允许 /assets/ 与 /fonts/），serverPolicy 用缺省 \"serve\"。\n   [ASSUMED] tier 一律给 2（后续载入），没有把任何素材标成首屏必需 —— 因为本包不参与引擎开局路径，tier=1 会白占首屏带宽。\n   如果维护者认为某几张界面贴图应属 tier 1，改清单重算 version 即可（工具不替作者猜 tier，这是内容判断）。\n5) 自带素材是哪来的：**从游戏客户端导包的官方素材**（不是同人自制）。这一点按站点的流程会被判为「疑似夹带官方素材」，\n   预期它落 data/flagged/ 而不是普通投稿区，公开时也要标注 —— 这是我在备注里主动写明，而不是等检测去猜。\n   若按仓库路线（incoming/ 与 packs/）收录，则必须先清掉素材：那条红线与上传站不同。\n\n=== 它不改变游戏行为，也不提供玩法 ===\n本包只把素材送达（客户端可导入）。玩法、协议、下注、结算都不在里面 —— 那部分装不进 pack.json：\n包没有注册 WebSocket 路径的能力、收不到 POST（非 GET/HEAD 一律 405）、不能起子进程、静态通道只允许 .json，\n而 Duel 的 /lobby 、/match 与 round/secret/battle/result/finish/bets 消息都在引擎协议之外。\n承载独立协议的入口是我在上游提的 DESIGN §28.38（升级路径表，PR #4）与 §28.39（请求路径表 + POST，PR #5），两支在审。\n同批还有 duel-data / duel-fighter / duel-copy / duel-panel 四个包（规则资料、单位表、文案与不兼容清单、只读面板）。\n\n=== 投稿前实测（都可在本机复现） ===\n· 单独一根干净工坊根装载（只有本包）：tools/workshop-validate.mjs → 0 error / 0 warning ⇒ VALID；\n· 真服务器（startServer + SP_WORKSHOP 指向本批包）：\n    /workshop-resources/duel-assets/resource-manifest.json → 200（application/json，30,038 B）；\n    /workshop-resources/duel-assets/packs/duel-resources.spresources → 200（application/octet-stream，45,278,897 B），\n    头 12 字节是规范魔数 SPRES001，说明容器是被引擎按格式认下的、不是当成普通文件混过去的；\n    旁挂 .sha256 对客户端 404 —— 与 §1.9.4「这条通道只服务清单点名的容器与 .json」一致，它是服务端装载期读的。\n· 负探针（证明 verify 不是装饰品）：把旁挂摘要改掉一个字符 ⇒ 装载报 ASSETS_VERIFY_FAILED，\n    并逐字说出「清单说 0e1097…、实际算出 8e1097…」；恢复后 VALID。\n=== 站侧标注（2026-10-12 上线时**追加**；提交人原文在上，一字未改）===\n\n【本包含**随包送达的 `.spresources` 资源容器**】\n· 容器：`packs/duel-resources.spresources`，45,278,897 B（= 12 B 前缀 + 19,627 B 头 + 45,259,258 B 文件体）\n· 内部：**218 个文件** —— `assets/models` 113 · `assets/fx` 81 · `assets/audio` 21 · 另有 `assets/enemyfx.json` / `assets/traps.json` / `assets/ui.json` 三个\n· 扩展名：`.json` 116 · `.png` 80 · `.ogg` 21 · `.jpg` 1\n\n【容器完整性已核】\n· magic `SPRES001` · `headerLen=19627` · 体积账 `12+19627+45259258 = 45,278,897` **相符**\n· **逐条 `sha1_12` 218/218 全对**\n· 旁挂 `packs/duel-resources.spresources.sha256` **== 实物**；容器 sha256 `8e1097bd7a569452d7aedfae68366e95620cb2552498d296589ad72ef87b3f6f`\n\n【授权与用途 —— 投稿人自述，原文照录】\n· 「这些是**从《明日方舟》客户端导出的官方素材**，不是本包原创：版权归**鹰角网络 / Yostar**，本项目与其无任何关联」\n· 「**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**」\n· ⇒ **本站按投稿人自述如实标注：含官方素材 · 非原创 · 仅限非商业个人使用**\n· **发布者与本站不主张这些素材的任何权利**；如需商用请自行联系权利人\n\n【站侧检查（2026-10-12 新补的两道盲区检查，对实际问题 zip 跑过）】\n· 不透明容器**已逐条看进去**（清单 → 既有官方素材特征 / 可执行名规则），命中项见 `meta.flags`\n· `pack.json.description` 与备注里的**作者自述**（\"客户端导出 / 版权归鹰角\"）已能触发检查\n· 这两条因此带 `ackRequired`：档位是 **warn（不是 blocker）**，但**发布需显式 `acknowledge`**（本记录已确认）\n\n【与同批另一条的关系】\n· 本条是这一对的**准**（投稿人在备注里明确「改名重投 · 请以本条为准」）。\n· 另一条 `d19511bd5485`（原名含「官方」，已被 `NAME_IMPERSONATE` 点名）**已被本条取代**；\n  两条的**容器逐字节相同**（sha256 `8e1097bd7a569452d7aedfae68366e95620cb2552498d296589ad72ef87b3f6f`），差别**只有 `pack.json` 的 `name` 一处**。\n· 两条**都不删、都不打回**（记录保留可追溯）。\n\n=== 站侧补充（2026-10-12 追加；提交人原文与上一条站侧标注均一字未改）===\n⚠️ **同一个 `pack.json` id：`duel-assets`。** 本条与同批另一条的 `pack.json` id **都是 `duel-assets`**，\n容器**逐字节相同**（sha256 `8e1097bd7a569452d7aedfae68366e95620cb2552498d296589ad72ef87b3f6f`），\n差别**只有 `pack.json` 的 `name` 一处**。\n\n引擎**不允许同 id 的两个包并存**：目录名与 `pack.json` 的 id 不一致即 `PACK_ID_MISMATCH` 整包被拒；\n实测同一 workshop 根放两份 id 相同的包 ⇒ **只装载 1 条，后者静默覆盖前者**。\n\n⇒ **玩家同时装两条不会得到\"两个东西\"，一次只能装一条。** 这一对里 **`05c6dd5c5844` 为准**（投稿人改名重投时指定）；\n`d19511bd5485` 是旧命名版本（显示名已去掉原名里的「官方」二字）。两条**都不删、都不打回**。\n\n完整事实见站侧更正记录 **`5a8f399c75a2`**。\n\n=== 站侧标注（2026-10-12 · 素材口径；原文在上，一字未改）===\n\n⚠️ **本包含素材**：102 个 / 6,028,468 B，全部在 `.spresources` 容器内部（容器共 218 个文件：音频 21 · 图 81）；⚠️ 另注：单条目 45,278,897 B 超引擎默认 zip 读取上限 32 MB ⇒ 引擎自带的包导入路径会拒收（站点侧读取器无此上限）。\n**授权与用途以原件声明为准**；其中含**从《明日方舟》客户端导出的官方素材**，版权归**鹰角网络 / Yostar**，**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**。\n本站与发布者**不主张**这些素材的任何权利。**未标注才是问题；本标注即告知义务的履行。**",
-  "homepage": "https://github.com/Cloudnyco/Duel-Channel",
-  "size": 25226848,
-  "sha256": "7103a1ca56c8bd8c72a1f33ad41dc999c6939fde462a641436ff8c0741424928",
-  "uploadedAt": "2026-10-12T02:46:16.446Z",
-  "ip": "119.181.30.24",
-  "receipt": "6fee4534f5cf3f24c8b05438f5124666",
-  "entries": 4,
-  "unpackedBytes": 45310114,
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "4 个文件 · 解压后约 43.21 MB"
-    },
-    {
-      "level": "warn",
-      "code": "HUGE",
-      "text": "1 个文件超过 10 MB（最大的 43.2 MB）—— 确认是自制素材而不是整段官方资源"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：争锋频道 · 素材容器（客户端导出 · 非商业）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "CONTAINER_FILES",
-      "text": "容器 `packs/duel-resources.spresources` 已**逐条看进去**：218 个文件 · 43.16 MB（清单版本 d20302d0041a）"
-    },
-    {
-      "level": "warn",
-      "code": "SELF_DECLARED_OFFICIAL_ASSETS",
-      "text": "pack.json.description 里**作者自述**「从官方客户端导出 / 解包」：「…从《明日方舟》客户端导出…」—— 本站政策是\"疑似素材照收不拒，但**处处标注**、上线**必须显式确认**\"；发布前请人工确认并在备注里如实标注"
-    },
-    {
-      "level": "warn",
-      "code": "SELF_DECLARED_OFFICIAL_ASSETS",
-      "text": "上传备注 里**作者自述**「从官方客户端导出 / 解包」：「…从《明日方舟》客户端导出…」—— 本站政策是\"疑似素材照收不拒，但**处处标注**、上线**必须显式确认**\"；发布前请人工确认并在备注里如实标注"
-    },
-    {
-      "level": "warn",
-      "code": "SELF_DECL_OFFICIAL",
-      "text": "pack.json.description 里出现「导出」这类词 —— 与名称的 NAME_IMPERSONATE 同一族，看一眼再放行"
-    }
-  ],
-  "suspected": false,
-  "suspectedReasons": [],
+  "packId": "duel-assets",
   "packKind": "functional",
-  "ackRequired": true,
-  "ackCodes": [
-    "SELF_DECLARED_OFFICIAL_ASSETS",
-    "SELF_DECL_OFFICIAL"
-  ],
-  "revisions": [
-    {
-      "at": "2026-10-12T04:37:50.180Z",
-      "by": "admin",
-      "changed": {
-        "name": "争锋频道 · 素材容器（客户端导出 · 非商业）",
-        "packKind": null,
-        "ackRequired": null,
-        "flags": "（原 4 条）"
-      },
-      "to": {
-        "name": "争锋频道 · 素材容器（客户端导出 · 非商业）",
-        "packKind": "functional",
-        "ackRequired": true,
-        "flags": "（原 4 条 + 新检查 4 条）"
-      },
-      "why": "业主 2026-10-12 改裁：本条上线。① 按\"以新为准\"两条都批并互相交叉引用；② 显示名去掉原名的「官方」二字（NAME_IMPERSONATE 点名的原因）；③ 备注逐点追加站侧标注（容器 45,278,897 B / 218 文件 / 完整性 218/218 / 授权与用途按投稿人自述原文 / 不主张权利）；④ 把**新补的两道盲区检查**对实际问题 zip 跑出的 flags 如实补进记录（容器内部清单 + 作者自述），并置 ackRequired（档位 warn，发布需显式 acknowledge —— 本记录批准时已确认）。提交人原文一字未改。"
-    },
-    {
-      "at": "2026-10-12T05:01:39.464Z",
-      "by": "admin",
-      "changed": {
-        "note": "（原 3901 字）"
-      },
-      "to": {
-        "note": "（同上 + 追加一段）"
-      },
-      "why": "业主巡检实测：同一 workshop 根放两份 id 相同的包 ⇒ 只装载 1 条、后者静默覆盖前者；这两条的 pack.json id 同为 duel-assets。按只增纪律追加该事实，提交人原文与上一条站侧标注一字未改。完整事实见记录 5a8f399c75a2。"
-    },
-    {
-      "at": "2026-10-12T07:56:28.556Z",
-      "by": "admin",
-      "changed": {
-        "note": "（原 4446 字）"
-      },
-      "to": {
-        "note": "（同上 + 追加一段）"
-      },
-      "why": "业主 2026-10-12 改口径（AGENTS.md §3「素材口径」，取代原「素材红线」）：含官方素材的 mod 不因此被打回、如实收录，但站上那条记录的备注必须写明「含官方素材」+ 实测清点 + 版权归鹰角网络 / Yostar + 仅非商业使用 + 不主张权利。本条是 submissions 区的普通投稿记录，站点侧的 POST /api/<ADMIN_PATH>/compat/note 拒收本条 —— 实测两道：① 短报文 404「没有这条兼容包」（该端点只认 compat 区）；② 原样长报文 400「备注太长（最多 4000 字）」。按本记录既有先例（见本 revisions 前两条站侧标注/补充，2026-10-12 同一做法）以「只增」方式追加：提交人原文与既有两段站侧标注逐字保留在最前，其余键值一字未动。"
-    }
-  ]
+  "kind": "submission",
+  "uploadedAt": "2026-10-12T02:46:16.446Z",
+  "size": 25226848,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/Cloudnyco/Duel-Channel",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "【改名重投 · 请以本条为准】前一条同内容投稿 id=d19511bd5485 被站点点名 NAME_IMPERSONATE（名称含「官方」）。\n  那不是想冒充官方 —— 原意是「素材从《明日方舟》客户端导出」，措辞确实容易读成官方出品，故改名重投；两条内容字节只差 pack.json 的 name 一处。\n  本项目（Duel-Channel）自己的 NOTICE 就写明：与上海鹰角网络无任何关联、未获授权；素材版权归权利人，仅供非商业的学习 / 研究 / 个人娱乐。\n\n=== 五件事 ===\n1) 原件叫什么、从哪来：争锋频道 Duel-Channel（《明日方舟》限时玩法「争锋频道」礼物对决的非官方同人复刻）。\n   仓库 https://github.com/Cloudnyco/Duel-Channel ，本包取其 main@4d3b33be6c08b9c93e0c847b69e70e8bffbd2b77\n   （2026-10-11 的 304 文件树，与本树逐文件零差异；锚点按 commit 记，不按 tag）。素材取自该仓库的 assets/** 。\n2) 原作者是谁：Duel Channel contributors（该仓库的贡献者）。本包只做「打包与送达」这一件事，不宣称对这些素材的任何权利。\n3) 原件许可：项目自己编写的代码与文档文字是 AGPL-3.0-or-later；\n   但其 NOTICE.md §2 明确写着：**assets/**（从游戏客户端导出）不属于该项目、不受 AGPL 约束，该项目也无权向任何人授权**，\n   收录仅为非商业的学习/研究/个人娱乐。所以本包同样不构成任何再分发授权 —— 请仅按非商业用途处理。\n4) 改了什么：没有改任何素材字节。做的事只有一件 —— 按引擎规范把 218 个文件（Spine 模型与图集 JSON ×116、贴图 PNG ×80、\n   音频 OGG ×21、JPG ×1，合计 43.2 MB）打成 **一个 .spresources 容器**：\n     · 生成工具：引擎自带 tools/make-spresources.mjs（与参考实现 buildPack 逐字节一致，且有断言钉住）；\n     · 清单：resource-manifest.json（218 条 { url, size, hash=sha1_12, tier } ，version 由清单自己算 = d20302d0041a）；\n     · 旁挂 packs/duel-resources.spresources.sha256 供 assets.verify:\"sha256\" 装载期校验整包；\n     · 全部 url 落在 /assets/ 前缀内（资源白名单允许 /assets/ 与 /fonts/），serverPolicy 用缺省 \"serve\"。\n   [ASSUMED] tier 一律给 2（后续载入），没有把任何素材标成首屏必需 —— 因为本包不参与引擎开局路径，tier=1 会白占首屏带宽。\n   如果维护者认为某几张界面贴图应属 tier 1，改清单重算 version 即可（工具不替作者猜 tier，这是内容判断）。\n5) 自带素材是哪来的：**从游戏客户端导包的官方素材**（不是同人自制）。这一点按站点的流程会被判为「疑似夹带官方素材」，\n   预期它落 data/flagged/ 而不是普通投稿区，公开时也要标注 —— 这是我在备注里主动写明，而不是等检测去猜。\n   若按仓库路线（incoming/ 与 packs/）收录，则必须先清掉素材：那条红线与上传站不同。\n\n=== 它不改变游戏行为，也不提供玩法 ===\n本包只把素材送达（客户端可导入）。玩法、协议、下注、结算都不在里面 —— 那部分装不进 pack.json：\n包没有注册 WebSocket 路径的能力、收不到 POST（非 GET/HEAD 一律 405）、不能起子进程、静态通道只允许 .json，\n而 Duel 的 /lobby 、/match 与 round/secret/battle/result/finish/bets 消息都在引擎协议之外。\n承载独立协议的入口是我在上游提的 DESIGN §28.38（升级路径表，PR #4）与 §28.39（请求路径表 + POST，PR #5），两支在审。\n同批还有 duel-data / duel-fighter / duel-copy / duel-panel 四个包（规则资料、单位表、文案与不兼容清单、只读面板）。\n\n=== 投稿前实测（都可在本机复现） ===\n· 单独一根干净工坊根装载（只有本包）：tools/workshop-validate.mjs → 0 error / 0 warning ⇒ VALID；\n· 真服务器（startServer + SP_WORKSHOP 指向本批包）：\n    /workshop-resources/duel-assets/resource-manifest.json → 200（application/json，30,038 B）；\n    /workshop-resources/duel-assets/packs/duel-resources.spresources → 200（application/octet-stream，45,278,897 B），\n    头 12 字节是规范魔数 SPRES001，说明容器是被引擎按格式认下的、不是当成普通文件混过去的；\n    旁挂 .sha256 对客户端 404 —— 与 §1.9.4「这条通道只服务清单点名的容器与 .json」一致，它是服务端装载期读的。\n· 负探针（证明 verify 不是装饰品）：把旁挂摘要改掉一个字符 ⇒ 装载报 ASSETS_VERIFY_FAILED，\n    并逐字说出「清单说 0e1097…、实际算出 8e1097…」；恢复后 VALID。\n=== 站侧标注（2026-10-12 上线时**追加**；提交人原文在上，一字未改）===\n\n【本包含**随包送达的 `.spresources` 资源容器**】\n· 容器：`packs/duel-resources.spresources`，45,278,897 B（= 12 B 前缀 + 19,627 B 头 + 45,259,258 B 文件体）\n· 内部：**218 个文件** —— `assets/models` 113 · `assets/fx` 81 · `assets/audio` 21 · 另有 `assets/enemyfx.json` / `assets/traps.json` / `assets/ui.json` 三个\n· 扩展名：`.json` 116 · `.png` 80 · `.ogg` 21 · `.jpg` 1\n\n【容器完整性已核】\n· magic `SPRES001` · `headerLen=19627` · 体积账 `12+19627+45259258 = 45,278,897` **相符**\n· **逐条 `sha1_12` 218/218 全对**\n· 旁挂 `packs/duel-resources.spresources.sha256` **== 实物**；容器 sha256 `8e1097bd7a569452d7aedfae68366e95620cb2552498d296589ad72ef87b3f6f`\n\n【授权与用途 —— 投稿人自述，原文照录】\n· 「这些是**从《明日方舟》客户端导出的官方素材**，不是本包原创：版权归**鹰角网络 / Yostar**，本项目与其无任何关联」\n· 「**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**」\n· ⇒ **本站按投稿人自述如实标注：含官方素材 · 非原创 · 仅限非商业个人使用**\n· **发布者与本站不主张这些素材的任何权利**；如需商用请自行联系权利人\n\n【站侧检查（2026-10-12 新补的两道盲区检查，对实际问题 zip 跑过）】\n· 不透明容器**已逐条看进去**（清单 → 既有官方素材特征 / 可执行名规则），命中项见 `meta.flags`\n· `pack.json.description` 与备注里的**作者自述**（\"客户端导出 / 版权归鹰角\"）已能触发检查\n· 这两条因此带 `ackRequired`：档位是 **warn（不是 blocker）**，但**发布需显式 `acknowledge`**（本记录已确认）\n\n【与同批另一条的关系】\n· 本条是这一对的**准**（投稿人在备注里明确「改名重投 · 请以本条为准」）。\n· 另一条 `d19511bd5485`（原名含「官方」，已被 `NAME_IMPERSONATE` 点名）**已被本条取代**；\n  两条的**容器逐字节相同**（sha256 `8e1097bd7a569452d7aedfae68366e95620cb2552498d296589ad72ef87b3f6f`），差别**只有 `pack.json` 的 `name` 一处**。\n· 两条**都不删、都不打回**（记录保留可追溯）。\n\n=== 站侧补充（2026-10-12 追加；提交人原文与上一条站侧标注均一字未改）===\n⚠️ **同一个 `pack.json` id：`duel-assets`。** 本条与同批另一条的 `pack.json` id **都是 `duel-assets`**，\n容器**逐字节相同**（sha256 `8e1097bd7a569452d7aedfae68366e95620cb2552498d296589ad72ef87b3f6f`），\n差别**只有 `pack.json` 的 `name` 一处**。\n\n引擎**不允许同 id 的两个包并存**：目录名与 `pack.json` 的 id 不一致即 `PACK_ID_MISMATCH` 整包被拒；\n实测同一 workshop 根放两份 id 相同的包 ⇒ **只装载 1 条，后者静默覆盖前者**。\n\n⇒ **玩家同时装两条不会得到\"两个东西\"，一次只能装一条。** 这一对里 **`05c6dd5c5844` 为准**（投稿人改名重投时指定）；\n`d19511bd5485` 是旧命名版本（显示名已去掉原名里的「官方」二字）。两条**都不删、都不打回**。\n\n完整事实见站侧更正记录 **`5a8f399c75a2`**。\n\n=== 站侧标注（2026-10-12 · 素材口径；原文在上，一字未改）===\n\n⚠️ **本包含素材**：102 个 / 6,028,468 B，全部在 `.spresources` 容器内部（容器共 218 个文件：音频 21 · 图 81）；⚠️ 另注：单条目 45,278,897 B 超引擎默认 zip 读取上限 32 MB ⇒ 引擎自带的包导入路径会拒收（站点侧读取器无此上限）。\n**授权与用途以原件声明为准**；其中含**从《明日方舟》客户端导出的官方素材**，版权归**鹰角网络 / Yostar**，**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**。\n本站与发布者**不主张**这些素材的任何权利。**未标注才是问题；本标注即告知义务的履行。**",
+  "funcKind": "assets"
 }

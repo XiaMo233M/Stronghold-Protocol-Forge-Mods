@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 20a46941c219 改写而来）。原作者 Stronghold-Protocol（本包作者；对应仓库 jingjiangze/stronghold-ws-compression） · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：（compatNote 为空） 与原件逐字节比对：**内容文件 2 个逐字节相同**（NOTICE-来源说明.md、ws-compression.json）；**内容文件一个都没改**；`pack.json` **逐字节相同**；只在本条里新增 3 个：PROVENANCE.md、css/ws-compression.css、ui/wsCompression.js；原件里有但本条缺 2 个：css\\ws-compression.css、ui\\wsCompression.js。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。",
-  "at": "2026-10-11T12:34:44.638Z",
-  "by": "admin",
-  "displayName": "WS 压缩参考（协商参数 / 档位 / 实测）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "Stronghold-Protocol（本包作者；对应仓库 jingjiangze/stronghold-ws-compression）",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "ba194faf0b4116834202eeec39c3cf9b79c27ddf2ad42c785e4b86afd2650a5b",
-  "originId": "20a46941c219",
-  "originSha256": "692a3c3ae3ef7d3633c9efcf1da610dfd1e61a5fb312944b050d86bc80f40a15"
+  "at": "2026-10-11T12:07:26.480Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

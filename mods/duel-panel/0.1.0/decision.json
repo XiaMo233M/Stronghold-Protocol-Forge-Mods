@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "站侧修订（2026-10-12 复核）：duel-panel：带 client.panels（接入状态面板，实时状态 UI）。 ⇒ 判为 functional：它声明的是会被界面消费的实时状态面。 其余事实不变：pack.json 在 ZIP 根、干净 workshop 根单独装载 errors=0、api \">=1 <2\" 与 MOD_API_VERSION 1 相容；本条的 compatNote 里「19 个内容文件 SAME」是同一段模板的残留，实际逐字节相同的内容文件数见站侧更正记录 5a8f399c75a2。",
-  "at": "2026-10-11T18:44:22.271Z",
-  "by": "admin",
-  "displayName": "争锋频道 · 接入状态面板（只读）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "93fed50181455d1633f7067562f96baadf65f367933c7221e67d6933917c4de2",
-  "originId": "75ffb815b7c7",
-  "originSha256": "03e3026912c17b8fb5e49ba1eae54f5c73b1724e35ebe3ca829d92d613fc7342"
+  "at": "2026-10-11T18:44:22.268Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

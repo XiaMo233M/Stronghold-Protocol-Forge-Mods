@@ -1,0 +1,15 @@
+{
+  "id": "srv-notice",
+  "name": "服务器公告（notices 兼容版）",
+  "version": "2.0.0",
+  "author": "jingjiangze",
+  "license": "CC0-1.0（公告文本与包本体；兼容改写与来源见 PROVENANCE.md）",
+  "description": "把 Stardust 版「服务器公告」包（pack.json 声明 target: stardust、字段名 announcements）改写成本引擎的 notices 表面：公告被并进引擎的 /data/notices.json，与引擎自带公告、其它包的公告合并显示（追加语义，互不覆盖）—— 标题屏「公告」弹窗即可看到，声明了 data: [\"notices\"] 的面板也能读到同一份合并体。纯文本、零代码、零素材；改包里的文本（或删包）即改回去，不影响任何对局内容。",
+  "game": "0.2.x",
+  "api": ">=1 <2",
+  "combat": false,
+  "notices": {
+    "announcement": "notice/announcement.json",
+    "credits": "notice/credits.json"
+  }
+}

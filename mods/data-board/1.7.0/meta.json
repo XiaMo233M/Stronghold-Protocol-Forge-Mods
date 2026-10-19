@@ -1,0 +1,19 @@
+{
+  "id": "379932e0fe3e",
+  "name": "数据显示（data-board）",
+  "packId": "data-board",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-15T15:34:01.426Z",
+  "size": 60579,
+  "sha256": null,
+  "author": "the data-board mod",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "作者原包 **1:1 收录、未改写**：zip 内每个文件与来件逐字节一致（逐文件 sha256 比对，0 差异）；仅把原件套着的顶层目录拍平（站点只读 zip 根的 pack.json，套了顶层目录即 400），包内文件一字未动。\n本机实测引擎 `node tools/workshop-validate.mjs`：**errors=0**，warnings=0。\n包 id `data-board`，版本 1.7.0，作者 \"the data-board mod\"，原作者未在包内标注许可。\n形态：纯客户端包（`client.panels`，槽位 `screen.game.overlay`，wrap `game.hud.topBar`），不改 data/*.json、不需要服务端模块，卸载 = 删文件夹。\n功能类目建议 **utility**：它是对局内的**数据统计看板**（DPS/协防/回合读数），与站上既有 `dmg-board`（伤害看板）同类。\n来源：作者未在包内附来源 URL 与授权说明，本站如实照录、不主张任何权利。",
+  "funcKind": "utility"
+}

@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 2a031cf0f869 改写而来）。原作者 jingjiangze · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：【由投稿 2a031cf0f869 改写】CDN 源选择（最快镜像）· cdn-source v1.0.2 与原件逐字节比对：**内容文件 0 个逐字节相同**（无）；**内容文件一个都没改**；`pack.json` **有改动**；只在本条里新增 6 个：NOTICE-原件-README.md、PROVENANCE.md、README.md、client/cdn.js、pack.json、test/cdn.test.mjs；原件里有但本条缺 4 个：cdn-source/pack.json、cdn-source/README.md、cdn-source/test/cdn.test.mjs、cdn-source/client/cdn.js。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。\n\n站侧补正（2026-10-12）：上一轮补的 reason 里写「`pack.json` 有改动」是**说不准的** —— 本条的原件投稿是**套了一层目录的形态**（`orig.zip` 里是 `cdn-source/` 一棵树，**根目录没有 `pack.json`**）⇒ 不存在\"被改\"这回事，本条的 `pack.json` 是**把目录摊平后新造**的（这正是\"打包形状\"那一类改写）。内容文件：同名逐字节相同 0 个、只新增 6 个（含 `NOTICE-原件-README.md`）。",
-  "at": "2026-10-11T18:43:53.792Z",
-  "by": "admin",
-  "displayName": "CDN 源选择（最快镜像）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "39574e4dd9fafa32a6148b350a530cf016c0ab6785a20ccdf959524108986d88",
-  "originId": "2a031cf0f869",
-  "originSha256": "bcf6f231bb0787f6b0b2c8ef32a431cd6c04b69413268a71363f1eb13c64986f"
+  "at": "2026-10-11T18:43:53.789Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

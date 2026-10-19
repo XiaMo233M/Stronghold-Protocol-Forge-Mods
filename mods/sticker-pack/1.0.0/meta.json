@@ -1,0 +1,19 @@
+{
+  "id": "81bf8a15aced",
+  "name": "房间贴纸包（62 枚社区表情清单）",
+  "packId": "sticker-pack",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:05:45.243Z",
+  "size": 9759,
+  "sha256": null,
+  "author": "逆向自 wei.isomer319.xyz / sp.isomer319.xyz（社区节点 `/community-emotes/`）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "0a4dfe9f6f99",
+  "compatNote": "未改动：逐字节照收原件（sha256 a2caf84564924504ce828158e3a46853ad04d322e81bf43bd3fc9d2cef2cf3d6），仅以兼容包形式重新投递，并由本兼容包取代原投稿 0a4dfe9f6f99（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。注：本包不含任何图片字节，页面上请按原件说明标注。",
+  "note": "未改动：逐字节照收原件（sha256 a2caf84564924504ce828158e3a46853ad04d322e81bf43bd3fc9d2cef2cf3d6），仅以兼容包形式重新投递，并由本兼容包取代原投稿 0a4dfe9f6f99（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。注：本包不含任何图片字节，页面上请按原件说明标注。",
+  "funcKind": "utility"
+}

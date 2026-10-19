@@ -1,0 +1,19 @@
+{
+  "id": "cd9536726a94",
+  "name": "简易通讯机与寻呼模块：优先核心盟约（兼容改写 v1.0.0）",
+  "packId": "comms-pager-boost",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-14T13:36:39.642Z",
+  "size": 10591,
+  "sha256": null,
+  "author": "B站@伊佐那邪_（原投稿 d3699c76ede3）；兼容改写：Mo233",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/yznx09/Stronghold-Protocol-Rhodes-Kazdel-Mod",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "兼容改写投稿，不是原件重传。\n\n原投稿：d3699c76ede3「简易通讯机和寻呼模块加强mod」（作者 B站@伊佐那邪_）\nsha256 = dcfdb0063c4498dd49c3da165f32289a481b257216da76e582d05a8b7dad540d\n\n原件为什么不收：install.mjs + payload/** 安装器形态，会整份覆盖 server/match/builtinMeta.js 与 server/sim/content/items/meta.js 两个引擎文件，触红线①（不许整份覆盖引擎文件）。\n\n改写成什么：zip 根有 pack.json 的标准工坊包，走唯一合法通道 server.meta\n（registers = [\"item:chess_item_2_06_e\",\"item:chess_item_4_01_e\"]，combat: true）。\n规则逐句保留：最优核心盟约优先、不看是否激活、没有核心盟约时在附加盟约里随机挑领头、某盟约没货时落到下一个、官方「等阶不高于当前调度中心等级」上限保留、寻呼模块同一次报价不重复。\n\n已核：本仓 HEAD（0.18.5 / 上游 0.2.6）上 builtinMeta.js 与 items/meta.js 的 sha256 与原件声明的「上游 0.2.4 原版」逐字节相同，shared/bondReward.js 在本仓不存在 ⇒ 这条规则本仓确实还没有，不是重复劳动。\n\n验证：node tools/workshop-validate.mjs 对「zip 解开后的目录」= 0 error(s), 0 warning(s), VALID。\n另跑行为验收（真数据 + 真装载路径 loadWorkshop→loadMetaModules→buildRoomRegistry，并与引擎官方那一份同场对照其 rollChess 取法），10 项全过。\n\n已知差异 1 条（如实报）：抽不到干员时那句提示，引擎内置走 msg()/dn() 多语言，而包模块拿不到 i18n（registry.api 是唯一引擎入口，里头没有 msg/dn），所以固定中文原文。只影响提示文字，不影响发出哪名干员。详见包内 PROVENANCE.md。",
+  "funcKind": "gameplay"
+}

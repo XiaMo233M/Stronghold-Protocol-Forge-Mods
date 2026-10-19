@@ -1,0 +1,19 @@
+{
+  "id": "e2ef235218f9",
+  "name": "七服炸惊模式棋子（184 名干员）",
+  "packId": "s7-zj-chess",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:29:19.712Z",
+  "size": 166399,
+  "sha256": null,
+  "author": "逆向自 59.57.233.35:3000（七服 · 卫戍协议：盟约社区服，app 0.2.3）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "b19dc201635e",
+  "compatNote": "纯数值记录（chess.json 184 条），不含美术或音频字节。`combat: true` 为作者显式声明。独立交叉核验：与另 4 个棋子包 + 克莱门莎系 354 键比对，本包 0 重叠。warnings=769 全是作者侧数据告警（BB_UNKNOWN_KEY 465 / NOT_VISIBLE 184 / NO_DEFAULT 19 / BB_SPELLING 4 / CLASS_OVERRIDE 4 / INIT_OVER_COST 1），无装载层 error。",
+  "note": "纯数值记录（chess.json 184 条），不含美术或音频字节。`combat: true` 为作者显式声明。独立交叉核验：与另 4 个棋子包 + 克莱门莎系 354 键比对，本包 0 重叠。warnings=769 全是作者侧数据告警（BB_UNKNOWN_KEY 465 / NOT_VISIBLE 184 / NO_DEFAULT 19 / BB_SPELLING 4 / CLASS_OVERRIDE 4 / INIT_OVER_COST 1），无装载层 error。",
+  "funcKind": "expansion"
+}

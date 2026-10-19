@@ -1,27 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，（记录里没写 compatOf））。原作者 原件未署名（uncredited original）；本版修改者：Stronghold-Protocol（工坊包通道改写 + api 类型修正） · 兼容改写者 （未填）。改了什么（取自本条 compatNote 首句）：（compatNote 为空） 本条**没有留档原件**（`orig.zip` 不存在）⇒ **无法逐字节比对**（早先手工批准上线、或 `/compat/link` 事后补链的那几条就是这种）。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。",
-  "at": "2026-10-11T10:28:47.082Z",
-  "by": "admin",
-  "displayName": "makoto-yuki 1.0.1",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": null,
-  "author": "原件未署名（uncredited original）；本版修改者：Stronghold-Protocol（工坊包通道改写 + api 类型修正）",
-  "compatAuthor": null,
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": {
-    "by": "admin",
-    "at": "2026-10-11T10:28:47.000Z",
-    "reason": "业主 2026-10-11 逐条人工确认：这两个包经人工核对确认无问题，真素材路径由原作者随包分发，仅个人非商业使用，逐条放行。这是人工确认动作本身，不是放宽档位规则。",
-    "codes": [
-      "GAME_ASSET",
-      "GAME_ASSET",
-      "GAME_ASSET",
-      "GAME_ASSET"
-    ],
-    "text": "维护者人工确认：这些真素材路径经人工核对后**逐条**放行。这是人工确认动作本身，不是放宽档位规则 —— 档位定义与命中明细（flags）一条都没改。"
-  },
-  "rewriteSha256": "3873c55cf62f8ea4f573be5a7d4d2ebc809a6b3e1ba0e0e1e76224d6f565fbe1",
-  "originId": null,
-  "originSha256": null
+  "at": "2026-10-11T10:28:47.036Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

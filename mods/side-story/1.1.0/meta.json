@@ -1,0 +1,19 @@
+{
+  "id": "30348b757389",
+  "name": "故事集（side-story · 兼容改写）",
+  "packId": "side-story",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-15T15:34:02.227Z",
+  "size": 53785,
+  "sha256": null,
+  "author": "the Side Story mod",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "**本站改写收件（有损，已逐条留档）**：改动只有一处 —— 删掉 `client.panels` 里两处 `wraps` 条目：\n· `client.panels[\"briefing\"].wraps` → `briefing.bonds`(replace)、`briefing.banned`(wrap)\n· `client.panels[\"sweep\"].wraps` → `sweep.bonds`(replace)\n原因是引擎「可改写组件」是闭枚举（`shared/workshop.js` 的 `CLIENT_WRAP_COMPONENTS` 只有 `game.bondStrip` / `game.hud.topBar` / `game.shopCard` / `loadout.detail` 四个），这三条不在其中 ⇒ 装载器按 `CLIENT_WRAP_UNKNOWN_COMPONENT` **点名拒收整包**（改写前实测 errors=1）。**不做任何映射** —— 把未知组件名改写成别的合法组件是猜语义，本站不做。\n保留下来的：`client.panels[\"story\"].wraps` → `game.bondStrip`（合法）；三个面板本体与它们的 slot/module/styles/data 一字未动；`server.battle`、`notices`、三个 `ui/*.js`、`ui/badge.css` 一字未动。包内其余 8 个文件逐字节未改，包内新增 `PROVENANCE.md` 如实记录差异。\n**语义变了，如实说明**：原稿第 ③、⑦ 项（简报两栏、S.W.E.E.P. 盟约报告一栏）**不再生效**；第 ② 项（bondStrip 金环徽标）保留；服务端故事集运行时完全不受影响。一句话：本包仍然生效，但少了两处界面改写。\n本机实测引擎 `node tools/workshop-validate.mjs`：改写前 errors=1、**改写后 errors=0**，warnings=0。\n包 id `side-story`，版本 1.1.0（未升版本），作者 \"the Side Story mod\"，许可 **GPL-3.0-or-later**。**声明 `combat: true`**（接管故事集盟约的抽签禁用规则 + 服务端运行时），会改变对局结果，故如实标注。\n功能类目建议 **gameplay**：它改变对局规则（本局禁用策略 + 数据驱动运行时），不是单纯的界面包。\n素材清点：1 个 PNG（`assets/icon_story.png`，26,222 字节）；原稿未声明该素材来源与授权，本站如实照录、不主张权利。",
+  "funcKind": "gameplay"
+}

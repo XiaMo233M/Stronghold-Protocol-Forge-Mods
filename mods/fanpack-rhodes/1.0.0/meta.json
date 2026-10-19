@@ -1,0 +1,19 @@
+{
+  "id": "ceae73a72c49",
+  "name": "罗德岛盟约（兼容改写 · 标准包）",
+  "packId": "fanpack-rhodes",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-14T16:58:10.420Z",
+  "size": 1741975,
+  "sha256": null,
+  "author": "B站@伊佐那邪_",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/yznx09/Stronghold-Protocol-Rhodes-Kazdel-Mod",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "兼容改写投稿，不是原件重传。\n\n原投稿：0ddd1f4b06e3「罗德岛盟约mod v1.1.0」（作者 B站@伊佐那邪_），sha256 = f06041f8a96ddde400034490de81c29d8687d8f091892274588ef94c7987f8c2。\n\n原件为什么不收：一键安装包形态（install.mjs 50,484 B + payload/** 64 个文件），会把 payload 整份覆盖到引擎检出（data/chess.json、data/items.json、data/config.json、server/match/builtinMeta.js、server/sim/content/kits/custom.js、public/i18n/*.json 等）—— 即包改引擎源码。本包不采用、绝不执行 install.mjs。\n\n改写成什么：原件 files.json 的 folders:[\"packs/fanpack-rhodes\"] 说明它自带一个完整内容包 —— 本包就是那一棵树的声明面重打。content = bonds / items / garrisons / chess / tokens / variants；与官方同 id 的 16 条走 overrides；作者自制的盟约与装备图标走 pack.json.bondIcons / itemIcons + 包内 assets/；作者自撰的口径数值（满练度）走 DESIGN §28.51 的 variants.json 通道：training.chess 18 条 + training.tokens 3 条。\n\n顺带修掉的两处非法形状：① 原件 zip 根套了一层 fanpack-rhodes-mod/，本包 zip 根就是 pack.json；② 剥掉 pack.json 的 _doc / type / englishName / app / credits / files{} —— 不在引擎顶层键闭集 PACK_FIELDS 里，留着会 PACK_UNKNOWN_FIELD 整包拒。_doc 在引擎仓与模组仓两仓 grep 均无任何代码读它（只出现在 CHANGELOG.md 的叙述里）⇒ 删掉行为不变，说明文字原样搬进包内 PROVENANCE.md 与 pack.json.description。内容文件里的 _doc / version / roster 与 variants.json 的 shipped 同理剥掉。\n\n口径逐条无损（判据不读生成物，读引擎装载后的数据）：把真包装进引擎自己的装载器 loadData，21 条记录 / 作者写下的 2929 个值，差异 0。node tools/workshop-validate.mjs ⇒ 0 error / 42 warning（全是作者侧 BB_UNKNOWN_KEY 38 + CLASS_OVERRIDE 4）。\n\n如实披露一处：6 条装备的 params 与它们自己的 buffs 对不上（params 是引擎的派生量，shared/itemAuthoring.js 的 effectParams 注释写明「Reproduces params for all 115 shipped items」，作者自己的 payload/tools/build-data.mjs 里有一份逐字相同的实现）。本包按引擎规则重推，先证作者写的每一个键值都还在：c_03_e_a/_b 仅键序，c_04_e_a/_b 补 bond+other_equip，c_05_e_a/_b 补 other_equip —— 没有一个数字被覆盖；且这两个键在记录层没有被任何引擎代码读（p.bond 只在 items/meta.js:178 天师古鼎那一条专属 handler 里被读；p.other_equip 的读取入参是逐 buff 的 {...bb,...bbStr}，不是记录的 params）。战斗数值一律走 buffsOf(rec)，本包一个 buff 都没改。详见包内 PROVENANCE.md。\n\n素材：含从《明日方舟》解包出的官方素材（官方干员头像/立绘、Spine 模型、语音等）。版权归鹰角网络 / Yostar；本包与改写者不主张任何权利，仅供非商业学习与个人娱乐。",
+  "funcKind": "expansion"
+}

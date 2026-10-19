@@ -1,111 +1,19 @@
 {
   "id": "979a39c35fd0",
-  "area": "compat",
-  "kind": "compat",
   "name": "草莓美化包（纯 CSS）",
+  "packId": "strawberry-ui",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-11T18:27:55.304Z",
+  "size": 24498,
+  "sha256": null,
   "author": "Mo233 (Forge 兼容改写); 原作 Leiothrix",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "Mo233 (Forge 兼容改写); 原作 Leiothrix",
+  "homepage": null,
   "compatAuthor": "Mo233",
   "compatAuthorSource": "form",
   "compatOf": "0e55a71ade93",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "0e55a71ade93",
-    "area": "normal",
-    "name": "草莓美化包（部署动画与战斗 UI，待 Forge 兼容）",
-    "sha256": "0eba2ff224bdd67be480ce642ea0046f0c7c722c089db1d4cf4c35c798613751",
-    "sourceUrl": "https://github.com/NeoPecos/Stronghold-Protocol/tree/2cadc618",
-    "author": null,
-    "uploadedAt": "2026-10-11T16:41:30.984Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": "为什么改写：原件（投稿 0e55a71ade93）是补丁型投递，19 个文件里只有 4 个 CSS（站侧更正 2026-10-12：`changes.patch` 的 `+++` 头实测 19 个 = 4 个 CSS + 15 个 JS，原文写 5）、约 17 处 hunk 能用样式表表达；本包只取这一半，重做成纯 CSS 包。原件其余 14 个 JS 文件属引擎侧（Pixi/Spine 部署动作等），Forge 面板接口无法注入，本包不含。包内零图片、零音频字节，只引用引擎既有的 /assets/ui/... 路径。本包必须带一个 1 行空壳 ui/panel.js：引擎对 client.panels 硬性要求 module 与 mount 导出，没有它样式表不会注入。\n（站侧核实补记 2026-10-12：`changes.patch` 全量 **81 处 hunk** —— 4 个 CSS 文件里 **21 处**、15 个 JS 文件里 60 处；原文「约 17 处 hunk 能用样式表表达」是**作者对可转换量的判断**，站侧不改动它，只把实测总数放在这里备查。）",
   "note": "为什么改写：原件（投稿 0e55a71ade93）是补丁型投递，19 个文件里只有 5 个 CSS、约 17 处 hunk 能用样式表表达；本包只取这一半，重做成纯 CSS 包。原件其余 14 个 JS 文件属引擎侧（Pixi/Spine 部署动作等），Forge 面板接口无法注入，本包不含。包内零图片、零音频字节，只引用引擎既有的 /assets/ui/... 路径。本包必须带一个 1 行空壳 ui/panel.js：引擎对 client.panels 硬性要求 module 与 mount 导出，没有它样式表不会注入。",
-  "size": 24498,
-  "sha256": "e3fc66707c0b186630776bf9fdd2a84a7b969e3779fda7478554dd803dd6e46b",
-  "blobName": "979a39c35fd0-兼容版.zip",
-  "uploadedAt": "2026-10-11T18:27:55.304Z",
-  "ip": "127.0.0.1",
-  "entries": 6,
-  "unpackedBytes": 59924,
-  "pack": {
-    "id": "strawberry-ui",
-    "name": "草莓美化包（纯 CSS）",
-    "author": "Mo233 (Forge 兼容改写); 原作 Leiothrix",
-    "license": "GPL-3.0-or-later",
-    "version": "1.0.0",
-    "description": "把投稿 0e55a71ade93「草莓美化包」中能用样式表表达的那一半做成纯 CSS 兼容包：战斗 HUD 顶栏/回合/阶段胶囊/首领条、商店栏与商店卡、资金卡、盟约条、队伍面板、朝向轮、倒地费用盒。只改外观，不改任何对局逻辑，不改协议，不抬 MOD_API_VERSION。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "6 个文件 · 解压后约 0.06 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：草莓美化包（纯 CSS）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 0e55a71ade93 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T02:16:17.408Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "分类（指令③④）：把「说明包」与「真功能 mod」分开。依据=包内 pack.json 是否在 ZIP 根、是否声明实际生效面、以及在引擎 0.16.0 干净 workshop 根单独装载的 errors 数（见站侧留档）。functional=装上即生效且装载 errors=0；documentation=说明包/参考/补丁，装上不会启用任何功能；unknown=安装器形态（无 pack.json 在 ZIP 根），不放进真功能区。"
-    },
-    {
-      "at": "2026-10-12T05:42:46.010Z",
-      "by": "admin",
-      "changed": {
-        "decision.reason": "（原 700 字）"
-      },
-      "to": {
-        "decision.reason": "（追加一段站侧核实：站侧补正（2026-10-12）：上一轮补的 reason 里写「`pack.json` 有改动」是**说不准的** —…）"
-      },
-      "why": "业主令 27：那 9 条「pack.json 与 orig.zip 不同」逐条分类。判据「声明了 ⇒ 正当；没声明 ⇒ 在 reason 里如实注明」。本条属**未声明**（或上一轮那句\"pack.json 有改动\"说不准），按只增把实测事实补进 reason；**不改包件、不打回、不删**。附记：站点 compatPublishGate 比的是**上传时快照 meta.pack**、不是 orig.zip ⇒ 这类不一致**不一定是违规**。"
-    },
-    {
-      "at": "2026-10-12T05:42:46.016Z",
-      "by": "admin",
-      "changed": {
-        "compatNote": "（…19 个文件里只有 5 个 CSS…）"
-      },
-      "to": {
-        "compatNote": "（…19 个文件里只有 4 个 CSS（站侧更正）… + 实测 hunk 总数补记）"
-      },
-      "why": "业主令 28：扫 compatNote 里可核的断言，**只改事实上错的**、措辞风格不动。本条「5 个 CSS」与实测不符（`+++` 头 19 个 = 4 CSS + 15 JS）⇒ 改真值 + 留痕；「约 17 处 hunk」是作者对\"能转换成样式表的量\"的判断，**不改**，只把实测（全量 81、CSS 子集 21）补记备查。"
-    }
-  ]
+  "funcKind": "utility"
 }

@@ -1,0 +1,19 @@
+{
+  "id": "de2766f2ccf9",
+  "name": "开发者功能扩展（dev-ext）",
+  "packId": "dev-ext",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-15T15:34:01.637Z",
+  "size": 17005,
+  "sha256": null,
+  "author": "开发者功能扩展 mod",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "作者原包 **1:1 收录、未改写**：zip 内每个文件与来件逐字节一致（逐文件 sha256 比对，0 差异）；仅把顶层目录拍平（站点只读 zip 根的 pack.json）。\n本机实测引擎 `node tools/workshop-validate.mjs`：**errors=0**，warnings=1（`UNUSED`：waves.json 的空波次表没有任何模式/回合引用它 —— 与该包自述一致，出怪由局内开发者面板现场添加）。\n包 id `dev-ext`，版本 1.0.0，作者 \"开发者功能扩展 mod\"，原作者未在包内标注许可。\n形态：`content: [\"stages\",\"waves\"]` + `server.battle` + 只读诊断浮层；**声明 `combat: true`** —— 它新增试验场关卡，属会影响对局内容的一类，故如实标注；不改官方 data/*.json。\n功能类目建议 **utility**：它是**开发/测试工具**（大厅「全量模拟」用的试验场关卡 dev_full_sim + 左下角只读诊断浮层），不是给玩家加内容的拓展包；站上同类工具包（dmg-board / capacity-panel / net-panel / perf-lite / healthz-ext）全部落 utility。若业主认为「新增关卡」应算拓展包，一次 `/funkind` 即可改。\n来源：作者未在包内附来源 URL 与授权说明，本站如实照录、不主张任何权利。",
+  "funcKind": "utility"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "5f43d46a3b37",
+  "name": "克莱门莎入盟约（阿戈尔/迅捷/不屈）",
+  "packId": "clemntia-bonds",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:38:50.919Z",
+  "size": 2721,
+  "sha256": null,
+  "author": "逆向自 weishuxieyi.icu（卫戍协议：盟约同人服）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "5376c23a06e9",
+  "compatNote": "本条声明 overrides: bonds:egirShip / bonds:swiftShip / bonds:indomShip。引擎语义本轮已读源码核实：**覆盖官方记录必须显式声明**（shared/workshop.js:14-16、:3251-3254 OFFICIAL_ID_COLLISION），且覆盖是**字段级补丁**（同文件 mergeRecord :2990；docs/design/mod-layer.md §A2「数组整块替换，其余逐字段递归合并」）⇒ 本包只给 members / visibleMembers 两个数组（官方 9 人 + chess_char_4_27_a = 10 人），其余 34 个字段由官方记录继承 —— 这正是引擎设计的正规形态，不是整份覆盖引擎文件。⚠ 与 clemnt-addition 2.0.0（ba3b3d908414）对**同一批官方 id** 声明覆盖：引擎规则是「两包覆盖同一条既有记录 ⇒ 包 id 小者胜 + 点名报告」（mod-layer.md:188、workshop.js:3251-3254）⇒ 两包同装时 clemnt-addition 生效、本条被点名报告；实测两者的 members/visibleMembers 数组**完全相同**，且 clemnt-addition 那份记录除这两个数组外与官方逐字段一致 ⇒ 两者结果等价。",
+  "note": "本条声明 overrides: bonds:egirShip / bonds:swiftShip / bonds:indomShip。引擎语义本轮已读源码核实：**覆盖官方记录必须显式声明**（shared/workshop.js:14-16、:3251-3254 OFFICIAL_ID_COLLISION），且覆盖是**字段级补丁**（同文件 mergeRecord :2990；docs/design/mod-layer.md §A2「数组整块替换，其余逐字段递归合并」）⇒ 本包只给 members / visibleMembers 两个数组（官方 9 人 + chess_char_4_27_a = 10 人），其余 34 个字段由官方记录继承 —— 这正是引擎设计的正规形态，不是整份覆盖引擎文件。⚠ 与 clemnt-addition 2.0.0（ba3b3d908414）对**同一批官方 id** 声明覆盖：引擎规则是「两包覆盖同一条既有记录 ⇒ 包 id 小者胜 + 点名报告」（mod-layer.md:188、workshop.js:3251-3254）⇒ 两包同装时 clemnt-addition 生效、本条被点名报告；实测两者的 members/visibleMembers 数组**完全相同**，且 clemnt-addition 那份记录除这两个数组外与官方逐字段一致 ⇒ 两者结果等价。",
+  "funcKind": "gameplay"
+}

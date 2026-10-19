@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 da2d8f2c3818 改写而来）。原作者 jingjiangze · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：（compatNote 为空） 与原件逐字节比对：**内容文件 0 个逐字节相同**（无）；**内容文件一个都没改**；`pack.json` **逐字节相同**；只在本条里新增 1 个：PROVENANCE.md。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。",
-  "at": "2026-10-11T12:35:02.835Z",
-  "by": "admin",
-  "displayName": "夜间高对比主题",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "2af54e3a83c9144bfbcb01898689a768d720d9a87e2f7db47ae1c3a0911d9e43",
-  "originId": "da2d8f2c3818",
-  "originSha256": "82cee309b7ff5036b22a631c1ccdf06b76cda6b571d31dff2b12599629f69a02"
+  "at": "2026-10-11T12:35:02.834Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

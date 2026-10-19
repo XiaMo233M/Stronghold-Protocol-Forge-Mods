@@ -1,0 +1,19 @@
+{
+  "id": "d2db0e73965f",
+  "name": "节点负载读数（/healthz 加 node 节 + 只读指标端点）",
+  "packId": "node-metrics-healthz",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:05:19.501Z",
+  "size": 6447,
+  "sha256": null,
+  "author": "逆向自 wei.isomer319.xyz / sp.isomer319.xyz（社区节点）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "b10de1628b4f",
+  "compatNote": "未改动：逐字节照收原件（sha256 6c4446fd2301426cc1684bfaef57333f798e45f2900f169823717d3228a00a3d），仅以兼容包形式重新投递，并由本兼容包取代原投稿 b10de1628b4f（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平，未套目录）；无 overrides/WRAPPED；pack.json 的 api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "note": "未改动：逐字节照收原件（sha256 6c4446fd2301426cc1684bfaef57333f798e45f2900f169823717d3228a00a3d），仅以兼容包形式重新投递，并由本兼容包取代原投稿 b10de1628b4f（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平，未套目录）；无 overrides/WRAPPED；pack.json 的 api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "funcKind": "utility"
+}

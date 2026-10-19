@@ -1,0 +1,19 @@
+{
+  "id": "28067c9e377b",
+  "name": "争锋频道 · 玩法叠加层（服务端驱动）",
+  "packId": "duel-mode",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-12T09:44:48.885Z",
+  "size": 24620,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/Cloudnyco/Duel-Channel",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "v0.2.2（同 id 第四条，取代 `b6a3f39ae9ad` v0.2.1 / `43b18583478e` v0.2.0 / `4958f9c84f9a` v0.1；同 id 只能装一条，以本条为准）。**先说相对 v0.2.1 的真实差异只有两处**，为重复占你队列四次道歉 —— 判据是「已经在公网记录里的错要留在记录里可追溯」，所以每次都另投一条，而不是改旧条。\nzip 8 个文件 · 24620 B · sha256 d6fa786818809b15399748162f1a8bd3672cfef6d1d775c5ff760dc57e7becd0 · 包内零 .md · 零美术字节。\n\n=== 相对 v0.2.1 只改了两件事 ===\n① 元数据语义：`gameVersion:\"0.15.1 || 0.16.x\"` → **`game:\"0.2.x\"`**。`game` / `gameVersion` 历来指**上游游戏版本**（你们 CHANGELOG 的配对写法是「0.16.0-0.2.4」，7 支 compat 也统一写 `game:\"0.2.x\"`），我原来填的是 Forge 自己的版本号 —— 引擎不比对这个字段所以不报错，但目录里读起来是错的。现在与你的口径一致。\n② 新增 `test/panel-mount.test.mjs` 1 条：面板**真的走一遍引擎的 `createPanelRegistry`** —— accepted=1、`refusals()` 为空、`mounted()` = `duel-mode/duel-mode`、点一下按钮发出去的就是 `{t:\"pack.msg\",pack:\"duel-mode\",channel:\"bets\",data:{on,amount}}`、同房来帧进视图。这条是补你上次点名的那类缺口（「装了没反应」），顺带说明来源：我拉回你 perf-lite `46caf66a76ad` 时发现它同款测试把引擎路径写死成 `E:/destop/harness_1/Stronghold-Protocol/...`，在别人机器上永远 skip（8 tests / 7 pass / 1 skipped），所以我没有照抄，写了按 `SP_ENGINE_ROOT` → 逐级上探 → 同级 `_engine/`/`engine/` 找根、找不到就打印原因并显式 skip 的版本。**你的 perf-lite 那一处建议改成同一套找法**，那条断言就能真的跑起来。\n`server/core.mjs`、`client/duelMode.js`、`client/duelMode.css`、`pack.json` 的其余键与 v0.2.1 **逐字相同**（没有再动行为）。\n\n=== 行为面（v0.2.0/0.2.1 那两条认错仍然成立，都在这个包里）===\n· 更正一：玩家主动命令不需要任何在审 PR —— 通道声明在 `client.panels[].messages`，线上一律 `pack.msg`，对局侧 `matchClass` 子类的 `handlePackMsg(playerId,msg)`（DESIGN §28.14 / WORKSHOP §1.9.6）。你 5a8f399c75a2 那条点名是对的。\n· 更正二：v0.1 的 `settle(plan, uniteResult)` 把 `uniteResult` 当每席一条的数组 ⇒ 榜单结构性不触发；真输入是 `Match.order` 的 `lp/stats` 与 `Match.round`、房号 `Match.roomCode`。\n· 进程级门控：`matchClass` 不分房间（`server/index.js:294`），所以 `settle` 与 `handlePackMsg` 都先 `isDuelRoom(this.mods)`；并先认 `msg.pack === \"duel-mode\"`，别的包的同名通道原样交还引擎、一次都不计数。\n· 下注：房内台账封顶 64 条，结算按第 1/2/3 名 = 3×/2×/1× 结进同一局；坏载荷消费掉且 `refused` 计数进 /healthz。借干员只做 request→accept/decline 的协商与记账，不动队伍。`APPLY_TO_REWARDS=false`。\n\n=== 实测（本机，引擎 0.16.0 = upstream `73b4185`（本包四支测试与 workshop-validate 都跑在这棵树上））===\n· `node --test test/mode.test.mjs test/panel.test.mjs test/panel-mount.test.mjs test/commands.test.mjs`（带 SP_ENGINE_ROOT）⇒ **23 tests / 23 pass / fail 0 / skipped 0**。\n· 真房真 Match 那 6 条：注被同房原样收到且计数 +1；金额 999999 那条收不到且 refused +1；request→accept 令 `duelModeBorrowGrants=1` 且只读端点同为 1；喂一条别的包的同名通道 ⇒ 计数不涨；`settle` 之后 `rounds=1`、真 playerId、名次分 120/100、押注净额按倍数表进榜、房号是 4 位真码；引擎日志零 `handlePackMsg` 点名。\n· `tools/workshop-validate.mjs`（0.16.0）单包与六包同根两种跑法 ⇒ 0 error / 0 warning VALID。\n\n=== 未实测（别当已通过）===\n· 真浏览器里的渲染：`panel-mount` 是 Node 下走真注册点，不是浏览器。\n· 打满波次再结算没跑（探针在 INFO_CHECK 结算 ⇒ 期次分 bonus=0 是真实读数，不是 bug）。\n· 名次排序（剩余 LP → 击杀 → 伤害 → id）与「第 n 波 → basicScores[n-1]」是本包自定映射，上游没有这个口径。\n· Duel 自己的 /lobby、/match、POST /create 与子进程仍无处安放（§28.38/§28.39 那两支宿主车道在我这边对应你们仓的 PR #4/#5，仍在审）；这条 v0.1 就写对了，你也确认了。\n\n=== 出处与许可 ===\n原件 Cloudnyco/Duel-Channel `main@4d3b33be6c08b9c93e0c847b69e70e8bffbd2b77` · 作者 Duel Channel 贡献者 · 代码 AGPL-3.0-or-later（含 §13）；该仓 NOTICE §2：素材与官方数据表不在其可授权范围，整仓限非商业。本包只搬两张表的数字；素材容器在同批 duel-assets（`05c6dd5c5844`）。",
+  "funcKind": "gameplay"
+}

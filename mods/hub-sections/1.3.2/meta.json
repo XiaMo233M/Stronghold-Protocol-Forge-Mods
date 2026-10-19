@@ -1,0 +1,19 @@
+{
+  "id": "0ed3d03812fc",
+  "name": "大厅栏位开关（hub-sections）",
+  "packId": "hub-sections",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-15T15:34:01.553Z",
+  "size": 12069,
+  "sha256": null,
+  "author": "卫戍协议同人内容包 (fanpack)",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "作者原包 **1:1 收录、未改写**：zip 内每个文件与来件逐字节一致（逐文件 sha256 比对，0 差异）；仅把顶层目录拍平（站点只读 zip 根的 pack.json）。原件 zip 本身已是扁平、且 pack.json 的 id 就是 `hub-sections`，所以包目录名按 id 取 `hub-sections`（装载器要求目录名 = pack.id，否则 `PACK_ID_MISMATCH`）。\n本机实测引擎 `node tools/workshop-validate.mjs`：**errors=0**，warnings=0。\n包 id `hub-sections`，版本 1.3.2，作者 \"卫戍协议同人内容包 (fanpack)\"，许可 **CC-BY-NC-SA-4.0**。\n形态：纯客户端包（`client.panels`，槽位 `root.overlays`），隐藏用 CSS（注入样式表 + html 上的 data-hub-* 属性），不覆盖任何引擎文件、不改 data/*.json、不需要服务端模块；设置只存玩家本机 localStorage。\n功能类目建议 **utility**：大厅界面开关工具。\n来源：作者未在包内附来源 URL；非商业同人作品。",
+  "funcKind": "utility"
+}

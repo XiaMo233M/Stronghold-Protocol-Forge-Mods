@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 7e037cc96cb5 改写而来）。原作者 jingjiangze · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：（compatNote 为空） 与原件逐字节比对：**内容文件 4 个逐字节相同**（NOTICE-来源说明.md、README.md、notice/announcement.json、notice/credits.json）；**内容文件一个都没改**；`pack.json` **逐字节相同**；只在本条里新增 1 个：PROVENANCE.md。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。",
-  "at": "2026-10-11T13:24:47.974Z",
-  "by": "admin",
-  "displayName": "服务器公告板（notices）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "6a25ab1013e10924121a95a33b7c923fff282aa5dae4fc3a7e82efc35707c517",
-  "originId": "7e037cc96cb5",
-  "originSha256": "c4727d492d1d8e9ee47e28b731d29d08009df3f24698866039b820597da5704c"
+  "at": "2026-10-11T13:24:47.972Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

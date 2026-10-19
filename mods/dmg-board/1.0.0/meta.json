@@ -1,89 +1,19 @@
 {
   "id": "8d7af46dce00",
-  "area": "compat",
-  "kind": "compat",
   "name": "伤害看板（结算页）",
+  "packId": "dmg-board",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-11T12:34:52.569Z",
+  "size": 33198,
+  "sha256": null,
   "author": "jingjiangze",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "jingjiangze",
+  "homepage": null,
   "compatAuthor": "Mo233",
   "compatAuthorSource": "form",
   "compatOf": "760d36fca90d",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "760d36fca90d",
-    "area": "normal",
-    "name": "伤害看板（结算页）",
-    "sha256": "d5e0896e694db54fc2b6fd56d390c32ff9a128ba9cc67ed72130979e30c0ac17",
-    "sourceUrl": "https://github.com/jingjiangze/Stronghold-Protocol-Forge",
-    "author": null,
-    "uploadedAt": "2026-10-11T06:38:05.357Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": null,
   "note": null,
-  "size": 33198,
-  "sha256": "d997e95a45160540f62e5482c90d602ce6431588ad6cf1e8c50721ac06699e2c",
-  "blobName": "8d7af46dce00-兼容版.zip",
-  "uploadedAt": "2026-10-11T12:34:52.569Z",
-  "ip": "127.0.0.1",
-  "entries": 6,
-  "unpackedBytes": 32558,
-  "pack": {
-    "id": "dmg-board",
-    "name": "伤害看板（结算页）",
-    "author": "jingjiangze",
-    "license": "GPL-3.0-or-later",
-    "version": "1.0.0",
-    "description": "结算页底部的伤害看板：把引擎自己的对局结算（m.result）里每人一行的权威统计按造成伤害排成一张表——造成伤害、领袖伤害、击倒敌人、未击倒、损失生命、晋升次数等。只读引擎送来的数、零引擎改动、不重算不猜测；没有数据 / 不在结算屏时整块不渲染。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "6 个文件 · 解压后约 0.03 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：伤害看板（结算页）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 760d36fca90d 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T02:16:17.403Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "分类（指令③④）：把「说明包」与「真功能 mod」分开。依据=包内 pack.json 是否在 ZIP 根、是否声明实际生效面、以及在引擎 0.16.0 干净 workshop 根单独装载的 errors 数（见站侧留档）。functional=装上即生效且装载 errors=0；documentation=说明包/参考/补丁，装上不会启用任何功能；unknown=安装器形态（无 pack.json 在 ZIP 根），不放进真功能区。"
-    }
-  ]
+  "funcKind": "utility"
 }

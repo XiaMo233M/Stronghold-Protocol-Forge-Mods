@@ -1,100 +1,19 @@
 {
   "id": "e9de2c45e249",
-  "area": "compat",
-  "kind": "compat",
   "name": "CDN 源选择（最快镜像）",
+  "packId": "cdn-source",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-11T18:43:53.789Z",
+  "size": 10276,
+  "sha256": null,
   "author": "jingjiangze",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "jingjiangze",
+  "homepage": null,
   "compatAuthor": "Mo233",
   "compatAuthorSource": "form",
   "compatOf": "2a031cf0f869",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "2a031cf0f869",
-    "area": "normal",
-    "name": "CDN 源选择（最快镜像）v1.0.2",
-    "sha256": "bcf6f231bb0787f6b0b2c8ef32a431cd6c04b69413268a71363f1eb13c64986f",
-    "sourceUrl": "https://downcdn.jiangjiangze.icu/mirror-selection",
-    "author": null,
-    "uploadedAt": "2026-10-11T18:11:03.981Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": "【由投稿 2a031cf0f869 改写】CDN 源选择（最快镜像）· cdn-source v1.0.2\n\n删掉两处「写了但引擎不认」的声明（原样保留客户端代码、README、自带测试，逐字节未改）：\n① client.panels[0].data: [] —— 空数组不是有效声明，引擎判 CLIENT_BAD_PANEL_DATA（shared/workshop.js:619-620）拒绝整包，面板根本挂不上。该包本就不读这几张表，故删键而不是填表名。\n② client.requires: [\"fetch\",\"PerformanceObserver\"] —— 值域是闭集 {serviceWorker, cacheStorage, webCrypto}（shared/workshop.js:364），写了闭集外的值判 CLIENT_UNKNOWN_REQUIRE（:700-701）。这两条是任何浏览器都有的 Web API，不是本中间层知道的能力开关，属误归类；删掉不构成静默失败，面板照常工作。\n③ 打包形状：原件 zip 套了一层顶层目录，改为一包一层「包内文件直接放在 zip 根」，pack.json 就在根。\n\n原作者署名一字未动（jingjiangze，仍取自包内 pack.json）。",
   "note": "【由投稿 2a031cf0f869 改写】CDN 源选择（最快镜像）· cdn-source v1.0.2\n\n删掉两处「写了但引擎不认」的声明（原样保留客户端代码、README、自带测试，逐字节未改）：\n① client.panels[0].data: [] —— 空数组不是有效声明，引擎判 CLIENT_BAD_PANEL_DATA（shared/workshop.js:619-620）拒绝整包，面板根本挂不上。该包本就不读这几张表，故删键而不是填表名。\n② client.requires: [\"fetch\",\"PerformanceObserver\"] —— 值域是闭集 {serviceWorker, cacheStorage, webCrypto}（shared/workshop.js:364），写了闭集外的值判 CLIENT_UNKNOWN_REQUIRE（:700-701）。这两条是任何浏览器都有的 Web API，不是本中间层知道的能力开关，属误归类；删掉不构成静默失败，面板照常工作。\n③ 打包形状：原件 zip 套了一层顶层目录，改为一包一层「包内文件直接放在 zip 根」，pack.json 就在根。\n\n原作者署名一字未动（jingjiangze，仍取自包内 pack.json）。",
-  "size": 10276,
-  "sha256": "39574e4dd9fafa32a6148b350a530cf016c0ab6785a20ccdf959524108986d88",
-  "blobName": "e9de2c45e249-兼容版.zip",
-  "uploadedAt": "2026-10-11T18:43:53.789Z",
-  "ip": "127.0.0.1",
-  "entries": 6,
-  "unpackedBytes": 16110,
-  "pack": {
-    "id": "cdn-source",
-    "name": "CDN 源选择（最快镜像）",
-    "author": "jingjiangze",
-    "license": "GPL-3.0-or-later",
-    "version": "1.0.2",
-    "description": "读取发布的源排名（cdn/v1/rank.json + mirrors.json），在根浮层里列出各素材镜像的实测延迟，可现场测速并把偏好存进本机；排名靠前的源优先。说明：真正改写素材清单的加载源需要引擎侧一个 sources(ctx) 表面（同 0.13.0 的 appearance 提供者），本包先做「排名 + 测速 + 偏好」，提案见 README。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "6 个文件 · 解压后约 0.02 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：CDN 源选择（最快镜像）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 2a031cf0f869 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T02:16:17.419Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "分类（指令③④）：把「说明包」与「真功能 mod」分开。依据=包内 pack.json 是否在 ZIP 根、是否声明实际生效面、以及在引擎 0.16.0 干净 workshop 根单独装载的 errors 数（见站侧留档）。functional=装上即生效且装载 errors=0；documentation=说明包/参考/补丁，装上不会启用任何功能；unknown=安装器形态（无 pack.json 在 ZIP 根），不放进真功能区。"
-    },
-    {
-      "at": "2026-10-12T05:42:46.014Z",
-      "by": "admin",
-      "changed": {
-        "decision.reason": "（原 559 字）"
-      },
-      "to": {
-        "decision.reason": "（追加一段站侧核实：站侧补正（2026-10-12）：上一轮补的 reason 里写「`pack.json` 有改动」是**说不准的** —…）"
-      },
-      "why": "业主令 27：那 9 条「pack.json 与 orig.zip 不同」逐条分类。判据「声明了 ⇒ 正当；没声明 ⇒ 在 reason 里如实注明」。本条属**未声明**（或上一轮那句\"pack.json 有改动\"说不准），按只增把实测事实补进 reason；**不改包件、不打回、不删**。附记：站点 compatPublishGate 比的是**上传时快照 meta.pack**、不是 orig.zip ⇒ 这类不一致**不一定是违规**。"
-    }
-  ]
+  "funcKind": "utility"
 }

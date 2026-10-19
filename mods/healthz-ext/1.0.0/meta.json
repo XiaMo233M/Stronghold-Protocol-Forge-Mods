@@ -1,47 +1,19 @@
 {
   "id": "256e45e4e588",
-  "area": "normal",
   "name": "健康与构建只读接口（/healthz 扩展 + /client-build 字段契约）",
-  "note": "# NOTICE-来源说明\n\n## 原件名称与来源\n\n- **原件**：`jingjiangze/stronghold-server`（fork of `sganggs/Stronghold-Protocol`）的 **R5** 改动：\n  `/healthz` 增加 combat / trial / performance 三段诊断字段，并新增 `GET /client-build`。\n  仓库：<https://github.com/jingjiangze/stronghold-server>（2026-10-11 快照）。\n  落点文件（只读引用，未改动）：`server/http/routes.js`（`healthReport()` / `createRequestHandler`）、\n  `server/http/buildTag.js`、`server/healthMetrics.js`、`server/lobby.js`（`stats()`）。\n- 本包由**原作者本人**制作，不是第三方改写：把原件的**字段契约**搬进管理器（Forge）能表达的只读形态。\n\n## 原作者\n\njingjiangze（本人）。\n\n## 原件许可\n\nGPL-3.0-or-later（与 fork / 管理器同族）。\n\n## 改了什么\n\n**没有改任何原件字节。** 包里是**新写**的两份契约 JSON、一块面板与一张样式表：\n\n| 件 | 落点 | 说明 |\n|---|---|---|\n| `data/healthz-ext.json` | `routes` 声明的 `/mod/healthz-ext.json` | `/healthz` 扩展字段的契约 + 样例（本包自写） |\n| `data/client-build.json` | `routes` 声明的 `/mod/client-build.json` | `/client-build` 字段契约 + 样例（本包自写） |\n| `ui/panel.js` | `client.panels` 的 `root.guide` | 把两条路由画成表（只读；不发消息） |\n| `ui/panel.css` | 同上 | 面板样式 |\n| `README.md` | — | 用法与边界 |\n\n**它真的做了什么（这一半是功能）**：本包声明了两条**真的能被 GET** 的工坊只读路由\n（WORKSHOP §1.9.2：只 GET / HEAD、精确匹配、只服务包内 `.json`），面板读得到、画得出。装到\n带工坊支持的引擎上，`GET /mod/healthz-ext.json` 与 `GET /mod/client-build.json` 会回这两份契约。\n\n## 做不了的部分（**这一节是重点**）\n\n**实时读数不在包里，也做不成包。**\n\n- 工坊包的 `routes` 通道**只能服务包内静态 `.json`**（`.js` / `.html` 在读盘前就被拒），它拿不到\n  `process` / `perf_hooks` / 监听器 / socket 计数 —— 所以本包的两条路由回的是**字段契约与样例值**，\n  **不是**这台服务器此刻的真实读数。\n- 真正的 `/healthz`（含 combat / trial / performance 三段）与 `/client-build` 是**服务器自己的 HTTP 路由**\n  （`server/http/routes.js`，在静态面之前被处理），工坊包既不能收编、也不能占用既有路径。\n- 面板的注入面（WORKSHOP §1.9.3）只有 `host` 与 `net.on('<S2C>')` 等，没有 HTTP 客户端；面板也不可能\n  去 `fetch('/healthz')` 绕过——那样会把监控读数变成客户端行为，且与「只读契约」的定位不符。\n\n因此：**本包是服务器原生 `/healthz` 与 `/client-build` 的等价只读接口与字段说明书，不是实时遥测。**\n要看真读数，请部署带该功能的服务器（fork 及其部署树）后直接 `GET /healthz` 与 `/client-build`。\n\n## 自带素材来源\n\n**没有任何素材。** 没有图标、音频、字体、立绘、spine、解包数据。\n\n## 许可\n\n- 本包 **GPL-3.0-or-later**（JSON 与面板代码均为本包自写）。\n- 《明日方舟》及其素材版权归鹰角网络 / Yostar 所有；本包不含、也不主张任何此类素材。",
-  "homepage": null,
-  "size": 12738,
-  "sha256": "c5da20b17b186c6c5429f278262337165ec09f21e93bc2c57b6eeb10d3a0b20a",
-  "uploadedAt": "2026-10-11T17:11:06.472Z",
-  "ip": "119.181.30.24",
-  "receipt": "422ecbade8327eac7ce66767e6dd4c1b",
-  "entries": 8,
-  "unpackedBytes": 23289,
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "8 个文件 · 解压后约 0.02 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：健康与构建只读接口（/healthz 扩展 + /client-build 字段契约）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    }
-  ],
-  "suspected": false,
-  "suspectedReasons": [],
+  "packId": "healthz-ext",
   "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T02:16:17.425Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "分类（指令③④）：把「说明包」与「真功能 mod」分开。依据=包内 pack.json 是否在 ZIP 根、是否声明实际生效面、以及在引擎 0.16.0 干净 workshop 根单独装载的 errors 数（见站侧留档）。functional=装上即生效且装载 errors=0；documentation=说明包/参考/补丁，装上不会启用任何功能；unknown=安装器形态（无 pack.json 在 ZIP 根），不放进真功能区。"
-    }
-  ]
+  "kind": "submission",
+  "uploadedAt": "2026-10-11T17:11:06.472Z",
+  "size": 12738,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "# NOTICE-来源说明\n\n## 原件名称与来源\n\n- **原件**：`jingjiangze/stronghold-server`（fork of `sganggs/Stronghold-Protocol`）的 **R5** 改动：\n  `/healthz` 增加 combat / trial / performance 三段诊断字段，并新增 `GET /client-build`。\n  仓库：<https://github.com/jingjiangze/stronghold-server>（2026-10-11 快照）。\n  落点文件（只读引用，未改动）：`server/http/routes.js`（`healthReport()` / `createRequestHandler`）、\n  `server/http/buildTag.js`、`server/healthMetrics.js`、`server/lobby.js`（`stats()`）。\n- 本包由**原作者本人**制作，不是第三方改写：把原件的**字段契约**搬进管理器（Forge）能表达的只读形态。\n\n## 原作者\n\njingjiangze（本人）。\n\n## 原件许可\n\nGPL-3.0-or-later（与 fork / 管理器同族）。\n\n## 改了什么\n\n**没有改任何原件字节。** 包里是**新写**的两份契约 JSON、一块面板与一张样式表：\n\n| 件 | 落点 | 说明 |\n|---|---|---|\n| `data/healthz-ext.json` | `routes` 声明的 `/mod/healthz-ext.json` | `/healthz` 扩展字段的契约 + 样例（本包自写） |\n| `data/client-build.json` | `routes` 声明的 `/mod/client-build.json` | `/client-build` 字段契约 + 样例（本包自写） |\n| `ui/panel.js` | `client.panels` 的 `root.guide` | 把两条路由画成表（只读；不发消息） |\n| `ui/panel.css` | 同上 | 面板样式 |\n| `README.md` | — | 用法与边界 |\n\n**它真的做了什么（这一半是功能）**：本包声明了两条**真的能被 GET** 的工坊只读路由\n（WORKSHOP §1.9.2：只 GET / HEAD、精确匹配、只服务包内 `.json`），面板读得到、画得出。装到\n带工坊支持的引擎上，`GET /mod/healthz-ext.json` 与 `GET /mod/client-build.json` 会回这两份契约。\n\n## 做不了的部分（**这一节是重点**）\n\n**实时读数不在包里，也做不成包。**\n\n- 工坊包的 `routes` 通道**只能服务包内静态 `.json`**（`.js` / `.html` 在读盘前就被拒），它拿不到\n  `process` / `perf_hooks` / 监听器 / socket 计数 —— 所以本包的两条路由回的是**字段契约与样例值**，\n  **不是**这台服务器此刻的真实读数。\n- 真正的 `/healthz`（含 combat / trial / performance 三段）与 `/client-build` 是**服务器自己的 HTTP 路由**\n  （`server/http/routes.js`，在静态面之前被处理），工坊包既不能收编、也不能占用既有路径。\n- 面板的注入面（WORKSHOP §1.9.3）只有 `host` 与 `net.on('<S2C>')` 等，没有 HTTP 客户端；面板也不可能\n  去 `fetch('/healthz')` 绕过——那样会把监控读数变成客户端行为，且与「只读契约」的定位不符。\n\n因此：**本包是服务器原生 `/healthz` 与 `/client-build` 的等价只读接口与字段说明书，不是实时遥测。**\n要看真读数，请部署带该功能的服务器（fork 及其部署树）后直接 `GET /healthz` 与 `/client-build`。\n\n## 自带素材来源\n\n**没有任何素材。** 没有图标、音频、字体、立绘、spine、解包数据。\n\n## 许可\n\n- 本包 **GPL-3.0-or-later**（JSON 与面板代码均为本包自写）。\n- 《明日方舟》及其素材版权归鹰角网络 / Yostar 所有；本包不含、也不主张任何此类素材。",
+  "funcKind": "utility"
 }

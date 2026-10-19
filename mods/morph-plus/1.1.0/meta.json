@@ -1,96 +1,19 @@
 {
   "id": "cc00536ec10d",
-  "area": "compat",
-  "kind": "compat",
   "name": "变形同构体加强mod",
+  "packId": "morph-plus",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-12T08:30:47.099Z",
+  "size": 4412,
+  "sha256": null,
   "author": "B站@伊佐那邪_",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "B站@伊佐那邪_",
+  "homepage": null,
   "compatAuthor": "Stronghold-Protocol",
   "compatAuthorSource": "form",
   "compatOf": "19ea65909cf6",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "19ea65909cf6",
-    "area": "normal",
-    "name": "变形同构体加强mod",
-    "sha256": "9cd376754e43ea42d6c6781a66d26de9fec5910e410b2f55f801727939adc33f",
-    "sourceUrl": null,
-    "author": null,
-    "uploadedAt": "2026-10-11T17:01:17.087Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": "兼容改写：**只声明引擎自己的行为开关，不含任何覆盖** —— `behaviour.morphPairing = plus`。\n⚠️ **会影响对局结果**（包内 `combat: true`）：变形同构体的配对规则加强 —— 一件装备就能配对，只取装备行最左边那一件；官方缺省档下占一个装备位且每件 `giveBondId` 装备都授予。\n原作者来源：投稿 `19ea65909cf6` 的备注栏自述「作者B站@伊佐那邪_」；原件未声明 author / license。\n**不含游戏素材**：本包只有 4 个文本文件 ⇒ 素材标注那条义务**不触发**。",
   "note": "兼容改写：**只声明引擎自己的行为开关，不含任何覆盖** —— `behaviour.morphPairing = plus`。\n⚠️ **会影响对局结果**（包内 `combat: true`）：变形同构体的配对规则加强 —— 一件装备就能配对，只取装备行最左边那一件；官方缺省档下占一个装备位且每件 `giveBondId` 装备都授予。\n原作者来源：投稿 `19ea65909cf6` 的备注栏自述「作者B站@伊佐那邪_」；原件未声明 author / license。\n**不含游戏素材**：本包只有 4 个文本文件 ⇒ 素材标注那条义务**不触发**。",
-  "size": 4412,
-  "sha256": "f232b8435ec5635f69fe4b987186f67f451354c647d338945d97997dad7b1179",
-  "blobName": "morph-plus.zip",
-  "uploadedAt": "2026-10-12T08:30:47.099Z",
-  "ip": "127.0.0.1",
-  "entries": 4,
-  "unpackedBytes": 6452,
-  "pack": {
-    "id": "morph-plus",
-    "name": "变形同构体加强mod",
-    "author": "B站@伊佐那邪_",
-    "license": "NOASSERTION",
-    "version": "1.1.0",
-    "description": "变形同构体的配对规则加强：一件装备就能配对，只取装备行最左边那一件。声明引擎的 behaviour 开关 morphPairing = plus；官方缺省档下占一个装备位且每件 giveBondId 装备都授予。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "4 个文件 · 解压后约 0.01 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：变形同构体加强mod（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_ORIGIN_NO_PACKJSON",
-      "text": "留档原件的**根目录没有 `pack.json`**（补丁 / 安装器 / 套了一层目录那一类形态）—— 无从比对\"声明有没有被改\"，如实记下这一句（不是 warn）。"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 19ea65909cf6 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "ackRequired": false,
-  "ackCodes": [],
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T08:40:18.342Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "站侧分类改写（装上到底会不会生效）：只动 packKind 一栏，其余字段一字未动。"
-    }
-  ]
+  "funcKind": "gameplay"
 }

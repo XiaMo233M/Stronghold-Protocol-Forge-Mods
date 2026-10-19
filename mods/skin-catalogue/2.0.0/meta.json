@@ -1,0 +1,19 @@
+{
+  "id": "41dc89f18c8b",
+  "name": "时装目录（皮肤数据）v2",
+  "packId": "skin-catalogue",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-13T10:10:38.270Z",
+  "size": 21616,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/Stardust-minus/Stronghold-Protocol",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "时装**数据**包：271 套时装的元数据（id / charId / name / series），按干员分组进 `assets.skins[charId]`。\n【本版】2.0.0 —— 重投：对齐工坊管理器 0.18.3（上一版按 0.13.0 写）。\n【本版】包内**不含任何游戏美术与音频字节**（素材一律不随包），因此不触发 GAME_ASSET。\n【可核对事实】在管理器 0.18.3 下 `node tools/workshop-validate.mjs --workshop <根>` ⇒ 7 包全部 0 error；这批包自带测试合计 44 项：43 pass / 0 fail / 1 skipped。\n【可核对事实】zip 根即 `pack.json`（未套顶层目录）。\n【本版变更】**剥除了 art 指针与素材文件**（原 1.0.0 有 4 个 asset 文件、2 条 art 声明）。只带时装元数据也算贡献项，不会被判 EMPTY_PACK。\n【如实列出的边界】素材需由使用者自行取用；本包不带任何美术字节，所以装上只会让换装面板出现候选项，立绘/头像由 skin-picker 的提供者按 kind 各问一次。",
+  "funcKind": "utility"
+}

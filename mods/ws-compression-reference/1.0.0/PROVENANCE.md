@@ -6,10 +6,10 @@
 | 项 | 值 |
 |---|---|
 | ① 包 id / 版本 | `ws-compression-reference` · 1.0.0 |
-| ② 原作者 | Stronghold-Protocol（本包作者；对应仓库 jingjiangze/stronghold-ws-compression）（来源：pack.json） |
-| ③ 原件许可 | MIT |
-| ④ 兼容改写者 | Mo233 |
-| ⑤ 来源 | 站上记录 `f3711c357e20` · 由原件 `20a46941c219` 改写 |
+| ② 原作者 | Stronghold-Protocol（本包作者；对应仓库 jingjiangze/stronghold-ws-compression）（来源：**未声明**） |
+| ③ 原件许可 | **未声明** |
+| ④ 兼容改写者 | **未声明** |
+| ⑤ 来源 | 站上记录 `7bf0bd0e56fd` · https://github.com/jingjiangze/stronghold-ws-compression |
 | ⑥ 改了什么 | **未声明** |
 
 ## 素材与授权（实测清点，业主 2026-10-12 口径：**如实标注**，不因此拦包）

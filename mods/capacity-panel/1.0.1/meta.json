@@ -1,89 +1,19 @@
 {
   "id": "5f3bfb0272b9",
-  "area": "compat",
-  "kind": "compat",
   "name": "房间容量看板（4/8/12/16/20 展示与预览）",
+  "packId": "capacity-panel",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-11T17:50:25.174Z",
+  "size": 15627,
+  "sha256": null,
   "author": "jingjiangze",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "jingjiangze",
+  "homepage": null,
   "compatAuthor": "Mo233",
   "compatAuthorSource": "form",
   "compatOf": "060c7a930516",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "060c7a930516",
-    "area": "normal",
-    "name": "房间容量看板（4/8/12/16/20 展示与预览）",
-    "sha256": "92029fca1439596a6300733b2fe443c805f9fcfacc1d58115dbfd28b6cad6896",
-    "sourceUrl": null,
-    "author": null,
-    "uploadedAt": "2026-10-11T17:11:06.566Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": "【与实现不符 · 只更正名字，不改玩法】\n\n原件的说明/注释引用了三个**本引擎里不存在的名字**：`shared/playerCapacity.js`、`PLAYER_CAPACITIES`、\n`experimental.playerCapacity`（在本引擎全仓零命中 —— 那是上游 fork 的现实）。本引擎的座位容量是\n**每间房一个 `seatCap`**：官方档 `shared/constants.js` 的 `MAX_SEATS`＝4，默认天花板同文件的\n`DEFAULT_MAX_SEATS`＝20，下限 `MIN_SEATS`＝2；线上闸门在 `shared/protocol.js` 的 `room.create.seatCap` /\n`room.setSeatCap`，房内改容量走 `server/lobby.js` 的 `Lobby.setSeatCap()` / `Room.seatCapTo()`（越界由\n`shared/constants.js` 的 `clampSeats()` 收口），客户端读数是 `public/js/screens/lobby.js` 的\n`serverSeatMaxOf()`（缓存 `welcome.maxSeats`）/ `seatCapRange()` 与 `public/js/screens/room.js` 的\n`seatCapRoomRange()`。原件还引用了两个不存在的文件（`public/js/ui/experimental.js`、`public/js/ui/matchmaking.js`）\n与三个不存在的成员（`Room.capacity` / `capacityClients` / `supportsCapacity` / `roomCapacity()`）。\n\n本次由**兼容改写方**逐处改正（**只动说明与注释**，共 4 个文件；行号为原件行号）：\n1. `NOTICE-来源说明.md` 第 6–8 行（原件来源段）→ 换成上列真名与真文件。\n2. `NOTICE-来源说明.md` 第 32 行、第 40–41 行、第 44 行 → `experimental.playerCapacity` → `room.state.seatCap`；\n   三个不存在的成员 → `Room.seatCap` / `Room.seatCapTo()` / `Lobby.setSeatCap()`。\n3. `README.md` 第 5、14、15 行 → 同两个名字 → `seatCap` / `room.state.seatCap` / `MAX_SEATS` / `DEFAULT_MAX_SEATS`。\n4. `ui/capacity.js` 第 5–6、13、17、41 行（注释与 jsdoc）→ 同上。\n5. `pack.json` 第 7 行（`description`）→ 同上。\n6. `NOTICE-来源说明.md` 第 10 行补一句「本 1.0.1 是兼容改写版」，避免包内继续自称「不是第三方改写」。\n7. `pack.json.version` 1.0.0 → 1.0.1；`id` 仍是 `capacity-panel`；**原作者 `author`（jingjiangze）与\n   GPL-3.0-or-later 许可一字未动**。\n\n**代码逻辑一行未改**：`ui/capacity.js` 的 `capacityOf()` 函数体（含第 40 行 `state.experimental.playerCapacity`\n那个兜底读）保持原样 —— 主路径是 `seats.length`，本引擎不发 `experimental`，该兜底天然不命中；改它就要连带改\n`test/capacity.test.mjs` 里钉这条兜底路径的用例。`ui/capacity.css`、4 份 `i18n/*.json`、`test/capacity.test.mjs`\n**逐字节未改**；包自带测试改写后仍 **7/7 通过**。**原作者文本与许可原样保留。**",
   "note": "【与实现不符 · 只更正名字，不改玩法】\n\n原件的说明/注释引用了三个**本引擎里不存在的名字**：`shared/playerCapacity.js`、`PLAYER_CAPACITIES`、\n`experimental.playerCapacity`（在本引擎全仓零命中 —— 那是上游 fork 的现实）。本引擎的座位容量是\n**每间房一个 `seatCap`**：官方档 `shared/constants.js` 的 `MAX_SEATS`＝4，默认天花板同文件的\n`DEFAULT_MAX_SEATS`＝20，下限 `MIN_SEATS`＝2；线上闸门在 `shared/protocol.js` 的 `room.create.seatCap` /\n`room.setSeatCap`，房内改容量走 `server/lobby.js` 的 `Lobby.setSeatCap()` / `Room.seatCapTo()`（越界由\n`shared/constants.js` 的 `clampSeats()` 收口），客户端读数是 `public/js/screens/lobby.js` 的\n`serverSeatMaxOf()`（缓存 `welcome.maxSeats`）/ `seatCapRange()` 与 `public/js/screens/room.js` 的\n`seatCapRoomRange()`。原件还引用了两个不存在的文件（`public/js/ui/experimental.js`、`public/js/ui/matchmaking.js`）\n与三个不存在的成员（`Room.capacity` / `capacityClients` / `supportsCapacity` / `roomCapacity()`）。\n\n本次由**兼容改写方**逐处改正（**只动说明与注释**，共 4 个文件；行号为原件行号）：\n1. `NOTICE-来源说明.md` 第 6–8 行（原件来源段）→ 换成上列真名与真文件。\n2. `NOTICE-来源说明.md` 第 32 行、第 40–41 行、第 44 行 → `experimental.playerCapacity` → `room.state.seatCap`；\n   三个不存在的成员 → `Room.seatCap` / `Room.seatCapTo()` / `Lobby.setSeatCap()`。\n3. `README.md` 第 5、14、15 行 → 同两个名字 → `seatCap` / `room.state.seatCap` / `MAX_SEATS` / `DEFAULT_MAX_SEATS`。\n4. `ui/capacity.js` 第 5–6、13、17、41 行（注释与 jsdoc）→ 同上。\n5. `pack.json` 第 7 行（`description`）→ 同上。\n6. `NOTICE-来源说明.md` 第 10 行补一句「本 1.0.1 是兼容改写版」，避免包内继续自称「不是第三方改写」。\n7. `pack.json.version` 1.0.0 → 1.0.1；`id` 仍是 `capacity-panel`；**原作者 `author`（jingjiangze）与\n   GPL-3.0-or-later 许可一字未动**。\n\n**代码逻辑一行未改**：`ui/capacity.js` 的 `capacityOf()` 函数体（含第 40 行 `state.experimental.playerCapacity`\n那个兜底读）保持原样 —— 主路径是 `seats.length`，本引擎不发 `experimental`，该兜底天然不命中；改它就要连带改\n`test/capacity.test.mjs` 里钉这条兜底路径的用例。`ui/capacity.css`、4 份 `i18n/*.json`、`test/capacity.test.mjs`\n**逐字节未改**；包自带测试改写后仍 **7/7 通过**。**原作者文本与许可原样保留。**",
-  "size": 15627,
-  "sha256": "7444fca6204e7e4cc60f89667a3a273d9e135e992b0eb4cd9db194f695a89f15",
-  "blobName": "5f3bfb0272b9-兼容版.zip",
-  "uploadedAt": "2026-10-11T17:50:25.174Z",
-  "ip": "127.0.0.1",
-  "entries": 10,
-  "unpackedBytes": 30294,
-  "pack": {
-    "id": "capacity-panel",
-    "name": "房间容量看板（4/8/12/16/20 展示与预览）",
-    "author": "jingjiangze",
-    "license": "GPL-3.0-or-later",
-    "version": "1.0.1",
-    "description": "把 fork 的房间容量扩容（8/12/16/20）做成一块**客户端功能面板**：订阅引擎自己的房间状态帧 room.state，读 seats.length（容量 ≠ 官方 4 时同一帧还带 seatCap），显示当前房间容量与 4/8/12/16/20 全部容量档，并给一个**仅预览**的选择下拉；含 en/ja/ko/zh-TW 界面词条（i18n）。**边界说清楚**：真正决定容量能不能开的是服务端（server/lobby.js 的 Room.seatCap / Lobby.setSeatCap + shared/constants.js 的 MAX_SEATS / DEFAULT_MAX_SEATS，跨 lobby/match/economy），跨模块、工坊包的面板注入面（无 store / 无 wire 写口）承载不了，所以本包是**只读显示 + 客户端预览**，「选择器」只改面板自己的预览读数、不改房间；房间容量仍由创建者在引擎的房间设置里调整。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "10 个文件 · 解压后约 0.03 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：房间容量看板（4/8/12/16/20 展示与预览）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 060c7a930516 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T02:16:17.397Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "分类（指令③④）：把「说明包」与「真功能 mod」分开。依据=包内 pack.json 是否在 ZIP 根、是否声明实际生效面、以及在引擎 0.16.0 干净 workshop 根单独装载的 errors 数（见站侧留档）。functional=装上即生效且装载 errors=0；documentation=说明包/参考/补丁，装上不会启用任何功能；unknown=安装器形态（无 pack.json 在 ZIP 根），不放进真功能区。"
-    }
-  ]
+  "funcKind": "utility"
 }

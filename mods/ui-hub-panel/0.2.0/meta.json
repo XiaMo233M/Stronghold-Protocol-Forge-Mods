@@ -1,0 +1,19 @@
+{
+  "id": "e560c4b62a2b",
+  "name": "盟约中枢 · 独立浮层面板（ui-hub-panel）",
+  "packId": "ui-hub-panel",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:07:08.891Z",
+  "size": 9578,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "f148d0b47735",
+  "compatNote": "未改动：逐字节照收原件（sha256 a6972ea9ae032170febc99e01155ee97315cce019caff9e77d1dd48c5e3735f6），仅以兼容包形式重新投递。本兼容包同时隐藏了两条原投稿：v0.2.0（f148d0b47735）与 v0.1.0（4fc56403f02f，作者明写由 v0.2.0 取代）——两条记录与文件都保留、零删除。compatOf 最终指向 v0.2.0（f148d0b47735），即本兼容包的来源。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "note": "未改动：逐字节照收原件（sha256 a6972ea9ae032170febc99e01155ee97315cce019caff9e77d1dd48c5e3735f6），仅以兼容包形式重新投递。本兼容包同时隐藏了两条原投稿：v0.2.0（f148d0b47735）与 v0.1.0（4fc56403f02f，作者明写由 v0.2.0 取代）——两条记录与文件都保留、零删除。compatOf 最终指向 v0.2.0（f148d0b47735），即本兼容包的来源。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "funcKind": "utility"
+}

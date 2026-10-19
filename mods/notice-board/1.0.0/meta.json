@@ -1,89 +1,19 @@
 {
   "id": "bf47b43506d2",
-  "area": "compat",
-  "kind": "compat",
   "name": "服务器公告板（notices）",
+  "packId": "notice-board",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-11T13:24:47.972Z",
+  "size": 11348,
+  "sha256": null,
   "author": "jingjiangze",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "jingjiangze",
+  "homepage": null,
   "compatAuthor": "Mo233",
   "compatAuthorSource": "form",
   "compatOf": "7e037cc96cb5",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "7e037cc96cb5",
-    "area": "normal",
-    "name": "服务器公告板（notices）",
-    "sha256": "c4727d492d1d8e9ee47e28b731d29d08009df3f24698866039b820597da5704c",
-    "sourceUrl": "https://github.com/jingjiangze/stronghold-server",
-    "author": null,
-    "uploadedAt": "2026-10-11T12:34:47.818Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": null,
   "note": null,
-  "size": 11348,
-  "sha256": "6a25ab1013e10924121a95a33b7c923fff282aa5dae4fc3a7e82efc35707c517",
-  "blobName": "bf47b43506d2-兼容版.zip",
-  "uploadedAt": "2026-10-11T13:24:47.972Z",
-  "ip": "127.0.0.1",
-  "entries": 6,
-  "unpackedBytes": 19176,
-  "pack": {
-    "id": "notice-board",
-    "name": "服务器公告板（notices）",
-    "author": "jingjiangze",
-    "license": "CC0-1.0（公告文本与包本体；文本来源与两栏结构见 NOTICE-来源说明.md）",
-    "version": "1.0.0",
-    "description": "把服务器公告做成工坊包（notices 表面）：公告与鸣谢被并进引擎的 /data/notices.json，与引擎自带公告、其它包的公告合并显示（追加语义，互不覆盖）—— 标题屏「公告」弹窗即可看到，声明了 data: [\"notices\"] 的面板也能读到同一份合并体。纯文本、零代码、零素材；改包里的文本（或删包）即改回去，不影响任何对局内容。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "6 个文件 · 解压后约 0.02 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：服务器公告板（notices）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 7e037cc96cb5 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T02:16:17.415Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "分类（指令③④）：把「说明包」与「真功能 mod」分开。依据=包内 pack.json 是否在 ZIP 根、是否声明实际生效面、以及在引擎 0.16.0 干净 workshop 根单独装载的 errors 数（见站侧留档）。functional=装上即生效且装载 errors=0；documentation=说明包/参考/补丁，装上不会启用任何功能；unknown=安装器形态（无 pack.json 在 ZIP 根），不放进真功能区。"
-    }
-  ]
+  "funcKind": "utility"
 }

@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 060c7a930516 改写而来）。原作者 jingjiangze · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：【与实现不符 · 只更正名字，不改玩法】 与原件逐字节比对：**内容文件 6 个逐字节相同**（i18n/en.json、i18n/ja.json、i18n/ko.json、i18n/zh-TW.json、test/capacity.test.mjs、ui/capacity.css）；**改了 3 个**（NOTICE-来源说明.md、README.md、ui/capacity.js）；`pack.json` **有改动**。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。",
-  "at": "2026-10-11T17:50:25.178Z",
-  "by": "admin",
-  "displayName": "房间容量看板（4/8/12/16/20 展示与预览）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "7444fca6204e7e4cc60f89667a3a273d9e135e992b0eb4cd9db194f695a89f15",
-  "originId": "060c7a930516",
-  "originSha256": "92029fca1439596a6300733b2fe443c805f9fcfacc1d58115dbfd28b6cad6896"
+  "at": "2026-10-11T17:50:25.174Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

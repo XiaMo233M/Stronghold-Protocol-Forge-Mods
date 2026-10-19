@@ -1,114 +1,19 @@
 {
   "id": "c80e44a35f81",
-  "area": "compat",
-  "kind": "compat",
   "name": "争锋频道 · 文案与不兼容清单（站侧更正版 · 公告文案已更正）",
+  "packId": "duel-copy",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-12T05:10:09.967Z",
+  "size": 7919,
+  "sha256": null,
   "author": "jingjiangze",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "jingjiangze",
+  "homepage": null,
   "compatAuthor": "sp-modsite 站侧维护",
   "compatAuthorSource": "form",
   "compatOf": "b1edce4883d6",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "b1edce4883d6",
-    "area": "normal",
-    "name": "争锋频道 · 文案与不兼容清单",
-    "sha256": "cf0daa0ee7fceca929ed7304885ddcd43791ba2fad6b03d7f15828e9227f37f2",
-    "sourceUrl": "https://github.com/Cloudnyco/Duel-Channel",
-    "author": null,
-    "uploadedAt": "2026-10-11T17:39:52.595Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": "【站侧更正版兼容包】底＝旧 compat `badceeb5d610`（其原件＝投稿 `b1edce4883d6`）的**同一个包**，**只改了一句公告文案**，其余内容文件（含 `pack.json`）**逐字节未改**（对照：`notice/` SAME · `NOTICE-来源说明.md` SAME · `PROVENANCE.md` SAME · `notice/credits.json` SAME · `pack.json` SAME；只有 `notice/announcement.json` CHANGED 4984→5363 B）。\n\n**改的是哪一句**：原「不兼容清单」里那条「包通道绑房间与 Match：`server.modules[].channels` 需要 `Match.handlePackMsg`（上游 PR #2 仍未合并）。」—— 这句与事实不符，玩家点开公告就会看到。现改为：「【站侧更正 2026-10-12】引擎 0.16.0 已实现并可用的消息驱动入口是 `Match.handlePackMsg`（`shared/modSurface.js` §28.14；引擎自带测试 `test/packMatchMsg.test.js` 9/9）。正确的声明方式是 `client.panels[].messages`（开放名字判据、上限 8 个，不是闭枚举）配合 `handlePackMsg`；不存在的是那个拼写 `server.modules[].channels`。⇒「下注 / 借干员」这类玩家主动命令在本站未实现，原因是包侧没做，不是引擎缺失。」\n\n**为什么做这一版**：错话在**包内公告文案**里，站侧更正记录管不到玩家装上去之后看到的东西 —— 这是**玩家可见的假陈述**，所以要按业主口径\"做兼容\"，出一个只改文案的更正版。\n\n**核验**：① 只改文案，其余内容文件与 `pack.json` 逐字节相同（上方对照）② `pack.json` 在 ZIP 根 ③ 干净 workshop 根单独装载 **errors=0 / warnings=0**，`packsLoaded=[\"duel-copy\"]`，`notices` 已声明 ④ 原作者署名与许可（`jingjiangze` · 包内 `pack.json` 原样）一字未动。\n\n**包内 `pack.json` 一个字节都没改**（所以 `id` 仍是 `duel-copy`、`version` 仍是 `0.1.0`）—— 正因如此它和旧 compat **是同一个 pack id**，引擎不允许同 id 并存 ⇒ **两条只能装一条**，旧 compat `badceeb5d610` 的 superseded 处理**等业主点头再做**。",
   "note": "【站侧更正版兼容包】底＝旧 compat `badceeb5d610`（其原件＝投稿 `b1edce4883d6`）的**同一个包**，**只改了一句公告文案**，其余内容文件（含 `pack.json`）**逐字节未改**（对照：`notice/` SAME · `NOTICE-来源说明.md` SAME · `PROVENANCE.md` SAME · `notice/credits.json` SAME · `pack.json` SAME；只有 `notice/announcement.json` CHANGED 4984→5363 B）。\n\n**改的是哪一句**：原「不兼容清单」里那条「包通道绑房间与 Match：`server.modules[].channels` 需要 `Match.handlePackMsg`（上游 PR #2 仍未合并）。」—— 这句与事实不符，玩家点开公告就会看到。现改为：「【站侧更正 2026-10-12】引擎 0.16.0 已实现并可用的消息驱动入口是 `Match.handlePackMsg`（`shared/modSurface.js` §28.14；引擎自带测试 `test/packMatchMsg.test.js` 9/9）。正确的声明方式是 `client.panels[].messages`（开放名字判据、上限 8 个，不是闭枚举）配合 `handlePackMsg`；不存在的是那个拼写 `server.modules[].channels`。⇒「下注 / 借干员」这类玩家主动命令在本站未实现，原因是包侧没做，不是引擎缺失。」\n\n**为什么做这一版**：错话在**包内公告文案**里，站侧更正记录管不到玩家装上去之后看到的东西 —— 这是**玩家可见的假陈述**，所以要按业主口径\"做兼容\"，出一个只改文案的更正版。\n\n**核验**：① 只改文案，其余内容文件与 `pack.json` 逐字节相同（上方对照）② `pack.json` 在 ZIP 根 ③ 干净 workshop 根单独装载 **errors=0 / warnings=0**，`packsLoaded=[\"duel-copy\"]`，`notices` 已声明 ④ 原作者署名与许可（`jingjiangze` · 包内 `pack.json` 原样）一字未动。\n\n**包内 `pack.json` 一个字节都没改**（所以 `id` 仍是 `duel-copy`、`version` 仍是 `0.1.0`）—— 正因如此它和旧 compat **是同一个 pack id**，引擎不允许同 id 并存 ⇒ **两条只能装一条**，旧 compat `badceeb5d610` 的 superseded 处理**等业主点头再做**。",
-  "size": 7919,
-  "sha256": "b43ecdfac8ed7b6a51268f1bff030eb39ba54e1706163df2df9cc828bdcaafcd",
-  "blobName": "c80e44a35f81-兼容版.zip",
-  "uploadedAt": "2026-10-12T05:10:09.967Z",
-  "ip": "127.0.0.1",
-  "entries": 5,
-  "unpackedBytes": 12736,
-  "pack": {
-    "id": "duel-copy",
-    "name": "争锋频道 · 文案与不兼容清单",
-    "author": "jingjiangze",
-    "license": "AGPL-3.0-or-later",
-    "version": "0.1.0",
-    "description": "把 Duel 自己的规则文字（announce / tips / comments）送进引擎的公告面（pack.json.notices，DESIGN §28.15），并在同一份公告里写清「这一格做不到什么」：开局、读实时对局、包通道进对局、美术分发。署名表按上游 NOTICE 的非官方声明与 AGPL 许可如实列出。"
-  },
-  "flags": [
-    {
-      "level": "warn",
-      "code": "NAME_IMPERSONATE",
-      "text": "名称含「官方 / official / 鹰角 / Yostar」这类词 —— 容易让人误以为是官方出品"
-    },
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "5 个文件 · 解压后约 0.01 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：争锋频道 · 文案与不兼容清单（站侧更正版 · 公告文案已更正）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "warn",
-      "code": "SELF_DECL_OFFICIAL",
-      "text": "上传备注 里出现「正版」这类词 —— 与名称的 NAME_IMPERSONATE 同一族，看一眼再放行"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 b1edce4883d6 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "ackRequired": true,
-  "ackCodes": [
-    "SELF_DECL_OFFICIAL"
-  ],
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T05:10:42.275Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "业主令 20-③：它渲染公告（玩家点「公告」就能看到全文）⇒ 供给了会被游戏消费的东西 ⇒ functional。"
-    },
-    {
-      "at": "2026-10-12T00:00:00.000Z",
-      "by": "admin",
-      "changed": {
-        "decision.reason": null
-      },
-      "to": {
-        "decision.reason": "（812 字）"
-      },
-      "why": "业主令 20-④：备注与决定理由都要写清\"这是站侧更正版、改了哪一句、为什么\"。"
-    }
-  ]
+  "funcKind": "utility"
 }

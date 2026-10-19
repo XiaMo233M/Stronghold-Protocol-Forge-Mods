@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "站侧更正版兼容包（业主令 20）。底＝旧 compat badceeb5d610 的同一个包，**只改了一句公告文案**，其余内容文件（含 pack.json）逐字节未改（对照：notice/ SAME · NOTICE-来源说明.md SAME · PROVENANCE.md SAME · notice/credits.json SAME · pack.json SAME；只有 notice/announcement.json CHANGED 4984→5363 B）。改的那句原为「包通道绑房间与 Match：server.modules[].channels 需要 Match.handlePackMsg（上游 PR #2 仍未合并）」，现写明引擎 0.16.0 已实现并可用的 Match.handlePackMsg（shared/modSurface.js §28.14；test/packMatchMsg.test.js 9/9），正确声明方式是 client.panels[].messages（开放判据、上限 8），不存在的只是拼写 server.modules[].channels，⇒「下注/借干员」未实现的原因是包侧没做、不是引擎缺失。为什么做这一版：错话在包内公告文案里，站侧更正记录管不到玩家装上去之后看到的东西。核验：pack.json 在 ZIP 根；干净 workshop 根单独装载 errors=0 / warnings=0、packsLoaded=[\"duel-copy\"]、notices 已声明；packKind=functional（它渲染公告，玩家看得见）。包内 pack.json 一个字节没改 ⇒ id 仍是 duel-copy ⇒ 与旧 compat 同 id、一次只能装一条（公网已有同 id 提示）。旧 compat 的 superseded 处理等业主点头再做。",
-  "at": "2026-10-12T05:10:09.970Z",
-  "by": "admin",
-  "displayName": "争锋频道 · 文案与不兼容清单（站侧更正版 · 公告文案已更正）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "sp-modsite 站侧维护",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "b43ecdfac8ed7b6a51268f1bff030eb39ba54e1706163df2df9cc828bdcaafcd",
-  "originId": "b1edce4883d6",
-  "originSha256": "cf0daa0ee7fceca929ed7304885ddcd43791ba2fad6b03d7f15828e9227f37f2"
+  "at": "2026-10-12T05:10:09.967Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

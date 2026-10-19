@@ -1,0 +1,19 @@
+{
+  "id": "3894d3ae4bc4",
+  "name": "魔塔公告",
+  "packId": "mota-notice",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:06:10.191Z",
+  "size": 8000,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "e1b248945d8b",
+  "compatNote": "未改动：逐字节照收原件（sha256 1816253b51924363f2d0b242b186c54ebac16952dca53a2506f30744f7c2e84e），仅以兼容包形式重新投递，并由本兼容包取代原投稿 e1b248945d8b（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "note": "未改动：逐字节照收原件（sha256 1816253b51924363f2d0b242b186c54ebac16952dca53a2506f30744f7c2e84e），仅以兼容包形式重新投递，并由本兼容包取代原投稿 e1b248945d8b（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "funcKind": "utility"
+}

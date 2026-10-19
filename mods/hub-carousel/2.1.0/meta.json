@@ -1,0 +1,19 @@
+{
+  "id": "4afe35bf670c",
+  "name": "大厅轮播图（hub-carousel）",
+  "packId": "hub-carousel",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-15T15:34:01.500Z",
+  "size": 30946,
+  "sha256": null,
+  "author": "卫戍协议同人内容包 (fanpack)",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "作者原包 **1:1 收录、未改写**：zip 内每个文件与来件逐字节一致（逐文件 sha256 比对，0 差异）；仅把顶层目录拍平（站点只读 zip 根的 pack.json）。\n本机实测引擎 `node tools/workshop-validate.mjs`：**errors=0**，warnings=0。\n包 id `hub-carousel`，版本 2.1.0，作者 \"卫戍协议同人内容包 (fanpack)\"，许可 **CC-BY-NC-SA-4.0**。\n形态：纯客户端包（`client.panels`，槽位 `root.overlays`），把安装器版重铸成工坊包 —— 不覆盖任何引擎文件、不改 data/*.json、不需要服务端模块，卸载 = 删文件夹；轮播图存在玩家本机浏览器（IndexedDB），不上传服务器。\n功能类目建议 **utility**：大厅界面工具（轮播图 + 转场/调序设置），与站上既有界面类 `strawberry-ui` / `theme-night` 同类。\n来源：作者未在包内附来源 URL；非商业同人作品。",
+  "funcKind": "utility"
+}

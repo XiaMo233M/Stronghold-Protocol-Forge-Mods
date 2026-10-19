@@ -1,0 +1,19 @@
+{
+  "id": "b67de34e358f",
+  "name": "ausevaywstr 棋子扩充（8 名干员）",
+  "packId": "ausevaywstr-chess-extras",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:38:47.830Z",
+  "size": 11168,
+  "sha256": null,
+  "author": "逆向自 ausevaywstr.top（卫戍协议：盟约社区服，app 0.2.1）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "1d0977b62db3",
+  "compatNote": "纯数值记录（chess.json 8 条），不含美术或音频字节。`combat: true` 为作者显式声明。独立交叉核验：354 键中本包与其他棋子包 0 重叠（作者自述零冲突，实测成立）。warnings=16（NOT_VISIBLE 8 / CLASS_OVERRIDE 4 及其同类）。",
+  "note": "纯数值记录（chess.json 8 条），不含美术或音频字节。`combat: true` 为作者显式声明。独立交叉核验：354 键中本包与其他棋子包 0 重叠（作者自述零冲突，实测成立）。warnings=16（NOT_VISIBLE 8 / CLASS_OVERRIDE 4 及其同类）。",
+  "funcKind": "expansion"
+}

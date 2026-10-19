@@ -1,0 +1,19 @@
+{
+  "id": "5e379325149a",
+  "name": "公告改由网站发布 · 读取与对接说明（附示范站）",
+  "packId": "notice-board-web",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:06:16.798Z",
+  "size": 7215,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "5b257a42c5be",
+  "compatNote": "未改动：逐字节照收原件（sha256 17f64fc8c5e8484ec3c4a4e00b070db25dbc1e87005e8c7dfae3b2fd5d5d74a8），仅以兼容包形式重新投递，并由本兼容包取代原投稿 5b257a42c5be（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "note": "未改动：逐字节照收原件（sha256 17f64fc8c5e8484ec3c4a4e00b070db25dbc1e87005e8c7dfae3b2fd5d5d74a8），仅以兼容包形式重新投递，并由本兼容包取代原投稿 5b257a42c5be（原记录与文件保留、零删除）。兼容性实测（引擎检出 Stronghold-Protocol 0.18.3，shared/constants.js:30 MOD_API_VERSION=1）：临时工坊根单独装载 node tools/workshop-validate.mjs --workshop <根> ⇒ 1 个包、errors=0、warnings=0；pack.json 位于 zip 根（扁平）；无 overrides/WRAPPED；api 区间 \">=1 <2\" 覆盖 MOD API 1。",
+  "funcKind": "utility"
+}

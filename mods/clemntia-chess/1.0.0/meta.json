@@ -1,0 +1,19 @@
+{
+  "id": "46ba71648658",
+  "name": "克莱门莎棋子增量（chess_char_4_27_a/b）",
+  "packId": "clemntia-chess",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:29:09.996Z",
+  "size": 6284,
+  "sha256": null,
+  "author": "逆向自 weishuxieyi.icu（卫戍协议：盟约同人服）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "a52c9d7845d9",
+  "compatNote": "包内只有数值记录（chess.json 2 条：chess_char_4_27_a/b），不含任何美术或音频字节。同内容孪生件 673123554a91 的 zip sha256 与本件完全相同 ⇒ 未重复投递。warnings=12 全是作者侧 BB_UNKNOWN_KEY（buff 串里有引擎不认识的键），不是装载层问题。",
+  "note": "包内只有数值记录（chess.json 2 条：chess_char_4_27_a/b），不含任何美术或音频字节。同内容孪生件 673123554a91 的 zip sha256 与本件完全相同 ⇒ 未重复投递。warnings=12 全是作者侧 BB_UNKNOWN_KEY（buff 串里有引擎不认识的键），不是装载层问题。",
+  "funcKind": "expansion"
+}

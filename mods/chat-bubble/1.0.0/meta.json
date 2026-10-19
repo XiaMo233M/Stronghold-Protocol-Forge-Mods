@@ -1,60 +1,19 @@
 {
   "id": "84ab02864356",
-  "area": "normal",
   "name": "chat-bubble",
-  "note": "局内文字聊天\n\n=== 站侧标注（2026-10-12 上线时追加；原文逐字在上，一字未改）===\n⚠️ **边界（作者在包内 README 里明确要求写明的告知义务）**：这**不是引擎的房内聊天**。`room.chat` / `room.quickMsg` 是产品功能（引擎自己实现、**不对包开放**，`docs/META.md` §1.6–§1.8）；本包走的是**包自己的命名空间通道** `pack.msg`（通道名 `say`，线上拼成 `chat-bubble.say`）。\n⇒ **只有装了本包的人互相看得见**；**没装的人看到的对局与今天逐字相同**；**跨包不互通**。\n⚠️ **名字没有身份校验**：显示的名字取自消息里对方自称的 `name` 字段（引擎不校验 `data`，面板也拿不到会话注册表）⇒ **可以被冒名**。发送侧取自引擎只读会话快照 `ctx.me`，接收侧信任线上字段。\n**额度（引擎定，包改不了）**：单条 `data` ≤ 4096 B · 每会话 5 条/秒 · 突发 20 条。\n**不含游戏素材**：本包 4 个文件全是文本（`pack.json` / `README.md` / `client/chat.js` / `client/chat.css`）⇒ **素材标注那条义务不触发**。\n**对局结果**：`combat` 未声明；它只加一个界面面板与一条包通道，**不参与对局结算**。",
-  "homepage": null,
-  "size": 7035,
-  "sha256": "3346f0a383963ca5799f48ed93fe7e2113a04f17477418c656d66cc8345e8e34",
+  "packId": "chat-bubble",
+  "packKind": "functional",
+  "kind": "submission",
   "uploadedAt": "2026-10-12T07:59:42.401Z",
-  "ip": "119.181.30.24",
-  "receipt": "c95bf9cffd8a21ee82db5f4a7ab06626",
-  "entries": 4,
-  "unpackedBytes": 11837,
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "4 个文件 · 解压后约 0.01 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：chat-bubble（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    }
-  ],
-  "suspected": false,
-  "suspectedReasons": [],
-  "ackRequired": false,
-  "ackCodes": [],
-  "revisions": [
-    {
-      "at": "2026-10-12T08:26:55.394Z",
-      "by": "admin",
-      "changed": {
-        "note": "局内文字聊天"
-      },
-      "to": {
-        "note": "局内文字聊天\n\n=== 站侧标注（2026-10-12 上线时追加；原文逐字在上，一字未改）===\n⚠️ **边界（作者在包内 README 里明确要求写明的告知义务）**：这**不是引擎的房内聊天**。`room.chat` / `room.quickMsg` 是产品功能（引擎自己实现、**不对包开放**，`docs/META.md` §1.6–§1.8）；本包走的是**包自己的命名空间通道** `pack.msg`（通道名 `say`，线上拼成 `chat-bubble.say`）。\n⇒ **只有装了本包的人互相看得见**；**没装的人看到的对局与今天逐字相同**；**跨包不互通**。\n⚠️ **名字没有身份校验**：显示的名字取自消息里对方自称的 `name` 字段（引擎不校验 `data`，面板也拿不到会话注册表）⇒ **可以被冒名**。发送侧取自引擎只读会话快照 `ctx.me`，接收侧信任线上字段。\n**额度（引擎定，包改不了）**：单条 `data` ≤ 4096 B · 每会话 5 条/秒 · 突发 20 条。\n**不含游戏素材**：本包 4 个文件全是文本（`pack.json` / `README.md` / `client/chat.js` / `client/chat.css`）⇒ **素材标注那条义务不触发**。\n**对局结果**：`combat` 未声明；它只加一个界面面板与一条包通道，**不参与对局结算**。"
-      },
-      "why": "站上备注改写（投稿区）：只动 note 一栏，其余字段一字未动；不写 compatNote（那是 compat 区的「兼容说明」）。"
-    },
-    {
-      "at": "2026-10-12T08:40:07.969Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "站侧分类改写（装上到底会不会生效）：只动 packKind 一栏，其余字段一字未动。"
-    }
-  ],
-  "packKind": "functional"
+  "size": 7035,
+  "sha256": null,
+  "author": "纸鸢干机",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "局内文字聊天\n\n=== 站侧标注（2026-10-12 上线时追加；原文逐字在上，一字未改）===\n⚠️ **边界（作者在包内 README 里明确要求写明的告知义务）**：这**不是引擎的房内聊天**。`room.chat` / `room.quickMsg` 是产品功能（引擎自己实现、**不对包开放**，`docs/META.md` §1.6–§1.8）；本包走的是**包自己的命名空间通道** `pack.msg`（通道名 `say`，线上拼成 `chat-bubble.say`）。\n⇒ **只有装了本包的人互相看得见**；**没装的人看到的对局与今天逐字相同**；**跨包不互通**。\n⚠️ **名字没有身份校验**：显示的名字取自消息里对方自称的 `name` 字段（引擎不校验 `data`，面板也拿不到会话注册表）⇒ **可以被冒名**。发送侧取自引擎只读会话快照 `ctx.me`，接收侧信任线上字段。\n**额度（引擎定，包改不了）**：单条 `data` ≤ 4096 B · 每会话 5 条/秒 · 突发 20 条。\n**不含游戏素材**：本包 4 个文件全是文本（`pack.json` / `README.md` / `client/chat.js` / `client/chat.css`）⇒ **素材标注那条义务不触发**。\n**对局结果**：`combat` 未声明；它只加一个界面面板与一条包通道，**不参与对局结算**。",
+  "funcKind": "utility"
 }

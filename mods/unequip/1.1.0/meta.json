@@ -1,98 +1,19 @@
 {
   "id": "be394494ebb7",
-  "area": "compat",
-  "kind": "compat",
   "name": "装备拆卸mod",
+  "packId": "unequip",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-12T08:28:47.442Z",
+  "size": 4184,
+  "sha256": null,
   "author": "B站@伊佐那邪_",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "B站@伊佐那邪_",
+  "homepage": null,
   "compatAuthor": "Stronghold-Protocol",
   "compatAuthorSource": "form",
   "compatOf": "79de9ff03518",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "79de9ff03518",
-    "area": "normal",
-    "name": "装备拆卸mod",
-    "sha256": "d6437d1139a919726964c9dcc501b55b2429763da46a7bedf54d7e60e3614b86",
-    "sourceUrl": "https://github.com/yznx09/Stronghold-Protocol-Rhodes-Kazdel-Mod",
-    "author": null,
-    "uploadedAt": "2026-10-11T17:44:32.545Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": "兼容改写：**只声明引擎自己的行为开关，不含任何覆盖** —— `behaviour.unequip = allow`。\n⚠️ **会影响对局结果**（包内 `combat: true`）：休整期可以把已装备的装备从干员身上卸下、退回手牌（手牌满则进临时整备区）；官方缺省档下装备一旦装上只能靠精英化 / 合成 / 卖出离开。\n原作者来源：投稿 `79de9ff03518` 的备注栏自述「B站@伊佐那邪_」；原件 `来源说明.md` **未声明 author / license**（已取回核对）。\n**不含游戏素材**：本包只有 4 个文本文件（`pack.json` / `PROVENANCE.md` / `notice/announcement.json` / `notice/credits.json`）⇒ 素材标注那条义务**不触发**。",
   "note": "兼容改写：**只声明引擎自己的行为开关，不含任何覆盖** —— `behaviour.unequip = allow`。\n⚠️ **会影响对局结果**（包内 `combat: true`）：休整期可以把已装备的装备从干员身上卸下、退回手牌（手牌满则进临时整备区）；官方缺省档下装备一旦装上只能靠精英化 / 合成 / 卖出离开。\n原作者来源：投稿 `79de9ff03518` 的备注栏自述「B站@伊佐那邪_」；原件 `来源说明.md` **未声明 author / license**（已取回核对）。\n**不含游戏素材**：本包只有 4 个文本文件（`pack.json` / `PROVENANCE.md` / `notice/announcement.json` / `notice/credits.json`）⇒ 素材标注那条义务**不触发**。",
-  "size": 4184,
-  "sha256": "6e646b067cc23c43a5b695885299fc6e3bfc26ab45e7d68ca678d62257b6e8b6",
-  "blobName": "unequip.zip",
-  "uploadedAt": "2026-10-12T08:28:47.442Z",
-  "ip": "127.0.0.1",
-  "entries": 4,
-  "unpackedBytes": 5705,
-  "pack": {
-    "id": "unequip",
-    "name": "装备拆卸mod",
-    "author": "B站@伊佐那邪_",
-    "license": "NOASSERTION",
-    "version": "1.1.0",
-    "description": "休整期可以把已装备的装备从干员身上卸下（退回手牌，手牌满则进临时整备区）。声明引擎的 behaviour 开关 unequip = allow；官方缺省档下装备装上后只能靠精英化 / 合成 / 卖出离开。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "4 个文件 · 解压后约 0.01 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：装备拆卸mod（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "warn",
-      "code": "COMPAT_PACKJSON_DIFFERS",
-      "text": "本条的 `pack.json` 与**留档原件的根 `pack.json`** 不是逐字节相同，差异键：author、license、description、api、combat、behaviour、notices、_doc、app、assets、copy、trim、i18n —— 「保持原注释不变」是兼容包那条硬要求的名字，所以这里要**显式确认**；确认时请在备注/决定理由里写清改了哪一栏、为什么。"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 79de9ff03518 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "ackRequired": true,
-  "ackCodes": [
-    "COMPAT_PACKJSON_DIFFERS"
-  ],
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T08:40:08.928Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "站侧分类改写（装上到底会不会生效）：只动 packKind 一栏，其余字段一字未动。"
-    }
-  ]
+  "funcKind": "gameplay"
 }

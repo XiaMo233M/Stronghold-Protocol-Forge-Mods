@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": null,
-  "at": "2026-10-12T08:30:02.323Z",
-  "by": "admin",
-  "displayName": "装备拆卸mod",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "B站@伊佐那邪_",
-  "compatAuthor": "Stronghold-Protocol",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "6e646b067cc23c43a5b695885299fc6e3bfc26ab45e7d68ca678d62257b6e8b6",
-  "originId": "79de9ff03518",
-  "originSha256": "d6437d1139a919726964c9dcc501b55b2429763da46a7bedf54d7e60e3614b86"
+  "at": "2026-10-12T08:28:47.442Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

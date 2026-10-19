@@ -1,0 +1,19 @@
+{
+  "id": "1820c9b571c8",
+  "name": "卡兹戴尔盟约（兼容改写 · 标准包）",
+  "packId": "fanpack-kazdel",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-14T16:58:05.227Z",
+  "size": 1349049,
+  "sha256": null,
+  "author": "B站@伊佐那邪_",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/yznx09/Stronghold-Protocol-Rhodes-Kazdel-Mod",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "兼容改写投稿，不是原件重传。\n\n原投稿：15edf35dd6b5 与 fbecb26092e2 —— 两条**完全重复**的「卡兹戴尔盟约mod v2.1」（同一份包，解包后逐字节相同：树哈希 0134242bf002abba59f87c9e5cafce9124606c0a8d878955c32d477abffd9450，10 个文件；15edf35dd6b5 sha256 5564273d3ad3411235fdb1c1a95032b4df798882eeca53daaef6558b67970b4e，fbecb26092e2 sha256 85cb1302c41a785ecdb19e57c1975dbb9350c561c27725ca28970f0b78e7f601）。作者 B站@伊佐那邪_。\n\n原件为什么不收：一键安装包形态（install.mjs 46,826 B + payload/** 67 个文件），会把 payload 整份覆盖到引擎检出（data/chess.json、data/items.json、data/config.json、server/match/builtinMeta.js、server/sim/content/kits/custom.js 等）—— 即包改引擎源码。本包不采用、绝不执行 install.mjs。\n\n改写成什么：zip 根有 pack.json 的标准工坊包，只走引擎的声明面。content = bonds / items / garrisons / chess / tokens / variants；与官方同 id 的 10 条走 overrides；作者自制的盟约与装备图标走 pack.json.bondIcons / itemIcons + 包内 assets/；作者自撰的口径数值（满练度）走 DESIGN §28.51 的 variants.json 通道：training.chess 10 条 + training.tokens 1 条。\n\n顺带修掉的两处非法形状：① 原件 zip 根套了一层 fanpack-kazdel-mod/，本包 zip 根就是 pack.json（引擎要的形态）；② 剥掉 pack.json 的 _doc / type / englishName / app / credits / files{} —— 不在引擎顶层键闭集 PACK_FIELDS 里，留着会 PACK_UNKNOWN_FIELD 整包拒。_doc 在引擎仓与模组仓两仓 grep 均无任何代码读它（只出现在 CHANGELOG.md 的叙述里）⇒ 删掉行为不变，说明文字原样搬进包内 PROVENANCE.md 与 pack.json.description。内容文件里的 _doc / version / roster 与 variants.json 的 shipped 同理剥掉。\n\n口径逐条无损（判据不读生成物，读引擎装载后的数据）：把真包装进引擎自己的装载器 loadData，11 条记录 / 作者写下的 1075 个值，差异 0。node tools/workshop-validate.mjs ⇒ 0 error / 42 warning（全是作者侧 BB_UNKNOWN_KEY 40 + CLASS_OVERRIDE 2）。\n\n如实披露一处：2 条装备（chess_item_c_02_e_a/_b）的 params 与它自己的 buffs 对不上（params 是引擎的派生量，shared/itemAuthoring.js 的 effectParams 注释写明「Reproduces params for all 115 shipped items」，作者自己的 payload/tools/build-data.mjs 里有一份逐字相同的实现）。本包按引擎规则重推，先证作者写的每一个键值都还在：只补 bond、只改键序，没有一个数字被覆盖；且 bond 在记录层没有被任何引擎代码读（p.bond 只在 items/meta.js:178 天师古鼎那一条专属 handler 里被读）。战斗数值一律走 buffsOf(rec)，本包一个 buff 都没改。详见包内 PROVENANCE.md。\n\n素材：含从《明日方舟》解包出的官方素材（官方干员头像/立绘、Spine 模型、语音等）。版权归鹰角网络 / Yostar；本包与改写者不主张任何权利，仅供非商业学习与个人娱乐。",
+  "funcKind": "expansion"
+}

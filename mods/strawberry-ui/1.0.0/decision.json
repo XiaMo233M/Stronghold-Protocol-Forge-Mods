@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 0e55a71ade93 改写而来）。原作者 Mo233 (Forge 兼容改写); 原作 Leiothrix · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：为什么改写：原件（投稿 0e55a71ade93）是补丁型投递，19 个文件里只有 5 个 CSS、约 17 处 hunk 能用样式表表达；本包只取这一半，重做成纯 CSS 包。原件其余 14 个 JS 文件属引擎侧（Pixi/Spine 部署动作等），Forge 面板接口无法注入，本包不含。包内零图片、零音频字节，只引用引擎既有的 /assets/ui/... 路径。本包必须带一个 1 行空壳 ui/panel.js：引擎对 client.panels 硬性要求 module 与 mount 导出，没有它样式表不会注入。 与原件逐字节比对：**内容文件 0 个逐字节相同**（无）；**内容文件一个都没改**；`pack.json` **有改动**；只在本条里新增 6 个：pack.json、ui/panel.js、ui/panel.css、NOTICE.md、PROVENANCE.md、LICENSE；原件里有但本条缺 2 个：SOURCE.md、changes.patch。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。\n\n站侧补正（2026-10-12）：上一轮补的 reason 里写「`pack.json` 有改动」是**说不准的** —— 本条的原件投稿 `0e55a71ade93` 是**补丁型投递**（`orig.zip` 里只有 `SOURCE.md` + `changes.patch` 两个文件，**根本没有根 `pack.json`**）⇒ 不存在\"被改\"这回事，本条是**新造**的纯 CSS 包。另：本条 compatNote 那句「19 个文件里只有 5 个 CSS」的文件数**与实测不符**（见该字段的站侧更正）。",
-  "at": "2026-10-11T18:27:55.307Z",
-  "by": "admin",
-  "displayName": "草莓美化包（纯 CSS）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "Mo233 (Forge 兼容改写); 原作 Leiothrix",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "e3fc66707c0b186630776bf9fdd2a84a7b969e3779fda7478554dd803dd6e46b",
-  "originId": "0e55a71ade93",
-  "originSha256": "0eba2ff224bdd67be480ce642ea0046f0c7c722c089db1d4cf4c35c798613751"
+  "at": "2026-10-11T18:27:55.304Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

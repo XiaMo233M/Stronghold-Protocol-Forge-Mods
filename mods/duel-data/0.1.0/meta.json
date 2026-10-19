@@ -1,122 +1,19 @@
 {
   "id": "f26038c63243",
-  "area": "compat",
-  "kind": "compat",
   "name": "争锋频道 · 规则资料（只读）",
+  "packId": "duel-data",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-11T18:44:06.501Z",
+  "size": 19396,
+  "sha256": null,
   "author": "jingjiangze",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "jingjiangze",
+  "homepage": null,
   "compatAuthor": "Mo233",
   "compatAuthorSource": "form",
   "compatOf": "be9a6d998698",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "be9a6d998698",
-    "area": "normal",
-    "name": "争锋频道 · 规则资料（只读）",
-    "sha256": "3908e640be2c2ff7d221c8fea5bec244b400f79e3bf7cc9ba514775d593cb846",
-    "sourceUrl": "https://github.com/Cloudnyco/Duel-Channel",
-    "author": null,
-    "uploadedAt": "2026-10-11T17:39:52.472Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": "【由投稿 be9a6d998698 改写】争锋频道 · 规则资料（只读）\n\n原件在引擎上**本来就是合法的**：用它自己的包单独装载即 0 error(s), 0 warning(s) / VALID ⇒ 一个声明都没改。\n\n本版只做打包形状 + 署名：\n① 打包形状：包内文件直接放在 zip 根（pack.json 就在根）；\n② 新增 PROVENANCE.md（六项署名）与 NOTICE-来源说明.md。\n③ pack.json 与包内全部内容文件逐字节未改（实测 7 个内容文件逐字节相同（原文写 19，是同段模板的残留 —— 2026-10-12 站侧按实测改真值，见 revisions））；未声明 combat，不改对局结果；不含任何游戏素材字节。",
   "note": "【由投稿 be9a6d998698 改写】争锋频道 · 规则资料（只读）\n\n原件在引擎上**本来就是合法的**：用它自己的包单独装载即 0 error(s), 0 warning(s) / VALID ⇒ 一个声明都没改。\n\n本版只做打包形状 + 署名：\n① 打包形状：包内文件直接放在 zip 根（pack.json 就在根）；\n② 新增 PROVENANCE.md（六项署名）与 NOTICE-来源说明.md。\n③ pack.json 与包内全部内容文件逐字节未改（19 个内容文件 SAME）；未声明 combat，不改对局结果；不含任何游戏素材字节。",
-  "size": 19396,
-  "sha256": "58ea1c4e1fbfa2dbf47c63a57077e64a91f4f879cfa2f86543b5a7f1b36d39c9",
-  "blobName": "f26038c63243-兼容版.zip",
-  "uploadedAt": "2026-10-11T18:44:06.501Z",
-  "ip": "127.0.0.1",
-  "entries": 10,
-  "unpackedBytes": 205845,
-  "pack": {
-    "id": "duel-data",
-    "name": "争锋频道 · 规则资料（只读）",
-    "author": "jingjiangze",
-    "license": "AGPL-3.0-or-later",
-    "version": "0.1.0",
-    "description": "把 Duel-Channel 的 duelcfg.json 按主题拆成 7 份只读 JSON 挂出来（模式表 / 回合表 / 计分 / 卡池与范围 / 敌人与选择器 / 常量与环境 / 阶段-陷阱-表情-活动）。它只是资料：引擎里没有任何代码会去读这些 URL，所以本包不改变对局，也不能开局（不兼容清单见 notices 包与 README）。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "10 个文件 · 解压后约 0.20 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：争锋频道 · 规则资料（只读）（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 be9a6d998698 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T02:16:17.420Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "分类（指令③④）：把「说明包」与「真功能 mod」分开。依据=包内 pack.json 是否在 ZIP 根、是否声明实际生效面、以及在引擎 0.16.0 干净 workshop 根单独装载的 errors 数（见站侧留档）。functional=装上即生效且装载 errors=0；documentation=说明包/参考/补丁，装上不会启用任何功能；unknown=安装器形态（无 pack.json 在 ZIP 根），不放进真功能区。"
-    },
-    {
-      "at": "2026-10-12T05:01:39.469Z",
-      "by": "admin",
-      "changed": {
-        "packKind": "functional"
-      },
-      "to": {
-        "packKind": "documentation"
-      },
-      "why": "业主巡检指出的判断项：这 3 条 compat 只带**只读资料 / 公告文案**面（duel-copy＝notices（公告 + 鸣谢）；duel-data＝routes 三个只读 JSON；duel-fighter＝routes 一个只读 JSON），没有会被玩法或界面消费的功能面 ⇒ 按站点定义「documentation＝装上不会启用任何功能」改判为 documentation。依据与站上同一形状的先例一致：7bf0bd0e56fd（参考 + 展示面 + 只读 route）在指令③④里就判为 documentation。字段与实物不符 ⇒ 改真值 + revisions 留痕。"
-    },
-    {
-      "at": "2026-10-12T05:07:22.167Z",
-      "by": "admin",
-      "changed": {
-        "packKind": "documentation"
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "业主裁定 18（推翻上一轮的判断）：我上一轮的准则「只读资料/文案 ⇒ documentation」有漏洞 —— 它与站点给玩家看的公开标注「说明包（装上不会启用任何功能）」自相矛盾。业主纠偏后的准则是「它供给的东西会被游戏消费（数据/面板/公告/路由/healthz 字段）⇒ functional；装了之后玩家侧什么都不会发生⇒ documentation」。真 Edge 渲染实测：welcome.modPanels 带两个面板、两个 [data-mod-slot] 都渲染出内容、点「公告」后出现本包全文 ⇒ 本条供给的是会被游戏消费的东西 ⇒ 改回 functional。"
-    },
-    {
-      "at": "2026-10-12T05:29:01.851Z",
-      "by": "admin",
-      "changed": {
-        "compatNote": "（声称 19 个内容文件 SAME）"
-      },
-      "to": {
-        "compatNote": "（实测 7 个内容文件逐字节相同）"
-      },
-      "why": "业主令 24：4 条 compat 的 compatNote 里「19 个内容文件 SAME」是同一段模板的残留、数目为假。逐字节比对本条 mod.zip 与 orig.zip 后，**实测内容文件 7 个逐字节相同**（另 pack.json 逐字节相同），只新增 NOTICE-来源说明.md、PROVENANCE.md。按\"改真值 + 留痕\"改成实测值。"
-    }
-  ]
+  "funcKind": "utility"
 }

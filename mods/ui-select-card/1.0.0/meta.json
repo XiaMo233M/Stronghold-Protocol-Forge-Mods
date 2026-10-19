@@ -1,0 +1,19 @@
+{
+  "id": "53528e5210e8",
+  "name": "卫戍协议UI选择性安装包 · 收录说明卡（本站适配件）",
+  "packId": "ui-select-card",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-16T09:37:24.635Z",
+  "size": 9682,
+  "sha256": null,
+  "author": "Stronghold Protocol 中文社区（收录整理）",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "**本站自制适配件**（不是来件 1:1 收录）：把「卫戍协议UI选择性安装包」（stronghold-ui-20261014）里**这套工坊包模型今天能表达的那几格**落成真包。\n\n本包内容（一格一件事）：\n· `client.panels[0]` 挂 **`root.overlays`**（十格挂载点之一）—— 一张「收录说明卡」，写清来件的装法（整文件覆盖客户端 / 非一键包 / 须按包内 AGENTS.md 直装 / 会覆盖目标客户端改动）、来源与授权标注；\n· `ctx.session.getPref/setPref` —— 一格本机偏好，记住「知道了，不再显示」；\n· `client.theme.vars` —— 三个 `--ui-select-card-*` 变量，只给这张卡自己用（**不去改引擎的既有 CSS 规则**，那需要「具名 CSS 规则覆盖格」，引擎今天没有）；\n· `i18n` —— 卡自己 11 条文案的 en / zh-TW / ja / ko 词条；\n· `notices`（announcement + credits）—— 引擎自己的「公告 / 鸣谢」面板会读到。\n\n⚠️ **不做的事**：`payload/**` 那 14 件整文件替换件**一个字节都不进包**（那不是包模型能表达的，属 `docs/MOD-SURFACE.md:131` 说的「发行工件」）；不碰服务端；不读对局态（没有 store / match / runner / audio）。\n\n形态：纯客户端声明包 + 一个只读面板模块，不改任何引擎文件、不改 `data/*.json`、不需要服务端模块 —— 卸载 = 删文件夹。\n\n本机实测引擎 `node tools/workshop-validate.mjs <包目录>`：**0 error / 0 warning / exit 0**（VALID）。包目录名 = `pack.json` 的 id（`ui-select-card`）。\n\n⚠️ **浏览器路径未验**：`panel/card.js` 与 `panel/card.css` 只过了引擎的形状层 + 真引擎装载层（`workshop-validate` 不跑浏览器）。真 `import()`、挂载与样式叠放属 `SP_E2E=1` + 有 Chrome 的机器上的事，本机没有 Chrome、未开浏览器，所以**没有跑过**。\n\n授权标注：本包为本站自制的**界面适配件**（卡片与文案本站自写），不复制来件任何代码或素材；来件本身未声明许可证与作者。本包许可 CC-BY-4.0。\n\n**不 supersede**：站上原本没有本包（`ui-select-card`）的记录。",
+  "funcKind": "assets"
+}

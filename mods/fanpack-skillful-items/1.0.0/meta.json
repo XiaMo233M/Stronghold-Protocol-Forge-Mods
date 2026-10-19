@@ -1,113 +1,19 @@
 {
   "id": "d708048043d2",
-  "area": "compat",
-  "kind": "compat",
   "name": "灵巧盟约装备",
+  "packId": "fanpack-skillful-items",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-11T18:39:52.368Z",
+  "size": 183304,
+  "sha256": null,
   "author": "原件未署名",
   "authorSource": "pack.json",
-  "authorGivenFromMaintainer": null,
-  "packAuthor": "原件未署名",
+  "homepage": null,
   "compatAuthor": "Mo233",
   "compatAuthorSource": "form",
   "compatOf": "8919d4c42c6b",
-  "compatOfVerified": true,
-  "origin": {
-    "id": "8919d4c42c6b",
-    "area": "normal",
-    "name": "灵巧盟约装备",
-    "sha256": "dcf7626bcf8af5a9dbee1fc6c7151277befcc66388a4dad96012ff1754190ca1",
-    "sourceUrl": null,
-    "author": null,
-    "uploadedAt": "2026-10-11T17:02:11.810Z",
-    "verified": true,
-    "archived": true,
-    "archivedFile": "orig.zip"
-  },
-  "originUrl": null,
   "compatNote": "为什么改写：只重打成包形状，数值一个字节没改（items.json 与图标字节与原件一致）。原件（投稿 8919d4c42c6b）是安装器（install.mjs 45,829 B），本包不采用、绝不执行。原件 README 的「商店盟约偏向」一节在引擎里不存在，如实未实现，原样保留未删。combat:true 的依据是实测：新装备真的进商店 2 阶池（6→7），官方那一件一件没掉。\n\n=== 站侧标注（2026-10-12 · 素材口径；原文在上，一字未改）===\n\n⚠️ **本包含素材**：1 个 / 175,087 B（图 1）。\n**授权与用途以原件声明为准**；其中含**从《明日方舟》客户端导出的官方素材**，版权归**鹰角网络 / Yostar**，**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**。\n本站与发布者**不主张**这些素材的任何权利。**未标注才是问题；本标注即告知义务的履行。**",
   "note": "为什么改写：只重打成包形状，数值一个字节没改（items.json 与图标字节与原件一致）。原件（投稿 8919d4c42c6b）是安装器（install.mjs 45,829 B），本包不采用、绝不执行。原件 README 的「商店盟约偏向」一节在引擎里不存在，如实未实现，原样保留未删。combat:true 的依据是实测：新装备真的进商店 2 阶池（6→7），官方那一件一件没掉。\n\n=== 站侧标注（2026-10-12 · 素材口径；原文在上，一字未改）===\n\n⚠️ **本包含素材**：1 个 / 175,087 B（图 1）。\n**授权与用途以原件声明为准**；其中含**从《明日方舟》客户端导出的官方素材**，版权归**鹰角网络 / Yostar**，**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**。\n本站与发布者**不主张**这些素材的任何权利。**未标注才是问题；本标注即告知义务的履行。**",
-  "size": 183304,
-  "sha256": "70c903f3fa3336dfd0c9531b26ff4942de24330e31eb96bdf5a282f1663de24b",
-  "blobName": "d708048043d2-兼容版.zip",
-  "uploadedAt": "2026-10-11T18:39:52.368Z",
-  "ip": "127.0.0.1",
-  "entries": 5,
-  "unpackedBytes": 190524,
-  "pack": {
-    "id": "fanpack-skillful-items",
-    "name": "灵巧盟约装备",
-    "author": "原件未署名",
-    "license": "非商业同人作品；《明日方舟》及其素材版权归鹰角网络所有。",
-    "version": "1.0.0",
-    "description": "为附加盟约【灵巧】补上它的盟约装备「灵巧钩索」（2 阶、价格 2、攻击速度 +25 / 进阶 +50）与一张自带图标。纯数据包：不改 data/*.json，不含任何引擎代码。"
-  },
-  "flags": [
-    {
-      "level": "info",
-      "code": "SIZE",
-      "text": "5 个文件 · 解压后约 0.18 MB"
-    },
-    {
-      "level": "info",
-      "code": "HAS_PACK_JSON",
-      "text": "含 pack.json —— 看起来是已做好的工坊包，可以按「提到 packs/」那条路走"
-    },
-    {
-      "level": "info",
-      "code": "PACK_ID_HINT",
-      "text": "上传时填的名字：灵巧盟约装备（与包里 pack.json 的 id 不要求一致，但上线的显示名以哪个为准要定下来）"
-    },
-    {
-      "level": "info",
-      "code": "COMPAT_OF",
-      "text": "由待审原件 8919d4c42c6b 改写而来"
-    },
-    {
-      "level": "info",
-      "code": "ORIGIN_URL_MISSING",
-      "text": "没填原件的来源链接 —— 可以为空（如实留白，不拦通过）；填了就记下来便于追溯"
-    }
-  ],
-  "suspected": false,
-  "suspectedByTiers": false,
-  "maintainerConfirm": null,
-  "suspectedReasons": [],
-  "packKind": "functional",
-  "revisions": [
-    {
-      "at": "2026-10-12T02:16:17.417Z",
-      "by": "admin",
-      "changed": {
-        "packKind": null
-      },
-      "to": {
-        "packKind": "functional"
-      },
-      "why": "分类（指令③④）：把「说明包」与「真功能 mod」分开。依据=包内 pack.json 是否在 ZIP 根、是否声明实际生效面、以及在引擎 0.16.0 干净 workshop 根单独装载的 errors 数（见站侧留档）。functional=装上即生效且装载 errors=0；documentation=说明包/参考/补丁，装上不会启用任何功能；unknown=安装器形态（无 pack.json 在 ZIP 根），不放进真功能区。"
-    },
-    {
-      "at": "2026-10-12T05:42:46.013Z",
-      "by": "admin",
-      "changed": {
-        "decision.reason": "（原 2293 字）"
-      },
-      "to": {
-        "decision.reason": "（追加一段站侧核实：站侧补正（2026-10-12）：上一轮补的 reason 里写「`pack.json` 有改动」是**说不准的** —…）"
-      },
-      "why": "业主令 27：那 9 条「pack.json 与 orig.zip 不同」逐条分类。判据「声明了 ⇒ 正当；没声明 ⇒ 在 reason 里如实注明」。本条属**未声明**（或上一轮那句\"pack.json 有改动\"说不准），按只增把实测事实补进 reason；**不改包件、不打回、不删**。附记：站点 compatPublishGate 比的是**上传时快照 meta.pack**、不是 orig.zip ⇒ 这类不一致**不一定是违规**。"
-    },
-    {
-      "at": "2026-10-12T07:54:19.970Z",
-      "by": "admin",
-      "changed": {
-        "note": "为什么改写：只重打成包形状，数值一个字节没改（items.json 与图标字节与原件一致）。原件（投稿 8919d4c42c6b）是安装器（install.mjs 45,829 B），本包不采用、绝不执行。原件 README 的「商店盟约偏向」一节在引擎里不存在，如实未实现，原样保留未删。combat:true 的依据是实测：新装备真的进商店 2 阶池（6→7），官方那一件一件没掉。",
-        "compatNote": "为什么改写：只重打成包形状，数值一个字节没改（items.json 与图标字节与原件一致）。原件（投稿 8919d4c42c6b）是安装器（install.mjs 45,829 B），本包不采用、绝不执行。原件 README 的「商店盟约偏向」一节在引擎里不存在，如实未实现，原样保留未删。combat:true 的依据是实测：新装备真的进商店 2 阶池（6→7），官方那一件一件没掉。"
-      },
-      "to": {
-        "note": "为什么改写：只重打成包形状，数值一个字节没改（items.json 与图标字节与原件一致）。原件（投稿 8919d4c42c6b）是安装器（install.mjs 45,829 B），本包不采用、绝不执行。原件 README 的「商店盟约偏向」一节在引擎里不存在，如实未实现，原样保留未删。combat:true 的依据是实测：新装备真的进商店 2 阶池（6→7），官方那一件一件没掉。\n\n=== 站侧标注（2026-10-12 · 素材口径；原文在上，一字未改）===\n\n⚠️ **本包含素材**：1 个 / 175,087 B（图 1）。\n**授权与用途以原件声明为准**；其中含**从《明日方舟》客户端导出的官方素材**，版权归**鹰角网络 / Yostar**，**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**。\n本站与发布者**不主张**这些素材的任何权利。**未标注才是问题；本标注即告知义务的履行。**",
-        "compatNote": "为什么改写：只重打成包形状，数值一个字节没改（items.json 与图标字节与原件一致）。原件（投稿 8919d4c42c6b）是安装器（install.mjs 45,829 B），本包不采用、绝不执行。原件 README 的「商店盟约偏向」一节在引擎里不存在，如实未实现，原样保留未删。combat:true 的依据是实测：新装备真的进商店 2 阶池（6→7），官方那一件一件没掉。\n\n=== 站侧标注（2026-10-12 · 素材口径；原文在上，一字未改）===\n\n⚠️ **本包含素材**：1 个 / 175,087 B（图 1）。\n**授权与用途以原件声明为准**；其中含**从《明日方舟》客户端导出的官方素材**，版权归**鹰角网络 / Yostar**，**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**。\n本站与发布者**不主张**这些素材的任何权利。**未标注才是问题；本标注即告知义务的履行。**"
-      },
-      "why": "公网页备注改写：换成面向下载者的正常文案（只动 note / compatNote 两栏，其余字段一字未动）"
-    }
-  ]
+  "funcKind": "gameplay"
 }

@@ -1,16 +1,5 @@
 {
   "decision": "approved",
-  "reason": "本条是**兼容改写版**（kind=compat，由投稿 e22986f98b4a 改写而来）。原作者 jingjiangze · 兼容改写者 Mo233。改了什么（取自本条 compatNote 首句）：（compatNote 为空） 与原件逐字节比对：**内容文件 3 个逐字节相同**（NOTICE-来源说明.md、README.md、bosses.json）；**内容文件一个都没改**；`pack.json` **逐字节相同**；只在本条里新增 1 个：PROVENANCE.md。 补记于 2026-10-12：`compat-submit` 那条路本来**不写 reason**，本条原先 reason 为 null —— 按业主令 24 从「本条 compatNote / 与 orig.zip 的实际比对」取事实补上，**不是模板**。",
-  "at": "2026-10-11T13:25:31.320Z",
-  "by": "admin",
-  "displayName": "领袖固定血量（0.1.x 口径）",
-  "publishedVariant": "mod.zip（兼容改写版）",
-  "archivedVariant": "orig.zip（被改写的原件，留档不发布）",
-  "author": "jingjiangze",
-  "compatAuthor": "Mo233",
-  "acknowledgedSuspected": false,
-  "maintainerConfirm": null,
-  "rewriteSha256": "29d56786d3c1d7ad048a6cd5fc8316228279adb04780e5ea7e7bda3dd7b6c28f",
-  "originId": "e22986f98b4a",
-  "originSha256": "311cc34df1d7908181941af651097a20badc372f72eac5ed07e4c79f6bab0585"
+  "at": "2026-10-11T13:25:31.317Z",
+  "source": "site /api/mods（公开记录即已上线）"
 }

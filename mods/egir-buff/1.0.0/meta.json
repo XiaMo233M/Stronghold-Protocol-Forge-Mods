@@ -1,0 +1,19 @@
+{
+  "id": "e409e2ee750f",
+  "name": "阿戈尔盟约加强（egir-buff）",
+  "packId": "egir-buff",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-15T15:34:01.689Z",
+  "size": 4715,
+  "sha256": null,
+  "author": "卫戍协议同人 mod",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "作者原包 **1:1 收录、未改写**：zip 内每个文件与来件逐字节一致（逐文件 sha256 比对，0 差异）。原件 zip 本身已是扁平、pack.json 的 id 即 `egir-buff`。\n本机实测引擎 `node tools/workshop-validate.mjs`：**errors=0**，warnings=15（全部 `BB_UNKNOWN_KEY`：skill.bb 里那些 `talent@def` / `pinecn_s_2[*].atk` 之类键由本包自带的 kits 读，通用 kit 不读）。\n包 id `egir-buff`，版本 1.0.0，作者 \"卫戍协议同人 mod\"，许可 **CC-BY-NC-SA-4.0**。\n形态：`content: [\"bonds\",\"chess\"]` + 7 条 `overrides`（`bonds:egirShip` 与 3 名干员的 `_a`/`_b` 棋子记录）+ `server.battle`；**声明 `combat: true`** —— 它改【阿戈尔】盟约的数值（战斗开始按层数加攻、5 人档额外 +50 攻速），会改变对局结果，故如实标注。数据走工坊叠加层，官方 data/*.json 一个字节都不改，卸载 = 删文件夹。\n功能类目建议 **gameplay**：改动盟约/棋子数值与战斗行为，与站上既有 `morph-plus` / `shop-bond-bias` / `rimbilliton` 同类。\n来源：作者未在包内附来源 URL；非商业同人作品，《明日方舟》相关素材版权归鹰角网络所有。本包不含素材文件（只有 3 个 JSON 与 1 个 .mjs）。",
+  "funcKind": "gameplay"
+}
