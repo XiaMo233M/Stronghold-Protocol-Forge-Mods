@@ -1,0 +1,19 @@
+{
+  "id": "1768196c6b22",
+  "name": "颂乐人偶（Ave Mujica）v1.2.0",
+  "packId": "ave-mujica",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-15T17:10:50.439Z",
+  "size": 11390440,
+  "sha256": null,
+  "author": "the Ave Mujica mod",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "【以新为准 · 新版上线】本条取代站上旧版 `65f0fe11222c`（颂乐人偶（Ave Mujica）· area=compat · pack.json.gameVersion 0.2.2）。\n\n■ 来源与形状（未改写）\n· 来件：工坊形态 zip —— 作者原包「颂乐人偶」（pack.id = ave-mujica）v1.2.0，185 个文件，zip 11,354,346 B（sha256 b39b76a5b51a2cc45718d71e6d6107817d6f3b85240d577c895d418dafa25240），解压合计 18,846,080 B（18.85 MB / 17.97 MiB）。\n· 上游来源：https://github.com/IncogniBox/Forge-Workshop-IncogniBox/releases/tag/ave-mujica-v1.2.0 （与站上那条记录登记的 originUrl 同一个 tag）。\n· 本站只做一件事：把来件套着的顶层目录**拍平** —— 站点只读 zip 根的 pack.json，套了顶层目录即 400。包内 185 个文件与来件**逐字节一致**（逐文件 sha256 比对，0 差异）；包内 pack.json 一个字节都没改（仍是 id=ave-mujica / version 1.2.0 / license GPL-3.0-or-later / author: the Ave Mujica mod）。\n· 本条 zip：11,390,440 B。包目录名 = pack.id = ave-mujica（装载器要求）。\n\n■ 判据（为什么是「以新」）\n· 来件 pack.json.gameVersion = \"0.2.6\"；站上 65f0fe11222c 的 = \"0.2.2\"（两者都取自各自 zip 内 pack.json 的原始值，实测）。0.2.6 > 0.2.2 ⇒ 以新为准。\n· 站点公开面按**记录**列、不按 pack.id 去重 ⇒ 本条上线后**显式**调一次 /supersede（newId=本条, oldId=65f0fe11222c）：旧的转 superseded、replacedBy 指向本条；旧的记录与包体**一个字节都不动**（下架 ≠ 删除）。\n\n■ 本机实测（引擎侧，真跑）\n· node tools/workshop-validate.mjs <包> ⇒ 0 error / 42 warning，VALID: the engine accepts this content。\n· warning 全部是作者侧：BB_UNKNOWN_KEY（由本包自带 kits/<chessId>.js 读的 bb 键）与 CLASS_OVERRIDE（干员覆盖了职业推导出的 dmgType/attackKind/canHitFly）。无一条来自本站。\n\n■ 包内容与影响面\n· content = bands / bonds / chess / effects / garrisons；3 条 overrides；client.panels 一枚战场上的**只读** Fever 积攒进度图标。\n· **combat: true** —— 它挂 server / server.battle、改盟约与干员数值，**会改变对局结果**，故如实标注（房主建房间时自选装不装）。\n· 不改官方 data/*.json，全部走工坊叠加层；卸载 = 删文件夹。\n\n■ ⚠️ 含素材（重点标注）\n· 本包**含《明日方舟》官方素材**（解包产物）：官方干员头像 / 立绘路径（char/avatar、char/portrait）、Spine 图集描述（.atlas）、Spine 骨骼（.skel）、官方 Spine 目录结构（spine/op|enemy|token），另有随包语音条目与外观条目（art / voices / skins）。\n· **版权归上海鹰角网络科技有限公司 / Yostar 及其授权方**。本包与发布者**不主张**这些素材的任何权利；**仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景**。\n· 作者自制部分（盟约/干员数据、棋子记录、面板代码）按包内 pack.json 的 license = **GPL-3.0-or-later** 收录，原作者署名（the Ave Mujica mod）原样保留、未改一字。\n· 本站在记录备注里**处处标注**上述三点；上线走显式 acknowledge（本条会命中 SELF_DECLARED_OFFICIAL_ASSETS / SELF_DECL_OFFICIAL）。\n\n■ 与站上旧版的关系\n· 旧版 65f0fe11222c 是**同一作者原包**的 0.2.2 时期版本（11,384,370 B），本轮不做任何改写、不把旧版内容混进来：本条的内容全部来自新来件。\n· 本条为「原包 1:1 收录」记录，不改写作者任何文件。",
+  "funcKind": "expansion"
+}

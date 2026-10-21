@@ -1,0 +1,19 @@
+{
+  "id": "f056f08159ac",
+  "name": "克莱门莎完整包（棋子+驻守+三条盟约归属+立绘与中日语音）v2",
+  "packId": "clemnt-addition",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-13T12:38:52.603Z",
+  "size": 2032322,
+  "sha256": null,
+  "author": "jingjiangze（逆向提取与切片）",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "Mo233",
+  "compatAuthorSource": "form",
+  "compatOf": "ba3b3d908414",
+  "compatNote": "原件在 flagged 区，站点已标 suspected=GAME_ASSET×2（.atlas/.skel）。包内 47 个成员：棋子 + 驻守 + 三条盟约 overrides + assets/（立绘与语音）。license 由作者明写「数据、立绘、语音含官方素材，仅非商业学习与个人娱乐」。overrides 与 5376c23a06e9 同一批官方 bonds id，覆盖形式是**整条官方记录 + 改 members 数组**（实测该记录 36 个键，除 members/visibleMembers 外与官方逐字段一致）⇒ 结果与 5376c23a06e9 等价，同装时本条按包 id 字典序获胜。`combat: true`。warnings=14（BB_UNKNOWN_KEY 12 等）。本条发布要过两道：站点的 ackRequired 显式确认 + 素材政策由业主裁。",
+  "note": "原件在 flagged 区，站点已标 suspected=GAME_ASSET×2（.atlas/.skel）。包内 47 个成员：棋子 + 驻守 + 三条盟约 overrides + assets/（立绘与语音）。license 由作者明写「数据、立绘、语音含官方素材，仅非商业学习与个人娱乐」。overrides 与 5376c23a06e9 同一批官方 bonds id，覆盖形式是**整条官方记录 + 改 members 数组**（实测该记录 36 个键，除 members/visibleMembers 外与官方逐字段一致）⇒ 结果与 5376c23a06e9 等价，同装时本条按包 id 字典序获胜。`combat: true`。warnings=14（BB_UNKNOWN_KEY 12 等）。本条发布要过两道：站点的 ackRequired 显式确认 + 素材政策由业主裁。",
+  "funcKind": "expansion"
+}

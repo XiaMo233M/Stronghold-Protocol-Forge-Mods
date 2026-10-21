@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-19T15:11:42.387Z",
+  "generatedAt": "2026-10-21T11:42:45.670Z",
   "source": {
     "stage": "E:\\destop\\harness_1\\Stronghold-Protocol-Forge-Mods\\_up\\modrepo-stage",
     "host": null,
     "dataDir": null,
     "readAt": null,
-    "manifestGeneratedAt": "2026-10-19T15:10:52.276Z",
+    "manifestGeneratedAt": "2026-10-21T11:42:36.209Z",
     "selection": "state=approved 且 packKind=functional（公开记录即已上线）",
     "excludedSamePackId": []
   },
@@ -46,6 +46,42 @@
         ],
         "errors": [],
         "layer": "A",
+        "combat": true
+      }
+    },
+    {
+      "id": "ave-mujica",
+      "name": "颂乐人偶",
+      "version": "1.2.0",
+      "sha256": "ab50d7204531c686269466040cf5289474c0e79ea217e41406f72db4e54581a9",
+      "packHash": "572c3d9bddcb6a28fc8ba06224c5986a6791d47d1d5d63c1a7c3bb533ae8ecdd",
+      "category": "functional",
+      "categoryWhy": "声明了 content / overrides / client / server",
+      "stationId": "1768196c6b22",
+      "path": "mods/ave-mujica/1.2.0/mod.zip",
+      "sizeBytes": 11390440,
+      "fileCount": 185,
+      "unpackedBytes": 18846080,
+      "assets": {
+        "assetFree": false,
+        "count": 169,
+        "bytes": 18614868,
+        "byKind": {
+          "image": 63,
+          "spine": 36,
+          "audio": 70
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：169 个文件 / 18614868 B（{\"image\":63,\"spine\":36,\"audio\":70}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "ave-mujica"
+        ],
+        "errors": [],
+        "layer": "B",
         "combat": true
       }
     },
@@ -210,6 +246,42 @@
       }
     },
     {
+      "id": "clemnt-addition",
+      "name": "克莱门莎（5 星狙击）完整包：棋子 + 驻守特质 + 三条盟约归属 + 立绘与语音",
+      "version": "2.0.0",
+      "sha256": "26e8dec9c52bb8870f9228851dbaa95cd5a1df87e647f6464f008c61d7830530",
+      "packHash": "203cb7da5d68ebe795804388f35ced4ba57ab75261592f66d45f6118ae96e47b",
+      "category": "functional",
+      "categoryWhy": "声明了 content / overrides / notices",
+      "stationId": "f056f08159ac",
+      "path": "mods/clemnt-addition/2.0.0/mod.zip",
+      "sizeBytes": 2032322,
+      "fileCount": 47,
+      "unpackedBytes": 3445910,
+      "assets": {
+        "assetFree": false,
+        "count": 40,
+        "bytes": 3384920,
+        "byKind": {
+          "image": 8,
+          "spine": 4,
+          "audio": 28
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：40 个文件 / 3384920 B（{\"image\":8,\"spine\":4,\"audio\":28}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "clemnt-addition"
+        ],
+        "errors": [],
+        "layer": "A",
+        "combat": true
+      }
+    },
+    {
       "id": "clemntia-bonds",
       "name": "克莱门莎入盟约（三条盟约成员追加）",
       "version": "1.0.0",
@@ -271,6 +343,41 @@
         "errors": [],
         "layer": "A",
         "combat": false
+      }
+    },
+    {
+      "id": "columbia",
+      "name": "哥伦比亚",
+      "version": "1.0.0",
+      "sha256": "e1ea1cc7752cef508e90317c6eed5f7fb1a2e6ef77c0764311becf0b2f04c98b",
+      "packHash": "fee07f2d0f3dc2465ff50227cde807460a23692aefd6cc323967a43d3ec438fe",
+      "category": "functional",
+      "categoryWhy": "声明了 content / overrides / behaviour / server",
+      "stationId": "d2a39e69f78d",
+      "path": "mods/columbia/1.0.0/mod.zip",
+      "sizeBytes": 5365594,
+      "fileCount": 102,
+      "unpackedBytes": 8071318,
+      "assets": {
+        "assetFree": false,
+        "count": 86,
+        "bytes": 7729763,
+        "byKind": {
+          "image": 54,
+          "spine": 32
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：86 个文件 / 7729763 B（{\"image\":54,\"spine\":32}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "columbia"
+        ],
+        "errors": [],
+        "layer": "B",
+        "combat": true
       }
     },
     {
@@ -399,6 +506,42 @@
         "errors": [],
         "layer": "C",
         "combat": false
+      }
+    },
+    {
+      "id": "dongShip",
+      "name": "东盟约",
+      "version": "1.2.29",
+      "sha256": "90dc9260a8ef215422d5e7db5e2f5ad9d7fce77d5ae06b4a71ba316428607a4a",
+      "packHash": "16b8dc0048111f54f47d665896a2656a233ab502674d33abe66e0dd2bc32f564",
+      "category": "functional",
+      "categoryWhy": "声明了 content / overrides / server / notices",
+      "stationId": "350b2b7b6ddb",
+      "path": "mods/dongShip/1.2.29/mod.zip",
+      "sizeBytes": 8927949,
+      "fileCount": 229,
+      "unpackedBytes": 17480345,
+      "assets": {
+        "assetFree": false,
+        "count": 208,
+        "bytes": 16884033,
+        "byKind": {
+          "image": 42,
+          "spine": 26,
+          "audio": 140
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：208 个文件 / 16884033 B（{\"image\":42,\"spine\":26,\"audio\":140}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "dongShip"
+        ],
+        "errors": [],
+        "layer": "B",
+        "combat": true
       }
     },
     {
@@ -1322,6 +1465,42 @@
       }
     },
     {
+      "id": "rimbilliton",
+      "name": "雷姆必拓",
+      "version": "1.2.0",
+      "sha256": "171e6c0a4bb05e7c0c1884177782d60de3dae04395d97f03ca947be246b4da42",
+      "packHash": "92d0e1c2cc4125ae8f1b4affba79ff0f333a0ae25a27024d423f4f47e7f3f7aa",
+      "category": "functional",
+      "categoryWhy": "声明了 content / overrides / behaviour / server",
+      "stationId": "4325932a3c13",
+      "path": "mods/rimbilliton/1.2.0/mod.zip",
+      "sizeBytes": 11877205,
+      "fileCount": 352,
+      "unpackedBytes": 16557505,
+      "assets": {
+        "assetFree": false,
+        "count": 331,
+        "bytes": 16164370,
+        "byKind": {
+          "image": 57,
+          "spine": 36,
+          "audio": 238
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：331 个文件 / 16164370 B（{\"image\":57,\"spine\":36,\"audio\":238}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "rimbilliton"
+        ],
+        "errors": [],
+        "layer": "B",
+        "combat": true
+      }
+    },
+    {
       "id": "s11-chess-extras",
       "name": "十一服棋子扩充（24 名干员）",
       "version": "1.0.0",
@@ -1573,6 +1752,38 @@
       "engineLoad": {
         "packsLoaded": [
           "sp-skins-index"
+        ],
+        "errors": [],
+        "layer": "A",
+        "combat": false
+      }
+    },
+    {
+      "id": "srv-notice",
+      "name": "服务器公告（notices 兼容版）",
+      "version": "2.0.0",
+      "sha256": "e9550c646cb1a6ca856b65626e059be7af62c0daa7816c7a698495ce1ac3595f",
+      "packHash": "0a4687e334713e2553569497a30ceea6f6dc4d7ded224a9a9098ae7317b7247a",
+      "category": "functional",
+      "categoryWhy": "声明了 notices",
+      "stationId": "35b4d6149f54",
+      "path": "mods/srv-notice/2.0.0/mod.zip",
+      "sizeBytes": 4052,
+      "fileCount": 4,
+      "unpackedBytes": 5112,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "srv-notice"
         ],
         "errors": [],
         "layer": "A",
@@ -1915,63 +2126,25 @@
       "notes": []
     },
     {
-      "stationId": "531e1d90c4f5",
-      "packId": "srv-notice",
-      "name": "服务器公告",
+      "stationId": "9bab60e15e59",
+      "packId": null,
+      "name": "卫戍协议UI选择性安装包（UI 包形态收录件·需直装非一键装）",
       "gates": [
         {
-          "gate": "load",
+          "gate": "pack.json",
           "ok": false,
-          "why": "packsLoaded=[] errors=0 "
+          "why": "zip 根与唯一顶层目录里都没有 pack.json"
         }
       ],
-      "notes": [
-        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
-      ]
+      "notes": []
     }
   ],
   "prune": {
     "enabled": false,
-    "candidates": 31,
-    "live": 24,
+    "candidates": 58,
+    "live": 58,
     "wouldDelete": [],
     "deleted": [],
-    "held": [
-      {
-        "path": "mods/ave-mujica/1.1.0/",
-        "stationId": "5a05ef99d82e",
-        "basis": "站侧采集清单（_selection.json）里**没有** 5a05ef99d82e 这条 ⇒ 状态核不到，不删"
-      },
-      {
-        "path": "mods/duel-mode/0.2.1/",
-        "stationId": "b6a3f39ae9ad",
-        "basis": "站侧采集清单（_selection.json）里**没有** b6a3f39ae9ad 这条 ⇒ 状态核不到，不删"
-      },
-      {
-        "path": "mods/mod-xie/2.0.0/",
-        "stationId": "9709a3406f16",
-        "basis": "站侧采集清单（_selection.json）里**没有** 9709a3406f16 这条 ⇒ 状态核不到，不删"
-      },
-      {
-        "path": "mods/mod-xie/2.1.0/",
-        "stationId": "d77099d4a54a",
-        "basis": "站侧采集清单（_selection.json）里**没有** d77099d4a54a 这条 ⇒ 状态核不到，不删"
-      },
-      {
-        "path": "mods/net-panel/1.0.0/",
-        "stationId": "0ead812ea6b0",
-        "basis": "站侧采集清单（_selection.json）里**没有** 0ead812ea6b0 这条 ⇒ 状态核不到，不删"
-      },
-      {
-        "path": "mods/skin-catalogue/1.0.0/",
-        "stationId": "b14d1ec72576",
-        "basis": "站侧采集清单（_selection.json）里**没有** b14d1ec72576 这条 ⇒ 状态核不到，不删"
-      },
-      {
-        "path": "mods/srv-notice/1.0.0/",
-        "stationId": "bd666c344a5a",
-        "basis": "站侧采集清单（_selection.json）里**没有** bd666c344a5a 这条 ⇒ 状态核不到，不删"
-      }
-    ]
+    "held": []
   }
 }

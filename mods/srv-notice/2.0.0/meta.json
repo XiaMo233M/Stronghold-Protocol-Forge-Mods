@@ -1,0 +1,19 @@
+{
+  "id": "35b4d6149f54",
+  "name": "服务器公告（notices 兼容版）",
+  "packId": "srv-notice",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-19T15:29:04.612Z",
+  "size": 4052,
+  "sha256": null,
+  "author": "jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "【本件是兼容改写版】原件：srv-notice 2.0.0（站点记录 531e1d90c4f5，Stardust 版）。请按兼容包处理（compatOf = 531e1d90c4f5）。\n\n① 原件叫什么、从哪来：srv-notice 2.0.0，本站记录 531e1d90c4f5（SP MODSITE）。\n② 原作者：jingjiangze（原件 pack.json 的 authors）。\n③ 原件许可：CC0-1.0（原件 pack.json 的 license，本包原样沿用）。\n④ 改了什么：把 Stardust 契约改写成本引擎的 notices 表面 ——\n   · 删掉 type / target(\"stardust\") / app / capabilities / englishName（都不是本引擎 PACK_FIELDS 的键；\n     target: stardust 会让装载器把它归进 foreign、只认识不装载）；\n   · app: \">=0.2.0\" → game: \"0.2.x\"（本引擎的对应键）；\n   · announcements[]（两条，各带 title/paragraphs）合成一条公告的 sections[]（name = 原 title，items = 原 paragraphs），\n     正文一字未改；\n   · 补 notice/credits.json 署名原作者；\n   · 逐条对照表与「没有做什么」写在包内 PROVENANCE.md。\n⑤ 自带素材：不含任何素材（无图片 / 音频 / 字体 / Spine / .spresources），全部是文本文件；\n   公告文字来自原件，版权与许可归原作者，仅供非商业的学习与个人娱乐使用。",
+  "funcKind": "utility"
+}

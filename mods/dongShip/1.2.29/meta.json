@@ -1,0 +1,19 @@
+{
+  "id": "350b2b7b6ddb",
+  "name": "东盟约 1.2.29（工坊包版 · 【东】盟约）",
+  "packId": "dongShip",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-21T11:00:12.304Z",
+  "size": 8927949,
+  "sha256": null,
+  "author": "CLa",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "【作者自重版 · 直接可装】原作者自行从安装器形态重写成工坊包格式，不是他人兼容改写（原作者与改写者是同一人 CLa）。\n\n① 原件叫什么、从哪来：东盟约-1.2.29-导入包.zip，作者 CLa 提供；本站此前已有同一作者的 v1.2.0（记录 b73b58a6aae6）。\n② 原作者：CLa。\n③ 原件许可：GPL-3.0-or-later（本包代码）；随包素材 © 鹰角网络 / Yostar，非商业同人使用。\n④ 改了什么（本版 1.2.29 相对旧版）：13 名【东】盟约成员 / 24 枚棋子 / 11 组专属特质（21 条记录）/\n   1 个战斗层效果（追加攻击 = 攻击力 ×（3.3% + 0.43955% × 层数），按目标弱点类型结算；6 名时附加神经损伤 30/次）；\n   5 名新干员（白雪 / 吉星 / 麒麟R夜刀 / 火龙S黑角 / 赤冬）；1 件新装备「艺人见面抽选券」；\n   补全 7 条官方盟约（精准 / 远见 / 迅捷 / 助力 / 突袭 / 坚守 / 炎）的成员表。\n   1.2.15 起赤冬全部增益类数值整体上调 20%（费用 / SP / 攻击间隔 / 流失代价不变）。\n⑤ 自带素材：含官方素材 —— 42 张 png（头像 / 立绘 / 装备图标）、13 套 Spine（.skel + .atlas）、\n   140 个 mp3（日 / 中两套战斗语音）。版权归上海鹰角网络科技有限公司 / Yostar 及其授权方，\n   本包与发布者不主张任何权利；仅供非商业的学习与个人娱乐使用，请勿用于任何商业场景。\n\n⚠️ 本包会影响对局结果（pack.json 已声明 combat: true：追加攻击、专属特质、新装备与新干员都能改变一局结果）。\n\n本机实测引擎 v0.19.1-0.3.1 的 tools/check-packs.mjs：packsLoaded=[dongShip] · errors=0 · ✓ 层 B · api=>=1 <2。\n上传件与仓库 packs/dongShip/ 逐字节一致（sha256 见上）。",
+  "funcKind": "gameplay"
+}

@@ -64,7 +64,12 @@ const get = async (url, asBuffer = false) => {
 
 console.log(`  [station] ${SITE}`);
 const list = JSON.parse(await get(`${SITE}/api/mods`));
-const recs = (list.mods || []).map((r) => ({
+// ⚠️ `/api/mods` 把公开记录分成两栏：`mods`（不含官方素材）与 `flagged`（含官方素材、需确认）。
+// 两栏都是**已批准**的记录，缺了 `flagged` 就会漏掉所有带素材的包（2026-10-21 实测漏掉 dongShip
+// 与 srv-notice）。口径与 `collect-station.mjs` 一致：approved + functional，不看它落在哪一栏。
+const PUBLIC = [...(list.mods || []), ...(list.flagged || [])];
+console.log(`  [station] 公开记录 mods ${(list.mods || []).length} + flagged ${(list.flagged || []).length} = ${PUBLIC.length}`);
+const recs = PUBLIC.map((r) => ({
   api: r,
   meta: {
     id: r.id,
