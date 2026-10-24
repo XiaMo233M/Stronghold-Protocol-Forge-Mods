@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-21T11:42:45.670Z",
+  "generatedAt": "2026-10-24T13:09:47.368Z",
   "source": {
     "stage": "E:\\destop\\harness_1\\Stronghold-Protocol-Forge-Mods\\_up\\modrepo-stage",
     "host": null,
     "dataDir": null,
     "readAt": null,
-    "manifestGeneratedAt": "2026-10-21T11:42:36.209Z",
+    "manifestGeneratedAt": "2026-10-24T13:09:38.262Z",
     "selection": "state=approved 且 packKind=functional（公开记录即已上线）",
     "excludedSamePackId": []
   },
@@ -52,29 +52,29 @@
     {
       "id": "ave-mujica",
       "name": "颂乐人偶",
-      "version": "1.2.0",
-      "sha256": "ab50d7204531c686269466040cf5289474c0e79ea217e41406f72db4e54581a9",
-      "packHash": "572c3d9bddcb6a28fc8ba06224c5986a6791d47d1d5d63c1a7c3bb533ae8ecdd",
+      "version": "1.8.25",
+      "sha256": "40789db92825f37e6d0d2fbb1cb4e8b83b736f908d7e727349ef043e093e71f2",
+      "packHash": "321f9461e4fcb6e27ed4b7e2b53df67646e3da1fc8f1c33f122b12383b4a030f",
       "category": "functional",
       "categoryWhy": "声明了 content / overrides / client / server",
-      "stationId": "1768196c6b22",
-      "path": "mods/ave-mujica/1.2.0/mod.zip",
-      "sizeBytes": 11390440,
-      "fileCount": 185,
-      "unpackedBytes": 18846080,
+      "stationId": "0e4081d5cfe9",
+      "path": "mods/ave-mujica/1.8.25/mod.zip",
+      "sizeBytes": 18081891,
+      "fileCount": 1109,
+      "unpackedBytes": 31489489,
       "assets": {
         "assetFree": false,
-        "count": 169,
-        "bytes": 18614868,
+        "count": 839,
+        "bytes": 24233376,
         "byKind": {
-          "image": 63,
-          "spine": 36,
-          "audio": 70
+          "image": 706,
+          "audio": 97,
+          "spine": 36
         },
         "containers": []
       },
       "notes": [
-        "⚠️ **含素材**：169 个文件 / 18614868 B（{\"image\":63,\"spine\":36,\"audio\":70}）⇒ 须在页面上标注来源与授权。"
+        "⚠️ **含素材**：839 个文件 / 24233376 B（{\"image\":706,\"audio\":97,\"spine\":36}）⇒ 须在页面上标注来源与授权。"
       ],
       "engineLoad": {
         "packsLoaded": [
@@ -348,28 +348,29 @@
     {
       "id": "columbia",
       "name": "哥伦比亚",
-      "version": "1.0.0",
-      "sha256": "e1ea1cc7752cef508e90317c6eed5f7fb1a2e6ef77c0764311becf0b2f04c98b",
-      "packHash": "fee07f2d0f3dc2465ff50227cde807460a23692aefd6cc323967a43d3ec438fe",
+      "version": "1.2.4",
+      "sha256": "05400a46c4c2ef18846e85ebd2b208c13374419f2ce0dfba05b3f1d0bf37668c",
+      "packHash": "a68f36d2a84a9fdbc27c1760adf6db75ada3d9a0a8f13efe9cb56ec5b1cda540",
       "category": "functional",
       "categoryWhy": "声明了 content / overrides / behaviour / server",
-      "stationId": "d2a39e69f78d",
-      "path": "mods/columbia/1.0.0/mod.zip",
-      "sizeBytes": 5365594,
-      "fileCount": 102,
-      "unpackedBytes": 8071318,
+      "stationId": "6ed8eb511cc6",
+      "path": "mods/columbia/1.2.4/mod.zip",
+      "sizeBytes": 14346511,
+      "fileCount": 362,
+      "unpackedBytes": 20729717,
       "assets": {
         "assetFree": false,
-        "count": 86,
-        "bytes": 7729763,
+        "count": 346,
+        "bytes": 20337270,
         "byKind": {
-          "image": 54,
-          "spine": 32
+          "image": 74,
+          "spine": 52,
+          "audio": 220
         },
         "containers": []
       },
       "notes": [
-        "⚠️ **含素材**：86 个文件 / 7729763 B（{\"image\":54,\"spine\":32}）⇒ 须在页面上标注来源与授权。"
+        "⚠️ **含素材**：346 个文件 / 20337270 B（{\"image\":74,\"spine\":52,\"audio\":220}）⇒ 须在页面上标注来源与授权。"
       ],
       "engineLoad": {
         "packsLoaded": [
@@ -538,6 +539,41 @@
       "engineLoad": {
         "packsLoaded": [
           "dongShip"
+        ],
+        "errors": [],
+        "layer": "B",
+        "combat": true
+      }
+    },
+    {
+      "id": "dossoles",
+      "name": "多索雷斯",
+      "version": "1.1.1",
+      "sha256": "75202121779b5558a11461c99b9d7ec76eac388c6c03f7261be8dafd38fdfe98",
+      "packHash": "1d3aeb375fc489c2cde07c5d398eab843bfde26c469e23acfad608e3bf884341",
+      "category": "functional",
+      "categoryWhy": "声明了 content / overrides / behaviour / server / notices",
+      "stationId": "e97a3208b307",
+      "path": "mods/dossoles/1.1.1/mod.zip",
+      "sizeBytes": 8804152,
+      "fileCount": 107,
+      "unpackedBytes": 17998902,
+      "assets": {
+        "assetFree": false,
+        "count": 95,
+        "bytes": 17772700,
+        "byKind": {
+          "image": 55,
+          "spine": 40
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：95 个文件 / 17772700 B（{\"image\":55,\"spine\":40}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "dossoles"
         ],
         "errors": [],
         "layer": "B",
@@ -1113,6 +1149,38 @@
       }
     },
     {
+      "id": "mod-manager",
+      "name": "模组管理",
+      "version": "1.3.0",
+      "sha256": "bda7474403e59f99216c1b86e5c8689ad118580a3fd08bcf47d054491439d4b4",
+      "packHash": "7d7eb040bac9fed7259d5ab08ae6320a8cb6acd7e3bd86145832f9392471f4c2",
+      "category": "functional",
+      "categoryWhy": "声明了 client",
+      "stationId": "9f4683284c79",
+      "path": "mods/mod-manager/1.3.0/mod.zip",
+      "sizeBytes": 24081,
+      "fileCount": 5,
+      "unpackedBytes": 51831,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "mod-manager"
+        ],
+        "errors": [],
+        "layer": "C",
+        "combat": false
+      }
+    },
+    {
       "id": "mod-xie",
       "name": "促融共竞 · 协同共竞",
       "version": "2.5.0",
@@ -1369,6 +1437,70 @@
       }
     },
     {
+      "id": "operator-buffs",
+      "name": "诸神黄昏",
+      "version": "1.1.0",
+      "sha256": "0b4cbd3d42af3656a50fc7ba4fba86a94518337eeab588445e1e0d8ac7165bde",
+      "packHash": "15e953c3c25f373e5d7dcb87aa81ca4540e7cdc28bb8a69e415581820642d1d4",
+      "category": "functional",
+      "categoryWhy": "声明了 content / overrides / client / server",
+      "stationId": "c0d575cc4390",
+      "path": "mods/operator-buffs/1.1.0/mod.zip",
+      "sizeBytes": 33200,
+      "fileCount": 8,
+      "unpackedBytes": 129542,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "operator-buffs"
+        ],
+        "errors": [],
+        "layer": "B",
+        "combat": true
+      }
+    },
+    {
+      "id": "operator-conflict",
+      "name": "干员冲突兼容",
+      "version": "1.0.0",
+      "sha256": "09d87990459662af7fa6f614f305d6a2d3f475aa66dfa11639f53371722def08",
+      "packHash": "e7bacdcd62851fe1a179392ecc103e1125c25555fc84d98de944f72862525902",
+      "category": "functional",
+      "categoryWhy": "声明了 notices",
+      "stationId": "a52110a18992",
+      "path": "mods/operator-conflict/1.0.0/mod.zip",
+      "sizeBytes": 5885,
+      "fileCount": 3,
+      "unpackedBytes": 9895,
+      "assets": {
+        "assetFree": true,
+        "count": 0,
+        "bytes": 0,
+        "byKind": {},
+        "containers": []
+      },
+      "notes": [
+        "素材清点：zip 内与容器内部都没有图片 / 音频 / 字体 / Spine。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "operator-conflict"
+        ],
+        "errors": [],
+        "layer": "A",
+        "combat": false
+      }
+    },
+    {
       "id": "perf-lite",
       "name": "低配优化（关动画与过渡）",
       "version": "1.0.0",
@@ -1433,6 +1565,40 @@
       }
     },
     {
+      "id": "profession-expansion",
+      "name": "职业分支扩展",
+      "version": "1.1.0",
+      "sha256": "41a65a0f9460b18fe4ea7a3ee9ad78a3cc961ae0cbba29f1dc013c5ce027db82",
+      "packHash": "1d1e3b7b8d6bab14b350036cd12ac8287e3c730c2b9001c91ad07d83f4faa741",
+      "category": "unknown",
+      "categoryWhy": "没有生效面、也没有自述为说明包",
+      "stationId": "d011683794c1",
+      "path": "mods/profession-expansion/1.1.0/mod.zip",
+      "sizeBytes": 16261,
+      "fileCount": 8,
+      "unpackedBytes": 26683,
+      "assets": {
+        "assetFree": false,
+        "count": 1,
+        "bytes": 4683,
+        "byKind": {
+          "image": 1
+        },
+        "containers": []
+      },
+      "notes": [
+        "⚠️ **含素材**：1 个文件 / 4683 B（{\"image\":1}）⇒ 须在页面上标注来源与授权。"
+      ],
+      "engineLoad": {
+        "packsLoaded": [
+          "profession-expansion"
+        ],
+        "errors": [],
+        "layer": "C",
+        "combat": false
+      }
+    },
+    {
       "id": "quality-tier",
       "name": "画质档位（备注：引擎不开放渲染常量，本包只能做锐化补偿样式）",
       "version": "1.1.0",
@@ -1467,29 +1633,29 @@
     {
       "id": "rimbilliton",
       "name": "雷姆必拓",
-      "version": "1.2.0",
-      "sha256": "171e6c0a4bb05e7c0c1884177782d60de3dae04395d97f03ca947be246b4da42",
-      "packHash": "92d0e1c2cc4125ae8f1b4affba79ff0f333a0ae25a27024d423f4f47e7f3f7aa",
+      "version": "1.3.0",
+      "sha256": "72b9b900eb644753a7e67773831edcd71ffd2313510c6fa0f238db783ac5a6fc",
+      "packHash": "7fc638608fdabcfc7cb40e29debc2fa53764d37bd58bb828597dd884be880469",
       "category": "functional",
       "categoryWhy": "声明了 content / overrides / behaviour / server",
-      "stationId": "4325932a3c13",
-      "path": "mods/rimbilliton/1.2.0/mod.zip",
-      "sizeBytes": 11877205,
-      "fileCount": 352,
-      "unpackedBytes": 16557505,
+      "stationId": "fff494f1d886",
+      "path": "mods/rimbilliton/1.3.0/mod.zip",
+      "sizeBytes": 16998123,
+      "fileCount": 408,
+      "unpackedBytes": 28443001,
       "assets": {
         "assetFree": false,
-        "count": 331,
-        "bytes": 16164370,
+        "count": 387,
+        "bytes": 28014870,
         "byKind": {
-          "image": 57,
-          "spine": 36,
+          "image": 85,
+          "spine": 64,
           "audio": 238
         },
         "containers": []
       },
       "notes": [
-        "⚠️ **含素材**：331 个文件 / 16164370 B（{\"image\":57,\"spine\":36,\"audio\":238}）⇒ 须在页面上标注来源与授权。"
+        "⚠️ **含素材**：387 个文件 / 28014870 B（{\"image\":85,\"spine\":64,\"audio\":238}）⇒ 须在页面上标注来源与授权。"
       ],
       "engineLoad": {
         "packsLoaded": [
@@ -1696,17 +1862,17 @@
     },
     {
       "id": "skin-picker",
-      "name": "皮肤选择器（换装）",
-      "version": "1.0.0",
-      "sha256": "b1d39ea35a19d94b4992dc32a01f10b95e1dd9e77e488121220965610f757bdd",
-      "packHash": "67a87ce37899104d9723cf9d69283855e54ff65f39dd9314b33d5e1681359478",
+      "name": "时装切换",
+      "version": "1.1.0",
+      "sha256": "10a7eaa774dcbbcbc9b38534f53c778a94894362d0f02acfcdf21d2f87bfc7e9",
+      "packHash": "db89b635f0f7dc58e744ffffa52d5d6fc48fb99273f5fdd5365ad31b2c93416c",
       "category": "functional",
       "categoryWhy": "声明了 client",
-      "stationId": "0a1067ac9945",
-      "path": "mods/skin-picker/1.0.0/mod.zip",
-      "sizeBytes": 61503,
-      "fileCount": 6,
-      "unpackedBytes": 60857,
+      "stationId": "0db49ad19440",
+      "path": "mods/skin-picker/1.1.0/mod.zip",
+      "sizeBytes": 10260,
+      "fileCount": 4,
+      "unpackedBytes": 22032,
       "assets": {
         "assetFree": true,
         "count": 0,
@@ -2141,10 +2307,31 @@
   ],
   "prune": {
     "enabled": false,
-    "candidates": 58,
-    "live": 58,
+    "candidates": 72,
+    "live": 68,
     "wouldDelete": [],
     "deleted": [],
-    "held": []
+    "held": [
+      {
+        "path": "mods/ave-mujica/1.2.0/",
+        "stationId": "1768196c6b22",
+        "basis": "站侧采集清单（_selection.json）里**没有** 1768196c6b22 这条 ⇒ 状态核不到，不删"
+      },
+      {
+        "path": "mods/columbia/1.0.0/",
+        "stationId": "d2a39e69f78d",
+        "basis": "站侧采集清单（_selection.json）里**没有** d2a39e69f78d 这条 ⇒ 状态核不到，不删"
+      },
+      {
+        "path": "mods/rimbilliton/1.2.0/",
+        "stationId": "4325932a3c13",
+        "basis": "站侧采集清单（_selection.json）里**没有** 4325932a3c13 这条 ⇒ 状态核不到，不删"
+      },
+      {
+        "path": "mods/skin-picker/1.0.0/",
+        "stationId": "0a1067ac9945",
+        "basis": "站侧采集清单（_selection.json）里**没有** 0a1067ac9945 这条 ⇒ 状态核不到，不删"
+      }
+    ]
   }
 }

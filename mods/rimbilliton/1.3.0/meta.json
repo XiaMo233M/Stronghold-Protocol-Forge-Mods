@@ -1,0 +1,19 @@
+{
+  "id": "fff494f1d886",
+  "name": "雷姆必拓（Rim Billiton）1.3.0 · 兼容改写",
+  "packId": "rimbilliton",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-24T12:47:01.129Z",
+  "size": 16998123,
+  "sha256": null,
+  "author": "the Rim Billiton mod",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "XiaMo233M",
+  "compatAuthorSource": "form",
+  "compatOf": "647e8630b323",
+  "compatNote": "唯一改动：把引擎不存在的字段 stripDiyOverlaps 迁移到已有的行为开关。\n原件 \"stripDiyOverlaps\": true → 删掉该键，改成 behaviour 里一条 {\"switch\":\"diyPoolOverlap\",\"option\":\"strip\"}。\n语义依据：shared/behaviour.js 的 diyPoolOverlap 定义写着 strip = 把本包做成棋子的那几名干员从自选池摘掉（对应 stripPackOperators 的 apply:true 那支），report 只点名不动池子；原件写 true 要的就是「摘掉」，所以映射 strip，不是 report。\n引擎文档 docs/design/mod-layer.md 已把 stripDiyOverlaps 点名成「不存在的字段」。combat:true 原样保留。其余字段与包内全部文件零改动。详见包内 PROVENANCE-兼容改写.md。",
+  "note": "唯一改动：把引擎不存在的字段 stripDiyOverlaps 迁移到已有的行为开关。\n原件 \"stripDiyOverlaps\": true → 删掉该键，改成 behaviour 里一条 {\"switch\":\"diyPoolOverlap\",\"option\":\"strip\"}。\n语义依据：shared/behaviour.js 的 diyPoolOverlap 定义写着 strip = 把本包做成棋子的那几名干员从自选池摘掉（对应 stripPackOperators 的 apply:true 那支），report 只点名不动池子；原件写 true 要的就是「摘掉」，所以映射 strip，不是 report。\n引擎文档 docs/design/mod-layer.md 已把 stripDiyOverlaps 点名成「不存在的字段」。combat:true 原样保留。其余字段与包内全部文件零改动。详见包内 PROVENANCE-兼容改写.md。",
+  "funcKind": "gameplay"
+}

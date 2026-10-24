@@ -1,0 +1,19 @@
+{
+  "id": "0e4081d5cfe9",
+  "name": "颂乐人偶（Ave Mujica）1.8.25 · 兼容改写",
+  "packId": "ave-mujica",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-24T12:30:37.213Z",
+  "size": 18081891,
+  "sha256": null,
+  "author": "the Ave Mujica mod",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "XiaMo233M",
+  "compatAuthorSource": "form",
+  "compatOf": "166e456b28f7",
+  "compatNote": "删掉两处引擎不存在的声明，其余一字未改：\n① art.sfxUnits —— ART_TABLES 只有 chars/enemies/tokens/skills/profSub/bonds/bands 七张表，没有 sfxUnits（docs/ASSETS.md 里的 sfxUnits 是 data/assets.json 的统计计数名，不是 art 表）。引擎目前没有「按单位声明攻击/受击/技能音效」这个表面（PACK_FIELDS 的音频类只有 voices/voiceLangs，那是语音），所以这部分没有接口做；assets/sfx/**.mp3 原样留在包里。\n② fx = { manifest: \"fx/manifest.json\" } —— fx 只认 silentPhases 一格；且 fx/ 目录在包里根本不存在，是悬空引用，删掉不丢任何随包内容。\n包内其余文件（chess.json/bonds.json/kits/assets…）零改动，版本号保留作者的 1.8.25。逐条对照见包内 PROVENANCE-兼容改写.md。",
+  "note": "删掉两处引擎不存在的声明，其余一字未改：\n① art.sfxUnits —— ART_TABLES 只有 chars/enemies/tokens/skills/profSub/bonds/bands 七张表，没有 sfxUnits（docs/ASSETS.md 里的 sfxUnits 是 data/assets.json 的统计计数名，不是 art 表）。引擎目前没有「按单位声明攻击/受击/技能音效」这个表面（PACK_FIELDS 的音频类只有 voices/voiceLangs，那是语音），所以这部分没有接口做；assets/sfx/**.mp3 原样留在包里。\n② fx = { manifest: \"fx/manifest.json\" } —— fx 只认 silentPhases 一格；且 fx/ 目录在包里根本不存在，是悬空引用，删掉不丢任何随包内容。\n包内其余文件（chess.json/bonds.json/kits/assets…）零改动，版本号保留作者的 1.8.25。逐条对照见包内 PROVENANCE-兼容改写.md。",
+  "funcKind": "gameplay"
+}

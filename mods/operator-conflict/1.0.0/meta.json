@@ -1,0 +1,19 @@
+{
+  "id": "a52110a18992",
+  "name": "干员冲突兼容",
+  "packId": "operator-conflict",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-18T21:39:49.645Z",
+  "size": 5885,
+  "sha256": null,
+  "author": "the operator-conflict mod",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/IncogniBox/stronghold-protocol-forge-full",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "来源：https://github.com/IncogniBox/stronghold-protocol-forge-full（app/workshop/operator-conflict）\n原作者：the operator-conflict mod\n许可：GPL-3.0-or-later\n改了什么：「同一个 id 被两个包各贡献一份」的兼容层（前置 mod）：让引擎把合并层丢掉的记录留在 data.workshopConflicts 并经只读路由送到客户端，在干员调配详情里显示一排「数据来源」按钮，选择走 C2S room.conflict（局外设置，下一局生效）。本包不携带任何素材与代码，界面/协议/合并层改动都由引擎提供，本包只做声明与说明。\n自带素材：本包不含美术/音频素材，只有 JSON/代码。实测清点：assets/ 下 0 个文件 / 0 字节",
+  "funcKind": "utility"
+}

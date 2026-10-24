@@ -1,0 +1,19 @@
+{
+  "id": "c0d575cc4390",
+  "name": "诸神黄昏（operator-buffs）1.1.0 · 仅修 zip 分隔符",
+  "packId": "operator-buffs",
+  "packKind": "functional",
+  "kind": "compat",
+  "uploadedAt": "2026-10-24T13:09:23.335Z",
+  "size": 33200,
+  "sha256": null,
+  "author": "逆向自 weishuxieyi.icu（卫戍协议：盟约同人服）· 打包 jingjiangze",
+  "authorSource": "pack.json",
+  "homepage": null,
+  "compatAuthor": "XiaMo233M",
+  "compatAuthorSource": "form",
+  "compatOf": "e4129629a669",
+  "compatNote": "只修 zip 条目名的分隔符，包内容一个字节没改。\n原件（记录 e4129629a669）的 zip 成员名用了反斜杠（如 battle\\main.mjs），站点能收、但 unzip/镜像侧按 `/` 精确匹配会读不到 —— 仓库 AGENTS.md §8.6 坑 1 记的正是这个。本件把成员名统一成 `/`、内容逐条原样搬运，pack.json 与其它文件均未修改，作者与版本号不变。",
+  "note": "只修 zip 条目名的分隔符，包内容一个字节没改。\n原件（记录 e4129629a669）的 zip 成员名用了反斜杠（如 battle\\main.mjs），站点能收、但 unzip/镜像侧按 `/` 精确匹配会读不到 —— 仓库 AGENTS.md §8.6 坑 1 记的正是这个。本件把成员名统一成 `/`、内容逐条原样搬运，pack.json 与其它文件均未修改，作者与版本号不变。",
+  "funcKind": "gameplay"
+}

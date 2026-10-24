@@ -1,0 +1,19 @@
+{
+  "id": "0db49ad19440",
+  "name": "时装切换",
+  "packId": "skin-picker",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-18T21:40:08.782Z",
+  "size": 10260,
+  "sha256": null,
+  "author": "the skin-picker mod",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/IncogniBox/stronghold-protocol-forge-full",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "来源：https://github.com/IncogniBox/stronghold-protocol-forge-full（app/workshop/skin-picker）\n原作者：the skin-picker mod\n许可：原件未声明许可\n改了什么：在两个地方提供时装切换按钮：干员调配详情卡右上角，以及自选编队每一格已填的干员卡（1.1.0 起）。读取各包用 pack.json.skins 声明的时装（合并进 assets.skins），选择写入本地偏好并对同房广播（room.appearance）。本包只提供界面，不携带任何素材；该干员一套时装都没有时按钮整块隐藏。本单为新版 1.1.0，站上既有 1.0.0，按站点「以新为准」口径补投。\n自带素材：本包不含美术/音频素材，只有 JSON/代码。实测清点：assets/ 下 0 个文件 / 0 字节",
+  "funcKind": "utility"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "d011683794c1",
+  "name": "职业分支扩展",
+  "packId": "profession-expansion",
+  "packKind": "functional",
+  "kind": "submission",
+  "uploadedAt": "2026-10-18T21:39:52.941Z",
+  "size": 16261,
+  "sha256": null,
+  "author": "the profession-expansion mod",
+  "authorSource": "pack.json",
+  "homepage": "https://github.com/IncogniBox/stronghold-protocol-forge-full",
+  "compatAuthor": null,
+  "compatAuthorSource": null,
+  "compatOf": null,
+  "compatNote": null,
+  "note": "来源：https://github.com/IncogniBox/stronghold-protocol-forge-full（app/workshop/profession-expansion）\n原作者：the profession-expansion mod\n许可：GPL-3.0-or-later\n改了什么：「职业分支扩展」前置 mod：在 professions.json 沉淀一组新职业（时术师/守望者/追踪者/协奏者）与一条挂在官方术师下的新分支（巡援术师 / Patrol-Support Caster），并给 en/ja/ko/zh-TW 译名；新分支自带一个分支图标。本包不含任何干员/盟约/策略，只提供这一层词汇、译名与分支图标。\n自带素材：本包仅自带 1 个分支图标 PNG（assets/sub_patrol_support_icon.png，官方美术风格的职业分支图标），无立绘/头像/Spine/语音素材；其余只有 JSON。版权归鹰角网络 / Yostar，仅供非商业学习与个人娱乐。实测清点：assets/ 下 1 个文件 / 4683 字节",
+  "funcKind": "expansion"
+}
